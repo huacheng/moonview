@@ -59,6 +59,20 @@ draft → planning → review → executing → complete
 /plugin install ai-cli-task@moonview
 ```
 
+### 常见问题
+
+**EXDEV 错误**（跨设备链接不允许）：
+
+如果 `/tmp` 挂载为 tmpfs（许多 Linux 系统的默认配置），插件安装器可能会报 `EXDEV: cross-device link not permitted` 错误。解决方法是设置 `TMPDIR` 到与 `~/.claude/` 相同文件系统的目录：
+
+```bash
+mkdir -p ~/.claude/tmp
+echo 'export TMPDIR=~/.claude/tmp' >> ~/.bashrc
+source ~/.bashrc
+```
+
+然后重试安装。
+
 ## 快速开始
 
 ```bash
