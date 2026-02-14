@@ -37,7 +37,7 @@ draft → planning → review → executing → complete
          re-planning    ←    blocked
 ```
 
-每个任务存放在 `TASK/<module>/` 目录中，包含结构化元数据，运行在独立的 `task/<module>` git 分支上。
+每个任务存放在 `AiTasks/<module>/` 目录中，包含结构化元数据，运行在独立的 `task/<module>` git 分支上。
 
 #### 特性
 
@@ -46,7 +46,7 @@ draft → planning → review → executing → complete
 - **批注驱动** — 前端 Plan 面板批注（插入/删除/替换/评注）处理为计划更新
 - **Auto 模式** — 单会话自主编排，支持停滞检测、上下文配额管理和安全限制
 - **多领域** — 17+ 任务类型（软件、图像处理、视频制作、DSP、文学、编剧、科学、机电、AI 技能……）
-- **经验知识库** — 已完成任务的经验提炼到 `TASK/.experience/`，支持跨任务学习
+- **经验知识库** — 已完成任务的经验提炼到 `AiTasks/.experience/`，支持跨任务学习
 - **并发保护** — 基于锁文件的互斥，支持过期锁恢复
 
 ## 安装
@@ -65,7 +65,7 @@ draft → planning → review → executing → complete
 # 1. 初始化任务
 /ai-cli-task init auth-refactor --title "重构认证为 JWT"
 
-# 2. 在 TASK/auth-refactor/.target.md 中编写需求，然后生成计划
+# 2. 在 AiTasks/auth-refactor/.target.md 中编写需求，然后生成计划
 /ai-cli-task plan auth-refactor --generate
 
 # 3. 审查计划质量
@@ -87,10 +87,10 @@ draft → planning → review → executing → complete
 /ai-cli-task auto auth-refactor --start
 ```
 
-## TASK/ 目录结构
+## AiTasks/ 目录结构
 
 ```
-TASK/
+AiTasks/
 ├── .index.md                  # 根索引（任务模块列表）
 ├── .experience/               # 跨任务知识库
 └── <module>/

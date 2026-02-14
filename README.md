@@ -37,7 +37,7 @@ draft → planning → review → executing → complete
          re-planning    ←    blocked
 ```
 
-Every task lives in a `TASK/<module>/` directory with structured metadata, and runs on a dedicated `task/<module>` git branch.
+Every task lives in a `AiTasks/<module>/` directory with structured metadata, and runs on a dedicated `task/<module>` git branch.
 
 #### Features
 
@@ -46,7 +46,7 @@ Every task lives in a `TASK/<module>/` directory with structured metadata, and r
 - **Annotation-driven** — frontend Plan panel annotations (Insert/Delete/Replace/Comment) processed into plan updates
 - **Auto mode** — single-session autonomous orchestration with stall detection, context quota management, and safety limits
 - **Multi-domain** — 17+ task types (software, image-processing, video-production, DSP, literary, screenwriting, science, mechatronics, ai-skill, ...)
-- **Experience KB** — lessons from completed tasks distilled to `TASK/.experience/` for cross-task learning
+- **Experience KB** — lessons from completed tasks distilled to `AiTasks/.experience/` for cross-task learning
 - **Concurrency protection** — lockfile-based mutual exclusion with stale lock recovery
 
 ## Installation
@@ -65,7 +65,7 @@ Every task lives in a `TASK/<module>/` directory with structured metadata, and r
 # 1. Initialize a task
 /ai-cli-task init auth-refactor --title "Refactor auth to JWT"
 
-# 2. Write requirements in TASK/auth-refactor/.target.md, then generate plan
+# 2. Write requirements in AiTasks/auth-refactor/.target.md, then generate plan
 /ai-cli-task plan auth-refactor --generate
 
 # 3. Review plan quality
@@ -87,10 +87,10 @@ Every task lives in a `TASK/<module>/` directory with structured metadata, and r
 /ai-cli-task auto auth-refactor --start
 ```
 
-## TASK/ Directory Structure
+## AiTasks/ Directory Structure
 
 ```
-TASK/
+AiTasks/
 ├── .index.md                  # Root index (task module listing)
 ├── .experience/               # Cross-task knowledge base
 └── <module>/
