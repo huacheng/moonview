@@ -1,6 +1,6 @@
 {
   "name": "moonview",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Task lifecycle management for Claude Code",
   "author": {
     "name": "huacheng"

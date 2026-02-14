@@ -14,7 +14,7 @@ arguments:
     default: interactive
 ---
 
-# /ai-cli-task plan — Plan Generation & Annotation Review
+# /ai-cli-task:plan — Plan Generation & Annotation Review
 
 Two modes: generate an implementation plan from `.target.md`, or process annotations from the Plan panel.
 
@@ -22,10 +22,10 @@ Two modes: generate an implementation plan from `.target.md`, or process annotat
 
 ```
 # Generate mode (no annotations)
-/ai-cli-task plan <task_module> --generate
+/ai-cli-task:plan <task_module> --generate
 
 # Annotation mode (with annotation file)
-/ai-cli-task plan <task_file_path> <annotation_file_path> [--silent]
+/ai-cli-task:plan <task_file_path> <annotation_file_path> [--silent]
 ```
 
 ## Mode A: Generate (no annotations)

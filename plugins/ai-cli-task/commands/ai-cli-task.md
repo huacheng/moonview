@@ -454,15 +454,15 @@ skills/<name>/
 
 ### init
 
-`/ai-cli-task init <module_name> [--title "..."] [--tags t1,t2] [--type <type>] [--worktree]`
+`/ai-cli-task:init <module_name> [--title "..."] [--tags t1,t2] [--type <type>] [--worktree]`
 
 Create task module directory + `.index.json` (status `draft`) + `.target.md` template (domain-specific if `--type` given). Create git branch `task/<module_name>`, checkout to it (or create worktree with `--worktree`). Module name: ASCII letters/digits/hyphens/underscores (`[a-zA-Z0-9_-]+`).
 
 ### plan
 
 ```
-/ai-cli-task plan <task_file_path> <annotation_file_path> [--silent]   # Annotation mode
-/ai-cli-task plan <task_module> --generate                              # Generate mode
+/ai-cli-task:plan <task_file_path> <annotation_file_path> [--silent]   # Annotation mode
+/ai-cli-task:plan <task_module> --generate                              # Generate mode
 ```
 
 **Generate mode**: Research codebase + `.target.md` → write implementation plan to `.plan.md` → status `planning`.
@@ -471,7 +471,7 @@ Create task module directory + `.index.json` (status `draft`) + `.target.md` tem
 
 ### check
 
-`/ai-cli-task check <task_module> [--checkpoint post-plan|mid-exec|post-exec]`
+`/ai-cli-task:check <task_module> [--checkpoint post-plan|mid-exec|post-exec]`
 
 Decision maker at three lifecycle checkpoints:
 
@@ -485,25 +485,25 @@ ACCEPT signals → `merge` sub-command for refactoring + merge. Tests MUST pass 
 
 ### exec
 
-`/ai-cli-task exec <task_module> [--step N]`
+`/ai-cli-task:exec <task_module> [--step N]`
 
 Execute implementation plan step-by-step. Prerequisite: status `review` or `executing` (NEEDS_FIX continuation). Reads `.plan.md` + `.analysis/` + `.test/`, implements changes, verifies per step against `.test/` criteria. On significant issues → signal `(mid-exec)` for mid-exec evaluation. On all steps complete → signal `(done)` for post-exec verification. Project file commits use `feat`/`fix` type.
 
 ### merge
 
-`/ai-cli-task merge <task_module>`
+`/ai-cli-task:merge <task_module>`
 
 Merge completed task branch to main with automated conflict resolution. Prerequisite: status `executing` with ACCEPT verdict. Performs pre-merge refactoring, attempts merge (up to 3 conflict resolution retries with build/test verification), post-merge cleanup (worktree + branch). On persistent conflict → stays `executing` (retryable after manual resolution).
 
 ### report
 
-`/ai-cli-task report <task_module> [--format full|summary]`
+`/ai-cli-task:report <task_module> [--format full|summary]`
 
 Generate `.report.md` from all task artifacts. Informational only — no status change. For `complete` tasks, includes change history via commit message pattern matching (works after branch deletion). Full format: Summary, Objective, Plan, Changes, Verification, Issues, Dependencies, Lessons.
 
 ### auto
 
-`/ai-cli-task auto <task_module> [--start|--stop|--status]`
+`/ai-cli-task:auto <task_module> [--start|--stop|--status]`
 
 Single-session autonomous loop: plan → check → exec → check, with self-correction. A single Claude session internally orchestrates all steps; the backend daemon monitors progress via `fs.watch` on `.auto-signal` and enforces safety limits.
 
@@ -542,6 +542,6 @@ Single-session autonomous loop: plan → check → exec → check, with self-cor
 
 ### cancel
 
-`/ai-cli-task cancel <task_module> [--reason "..."] [--cleanup]`
+`/ai-cli-task:cancel <task_module> [--reason "..."] [--cleanup]`
 
 Cancel any non-terminal task → `cancelled`. Rejected on `complete`/`cancelled`. Stops auto if running. Snapshots uncommitted changes before cancelling. With `--cleanup`, removes worktree + deletes branch. Without `--cleanup`, branch preserved for reference.
