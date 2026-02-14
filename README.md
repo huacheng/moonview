@@ -59,20 +59,6 @@ Every task lives in a `AiTasks/<module>/` directory with structured metadata, an
 /plugin install ai-cli-task@moonview
 ```
 
-### Troubleshooting
-
-**EXDEV error** (cross-device link not permitted):
-
-If `/tmp` is mounted as tmpfs (common on many Linux setups), the plugin installer may fail with an `EXDEV: cross-device link not permitted` error. Fix by setting `TMPDIR` to a directory on the same filesystem as `~/.claude/`:
-
-```bash
-mkdir -p ~/.claude/tmp
-echo 'export TMPDIR=~/.claude/tmp' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Then retry the install.
-
 ## Quick Start
 
 ```bash
