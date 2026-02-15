@@ -54,7 +54,9 @@ Every task lives in a `AiTasks/<module>/` directory with structured metadata, an
 - **Hybrid types** — multi-domain tasks use `A|B` pipe-separated format (e.g., `data-pipeline|ml`); all phases adapt to both domains
 - **Auto-expanding registry** — `AiTasks/.type-registry.md` grows as `research` discovers new domains; 19 seed types, unlimited expansion
 - **Dynamic type profiling** — `.type-profile.md` per task captures domain methodology, verification standards, and implementation patterns; refined across all phases
-- **Full-lifecycle research** — `research` serves all phases (plan/verify/check/exec) via `--caller` parameter, with 14-type × 4-phase intelligence matrix
+- **Shared type profiles** — `AiTasks/.type-profiles/` accumulates cross-task domain intelligence for ALL types (seed and discovered), eliminating redundant web research
+- **Per-type seed files** — 14 self-contained seed files (one per type) with Phase Intelligence for plan/verify/check/exec, structured to mirror `.type-profile.md`
+- **Full-lifecycle research** — `research` serves all phases (plan/verify/check/exec) via `--caller` parameter, with phase-directed collection focus
 - **Experience KB** — lessons from completed tasks distilled to `AiTasks/.experiences/` for cross-task learning
 - **Reference library** — external domain knowledge collected to `AiTasks/.references/` during research
 - **Concurrency protection** — lockfile-based mutual exclusion with stale lock recovery
@@ -111,6 +113,8 @@ AiTasks/
 ├── .references/               # External reference materials (by topic)
 │   ├── .summary.md            # Reference file index
 │   └── <topic>.md
+├── .type-profiles/            # Shared type profiles (cross-task, all types)
+│   └── <type>.md              # Domain methodology, verification, patterns
 └── <module>/
     ├── .index.json            # Task metadata (status, phase, type, timestamps, deps)
     ├── .target.md             # Requirements (human-authored)

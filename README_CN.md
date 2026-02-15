@@ -54,7 +54,9 @@ init → plan → verify → check → exec → verify → check(mid) → exec �
 - **混合类型** — 跨领域任务使用 `A|B` 管道分隔格式（如 `data-pipeline|ml`），所有阶段同时适配多个领域
 - **类型自动扩充** — `AiTasks/.type-registry.md` 随 `research` 发现新领域自动增长；19 个种子类型，无限扩展
 - **动态类型画像** — 每个任务的 `.type-profile.md` 记录领域方法论、验证标准和实现模式，跨所有阶段持续精炼
-- **全生命周期研究** — `research` 通过 `--caller` 参数服务所有阶段（plan/verify/check/exec），14 类型 × 4 阶段情报矩阵
+- **共享类型画像** — `AiTasks/.type-profiles/` 为所有类型（种子和新发现的）积累跨任务领域智能，消除重复的网络研究
+- **Per-type 种子文件** — 14 个自包含种子文件（每类型一个），包含 plan/verify/check/exec 四阶段的 Phase Intelligence，结构与 `.type-profile.md` 对齐
+- **全生命周期研究** — `research` 通过 `--caller` 参数服务所有阶段（plan/verify/check/exec），按阶段定向收集
 - **经验知识库** — 已完成任务的经验提炼到 `AiTasks/.experiences/`，支持跨任务学习
 - **参考资料库** — 研究阶段收集的外部领域知识存放在 `AiTasks/.references/`
 - **并发保护** — 基于锁文件的互斥，支持过期锁恢复
@@ -111,6 +113,8 @@ AiTasks/
 ├── .references/               # 外部参考资料（按主题分类）
 │   ├── .summary.md            # 参考文件索引
 │   └── <topic>.md
+├── .type-profiles/            # 共享类型画像（跨任务，所有类型）
+│   └── <type>.md              # 领域方法论、验证标准、实现模式
 └── <module>/
     ├── .index.json            # 任务元数据（状态、阶段、类型、时间戳、依赖）
     ├── .target.md             # 需求目标（人工编写）
