@@ -113,10 +113,10 @@ The daemon validates `.auto-signal` fields for monitoring integrity:
 
 | Field | Validation | Allowed Values |
 |-------|-----------|----------------|
-| `step` | Whitelist | `plan`, `check`, `exec`, `merge`, `report` |
-| `result` | Whitelist | `PASS`, `NEEDS_REVISION`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED`, `CONTINUE`, `(generated)`, `(annotations)`, `(done)`, `(mid-exec)`, `(step-N)` (where N is integer), `(blocked)`, `success`, `conflict` |
-| `next` | Whitelist | `plan`, `check`, `exec`, `merge`, `report`, `(stop)` |
-| `checkpoint` | Whitelist | `""`, `post-plan`, `mid-exec`, `post-exec` |
+| `step` | Whitelist | `plan`, `check`, `exec`, `merge`, `report`, `research`, `verify`, `annotate` |
+| `result` | Whitelist | `PASS`, `NEEDS_REVISION`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED`, `CONTINUE`, `(generated)`, `(done)`, `(mid-exec)`, `(step-N)` (where N is integer), `(blocked)`, `(collected)`, `(sufficient)`, `(pass)`, `(fail)`, `(partial)`, `(processed)`, `success`, `conflict` |
+| `next` | Whitelist | `plan`, `check`, `exec`, `merge`, `report`, `research`, `verify`, `annotate`, `(stop)` |
+| `checkpoint` | Whitelist | `""`, `post-plan`, `post-research`, `mid-exec`, `post-exec`, `quick`, `full`, `step-N` |
 | `iteration` | Integer | ≥ 0 |
 | `timestamp` | Format check | ISO 8601 |
 
@@ -178,12 +178,8 @@ The auto skill runs this loop within a single Claude session:
 2. LOOP:
    a. Check for .auto-stop file → if exists, break loop
    b. Context check: if context window usage ≥ 70%, run /compact to compress context
-   c. Read the target sub-command's SKILL.md file from disk, then follow its
-      numbered steps exactly (do NOT invoke via Skill tool — inline execution
-      preserves shared context across the loop)
+   c. Execute current step (plan/check/exec/merge/report logic per SKILL.md)
       — SKIP the sub-command's own .auto-signal write step (auto loop handles it below)
-      — SKILL.md locations: skills/{plan,check,exec,merge,report}/SKILL.md
-         relative to the plugin root
    d. Evaluate result → determine next step (result-based routing)
    e. Write .auto-signal (progress report for daemon, WITH iteration field)
    f. Increment iteration counter
@@ -192,9 +188,7 @@ The auto skill runs this loop within a single Claude session:
 3. Cleanup: delete .auto-signal, report final status
 ```
 
-**Signal ownership in auto mode**: Each sub-command's SKILL.md includes a "write `.auto-signal`" step. In auto mode, the auto loop **subsumes** that step — Claude writes the signal once at step 2e (with the `iteration` field included). The sub-command's own signal-write instruction is skipped to avoid double-writing. In manual (non-auto) execution, sub-commands write `.auto-signal` themselves (without `iteration` field).
-
-**Inline execution in auto mode**: Step 2c reads the sub-command's SKILL.md from disk (via the Read tool) and follows its steps inline. Do NOT use the Skill tool (`/ai-cli-task:plan`, `/ai-cli-task:exec`, etc.) inside the loop — that would reload SKILL.md into context on every iteration, causing rapid context window bloat. Reading the file and executing inline preserves shared conversation context across all loop iterations.
+**Signal ownership in auto mode**: Each sub-command's SKILL.md includes a "write `.auto-signal`" step. In auto mode, the auto loop **subsumes** that step — Claude writes the signal once at step 2d (with the `iteration` field included). The sub-command's own signal-write instruction is skipped to avoid double-writing. In manual (non-auto) execution, sub-commands write `.auto-signal` themselves (without `iteration` field).
 
 ### Entry Point (Status-Based Routing)
 
@@ -232,6 +226,9 @@ After each step, Claude evaluates the result and determines the next step intern
 | exec | (blocked) | (stop) | — | Cannot continue |
 | merge | success | report | — | Merge complete, generate report |
 | merge | conflict | (stop) | — | Merge conflict unresolvable |
+| research | (collected)/(sufficient) | plan | post-research | References collected, resume planning |
+| verify | (pass/fail/partial) | check | — | Verification done, check renders verdict |
+| annotate | (processed) | check | post-plan | Annotations processed, assess changes |
 | report | (any) | (stop) | — | Loop complete |
 
 ### Context Advantage
