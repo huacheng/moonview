@@ -22,13 +22,13 @@ Structured task lifecycle management with 13 sub-commands. Git-integrated branch
 |---------|-------------|
 | `init` | Create task module — directory, `.index.json`, git branch, optional worktree |
 | `plan` | Generate implementation plan from `.target.md` |
-| `research` | Collect external domain knowledge to `.references/` |
+| `research` | Collect domain knowledge for all lifecycle phases (plan/verify/check/exec) |
 | `check` | Decision gate at 3 checkpoints: post-plan, mid-exec, post-exec |
 | `verify` | Run domain-adapted tests/verification, produce result files |
 | `exec` | Execute plan step-by-step with per-step verification |
 | `merge` | Merge task branch to main with conflict resolution (up to 3 retries) |
 | `report` | Generate completion report + distill experience to knowledge base |
-| `auto` | Autonomous loop: plan → check → exec → merge → report |
+| `auto` | Autonomous loop: plan → verify → check → exec → merge → report |
 | `cancel` | Cancel task, optionally cleanup worktree and branch |
 | `list` | Query task status and dependency relationships (read-only) |
 | `annotate` | Process Plan panel annotations (separated from plan) |
@@ -37,9 +37,9 @@ Structured task lifecycle management with 13 sub-commands. Git-integrated branch
 #### Task Lifecycle
 
 ```
-init → plan → check → exec → check(mid) → verify → check(post) → merge → report
-  research↗     ↑        ↓                   ↓         ↓
-               re-plan ←──┴──────────────────┴─────────┘ (on issues)
+init → plan → verify → check → exec → verify → check(mid) → exec → verify → check(post) → merge → report
+  research↗      ↑                 ↓                                    ↓
+                re-plan ←──────────┴────────────────────────────────────┘ (on issues)
 ```
 
 Every task lives in a `AiTasks/<module>/` directory with structured metadata, and runs on a dedicated `task/<module>` git branch.
@@ -50,7 +50,11 @@ Every task lives in a `AiTasks/<module>/` directory with structured metadata, an
 - **Git integration** — branch-per-task, worktree isolation for parallel execution
 - **Annotation-driven** — frontend Plan panel annotations (Insert/Delete/Replace/Comment) processed into plan updates
 - **Auto mode** — single-session autonomous orchestration with stall detection, context quota management, and safety limits
-- **Multi-domain** — 18+ task types (software, image-processing, video-production, DSP, data-pipeline, infrastructure, ml, literary, screenwriting, science:\*, mechatronics, ai-skill, chip-design, ...)
+- **Auto-discovery types** — task type is auto-discovered by `research` from `.target.md` + web search, no user input needed at init
+- **Hybrid types** — multi-domain tasks use `A|B` pipe-separated format (e.g., `data-pipeline|ml`); all phases adapt to both domains
+- **Auto-expanding registry** — `AiTasks/.type-registry.md` grows as `research` discovers new domains; 19 seed types, unlimited expansion
+- **Dynamic type profiling** — `.type-profile.md` per task captures domain methodology, verification standards, and implementation patterns; refined across all phases
+- **Full-lifecycle research** — `research` serves all phases (plan/verify/check/exec) via `--caller` parameter, with 14-type × 4-phase intelligence matrix
 - **Experience KB** — lessons from completed tasks distilled to `AiTasks/.experiences/` for cross-task learning
 - **Reference library** — external domain knowledge collected to `AiTasks/.references/` during research
 - **Concurrency protection** — lockfile-based mutual exclusion with stale lock recovery
@@ -68,19 +72,21 @@ Every task lives in a `AiTasks/<module>/` directory with structured metadata, an
 ## Quick Start
 
 ```bash
-# 1. Initialize a task
+# 1. Initialize a task (type is auto-discovered, no --type needed)
 /ai-cli-task:init auth-refactor --title "Refactor auth to JWT"
 
 # 2. Write requirements in AiTasks/auth-refactor/.target.md, then generate plan
 /ai-cli-task:plan auth-refactor --generate
 
-# 3. Review plan quality
+# 3. Verify and review plan quality
+/ai-cli-task:verify auth-refactor --checkpoint quick
 /ai-cli-task:check auth-refactor --checkpoint post-plan
 
 # 4. Execute the plan
 /ai-cli-task:exec auth-refactor
 
-# 5. Verify completion
+# 5. Verify and evaluate completion
+/ai-cli-task:verify auth-refactor --checkpoint full
 /ai-cli-task:check auth-refactor --checkpoint post-exec
 
 # 6. Merge to main
@@ -98,6 +104,7 @@ Every task lives in a `AiTasks/<module>/` directory with structured metadata, an
 ```
 AiTasks/
 ├── .index.json                # Root index (task module listing)
+├── .type-registry.md          # Auto-expanding type registry (seed + discovered)
 ├── .experiences/              # Cross-task knowledge base (by domain type)
 │   ├── .summary.md            # Experience file index
 │   └── <type>.md
@@ -105,8 +112,9 @@ AiTasks/
 │   ├── .summary.md            # Reference file index
 │   └── <topic>.md
 └── <module>/
-    ├── .index.json            # Task metadata (status, phase, timestamps, deps)
+    ├── .index.json            # Task metadata (status, phase, type, timestamps, deps)
     ├── .target.md             # Requirements (human-authored)
+    ├── .type-profile.md       # Domain methodology profile (auto-discovered, refined)
     ├── .plan.md               # Implementation plan
     ├── .summary.md            # Condensed context summary
     ├── .report.md             # Completion report

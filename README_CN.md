@@ -22,13 +22,13 @@
 |------|------|
 | `init` | 创建任务模块 — 目录、`.index.json`、git 分支、可选 worktree |
 | `plan` | 从 `.target.md` 生成实施计划 |
-| `research` | 收集外部领域知识到 `.references/` |
+| `research` | 为所有生命周期阶段（plan/verify/check/exec）收集领域知识 |
 | `check` | 3 个检查点的决策门：post-plan、mid-exec、post-exec |
 | `verify` | 运行领域适配的测试/验证，产出结果文件 |
 | `exec` | 按步骤执行计划，每步验证 |
 | `merge` | 合并任务分支到 main，冲突解决（最多 3 次重试） |
 | `report` | 生成完成报告 + 提炼经验到知识库 |
-| `auto` | 自主循环：plan → check → exec → merge → report |
+| `auto` | 自主循环：plan → verify → check → exec → merge → report |
 | `cancel` | 取消任务，可选清理 worktree 和分支 |
 | `list` | 查询任务状态与依赖关系（只读） |
 | `annotate` | 处理 Plan 面板批注（从 plan 分离） |
@@ -37,9 +37,9 @@
 #### 任务生命周期
 
 ```
-init → plan → check → exec → check(mid) → verify → check(post) → merge → report
-  research↗     ↑        ↓                   ↓         ↓
-               re-plan ←──┴──────────────────┴─────────┘（遇到问题时）
+init → plan → verify → check → exec → verify → check(mid) → exec → verify → check(post) → merge → report
+  research↗      ↑                 ↓                                    ↓
+                re-plan ←──────────┴────────────────────────────────────┘（遇到问题时）
 ```
 
 每个任务存放在 `AiTasks/<module>/` 目录中，包含结构化元数据，运行在独立的 `task/<module>` git 分支上。
@@ -50,7 +50,11 @@ init → plan → check → exec → check(mid) → verify → check(post) → m
 - **Git 集成** — branch-per-task，worktree 隔离实现并行执行
 - **批注驱动** — 前端 Plan 面板批注（插入/删除/替换/评注）处理为计划更新
 - **Auto 模式** — 单会话自主编排，支持停滞检测、上下文配额管理和安全限制
-- **多领域** — 18+ 任务类型（软件、图像处理、视频制作、DSP、数据管道、基础设施、机器学习、文学、编剧、科学、机电、AI 技能、芯片设计……）
+- **类型自动发现** — 任务类型由 `research` 根据 `.target.md` + 网络搜索自动识别，init 时无需用户指定
+- **混合类型** — 跨领域任务使用 `A|B` 管道分隔格式（如 `data-pipeline|ml`），所有阶段同时适配多个领域
+- **类型自动扩充** — `AiTasks/.type-registry.md` 随 `research` 发现新领域自动增长；19 个种子类型，无限扩展
+- **动态类型画像** — 每个任务的 `.type-profile.md` 记录领域方法论、验证标准和实现模式，跨所有阶段持续精炼
+- **全生命周期研究** — `research` 通过 `--caller` 参数服务所有阶段（plan/verify/check/exec），14 类型 × 4 阶段情报矩阵
 - **经验知识库** — 已完成任务的经验提炼到 `AiTasks/.experiences/`，支持跨任务学习
 - **参考资料库** — 研究阶段收集的外部领域知识存放在 `AiTasks/.references/`
 - **并发保护** — 基于锁文件的互斥，支持过期锁恢复
@@ -68,19 +72,21 @@ init → plan → check → exec → check(mid) → verify → check(post) → m
 ## 快速开始
 
 ```bash
-# 1. 初始化任务
+# 1. 初始化任务（类型自动发现，无需 --type）
 /ai-cli-task:init auth-refactor --title "重构认证为 JWT"
 
 # 2. 在 AiTasks/auth-refactor/.target.md 中编写需求，然后生成计划
 /ai-cli-task:plan auth-refactor --generate
 
-# 3. 审查计划质量
+# 3. 验证并审查计划质量
+/ai-cli-task:verify auth-refactor --checkpoint quick
 /ai-cli-task:check auth-refactor --checkpoint post-plan
 
 # 4. 执行计划
 /ai-cli-task:exec auth-refactor
 
-# 5. 验证完成情况
+# 5. 验证并评估完成情况
+/ai-cli-task:verify auth-refactor --checkpoint full
 /ai-cli-task:check auth-refactor --checkpoint post-exec
 
 # 6. 合并到 main
@@ -98,6 +104,7 @@ init → plan → check → exec → check(mid) → verify → check(post) → m
 ```
 AiTasks/
 ├── .index.json                # 根索引（任务模块列表）
+├── .type-registry.md          # 自动扩充类型注册表（种子 + 发现的类型）
 ├── .experiences/              # 跨任务知识库（按领域类型分类）
 │   ├── .summary.md            # 经验文件索引
 │   └── <type>.md
@@ -105,8 +112,9 @@ AiTasks/
 │   ├── .summary.md            # 参考文件索引
 │   └── <topic>.md
 └── <module>/
-    ├── .index.json            # 任务元数据（状态、阶段、时间戳、依赖）
+    ├── .index.json            # 任务元数据（状态、阶段、类型、时间戳、依赖）
     ├── .target.md             # 需求目标（人工编写）
+    ├── .type-profile.md       # 领域方法论画像（自动发现、持续精炼）
     ├── .plan.md               # 实施计划
     ├── .summary.md            # 压缩上下文摘要
     ├── .report.md             # 完成报告
