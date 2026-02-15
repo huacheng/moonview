@@ -13,7 +13,7 @@
 结构化任务生命周期管理，包含 13 个子命令。Git 集成的 branch-per-task 工作流，支持 worktree 并行执行、批注驱动的规划，以及自主执行循环。
 
 ```
-/ai-cli-task <subcommand> [args]
+/ai-cli-task:<subcommand> [args]
 ```
 
 #### 子命令

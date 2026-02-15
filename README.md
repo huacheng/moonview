@@ -13,7 +13,7 @@ A Claude Code plugin marketplace for structured task lifecycle management.
 Structured task lifecycle management with 13 sub-commands. Git-integrated branch-per-task workflow with worktree support, annotation-driven planning, and autonomous execution loop.
 
 ```
-/ai-cli-task <subcommand> [args]
+/ai-cli-task:<subcommand> [args]
 ```
 
 #### Sub-commands
