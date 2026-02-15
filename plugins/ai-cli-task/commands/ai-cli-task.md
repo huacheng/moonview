@@ -135,7 +135,7 @@ The `type` field identifies the task's domain. It is **auto-discovered** by `res
 
 **Type format**: Single type (`software`) or pipe-separated hybrid (`data-pipeline|ml`). Parsing: `type.split('|')` → `[0]` is primary, `[1:]` are secondary domains.
 
-**Seed types**: Predefined types are maintained in `init/references/seed-types.md` and used to initialize `AiTasks/.type-registry.md` on first `init`. The registry is auto-expanded by `research` when new domains are discovered. See `init/references/seed-types.md` for the full table (19 seed types including software, DSP, ML, science subtypes, chip-design, etc.).
+**Seed types**: Predefined types are maintained in `init/references/seed-types/` directory (one file per type, with `.summary.md` index) and used to initialize `AiTasks/.type-registry.md` on first `init`. Each per-type file contains Phase Intelligence (plan/verify/check/exec methodology). The registry is auto-expanded by `research` when new domains are discovered. See `init/references/seed-types/.summary.md` for the full index (14 seed files covering 19 types including software, DSP, ML, science subtypes, chip-design, etc.).
 
 Scientific research types follow [arXiv taxonomy](https://arxiv.org/category_taxonomy) — use `science:<domain>` for unlisted fields (e.g., `science:astro`, `science:neuro`, `science:materials`).
 

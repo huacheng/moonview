@@ -214,7 +214,7 @@ When research needs domain intelligence for a type, it checks sources in this or
 
 ```
 1. AiTasks/.type-profiles/<type>.md     ← shared profile from prior tasks (most specific)
-2. Static reference tables               ← seed types only (task-type-intelligence.md, etc.)
+2. Per-type seed files                   ← init/references/seed-types/<type>.md (factory defaults)
 3. Web search from scratch              ← fallback for completely unknown types
 ```
 

@@ -77,7 +77,7 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 
 Plan methodology MUST adapt to the task domain. Different domains require different design approaches, tool choices, and milestones.
 
-> **See `references/task-type-planning.md`** for the full domain planning table, type determination rules, and requirements.
+> **See `init/references/seed-types/<type>.md`** for per-type seed methodology (plan structure, key considerations). Shared profiles in `AiTasks/.type-profiles/` take precedence when available.
 
 ## Notes
 
