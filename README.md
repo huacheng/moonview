@@ -37,9 +37,9 @@ Structured task lifecycle management with 13 sub-commands. Git-integrated branch
 #### Task Lifecycle
 
 ```
-init → plan → check → exec → verify → check → merge → report
-  research↗     ↑        ↓
-               re-plan ←──┘ (on issues)
+init → plan → check → exec → check(mid) → verify → check(post) → merge → report
+  research↗     ↑        ↓                   ↓         ↓
+               re-plan ←──┴──────────────────┴─────────┘ (on issues)
 ```
 
 Every task lives in a `AiTasks/<module>/` directory with structured metadata, and runs on a dedicated `task/<module>` git branch.

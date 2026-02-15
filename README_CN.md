@@ -37,9 +37,9 @@
 #### 任务生命周期
 
 ```
-init → plan → check → exec → verify → check → merge → report
-  research↗     ↑        ↓
-               re-plan ←──┘（遇到问题时）
+init → plan → check → exec → check(mid) → verify → check(post) → merge → report
+  research↗     ↑        ↓                   ↓         ↓
+               re-plan ←──┴──────────────────┴─────────┘（遇到问题时）
 ```
 
 每个任务存放在 `AiTasks/<module>/` 目录中，包含结构化元数据，运行在独立的 `task/<module>` git 分支上。
