@@ -1,5 +1,18 @@
 # Dynamic Type Profiling
 
+## Table of Contents
+
+- [Core Principles](#core-principles)
+- [Type Format in .index.json](#type-format-in-indexjson)
+- [Type Determination Flow](#type-determination-flow)
+- [Auto-Expanding Type Registry](#auto-expanding-type-registry)
+- [Hybrid Type System](#hybrid-type-system)
+- [.type-profile.md Structure](#type-profilemd-structure)
+- [Shared Type Profiles](#shared-type-profiles)
+- [Refinement Across Phases](#refinement-across-phases)
+- [research's Role in Type Discovery](#researchs-role-in-type-discovery)
+- [Integration with Lifecycle Phases](#integration-with-lifecycle-phases)
+
 Task type is NOT a one-shot decision. It is a **continuously refined classification** that evolves through research, planning, and execution. Types are **auto-discovered** from `.target.md` analysis and web research — no user input required at `init` time.
 
 ## Core Principles
@@ -177,6 +190,16 @@ Every task module gets a `.type-profile.md`. This is the **authoritative** domai
 - **Known pitfalls**: <frequent mistakes, anti-patterns>
 - **Tool chain**: <specific tools and their roles>
 
+## Audit Adaptation
+<!-- Domain-specific checkpoints that augment the six-perspective base (see check/references/six-perspective-audit.md) -->
+<!-- research populates from seed tables + web research; check/verify/exec refine from experience -->
+- **Security**: <+domain-specific security concerns>
+- **Architecture**: <+domain-specific structural concerns>
+- **Performance**: <+domain-specific efficiency concerns>
+- **Extensibility**: <+domain-specific extension concerns>
+- **Consistency**: <+domain-specific convention concerns>
+- **Correctness**: <+domain-specific verification concerns>
+
 ## Sources
 <!-- Where this profile information came from -->
 - <URL or reference for each claim above>
@@ -203,8 +226,8 @@ AiTasks/.type-profiles/
 
 | Phase | Trigger | Action |
 |-------|---------|--------|
-| **research** | Builds or updates `.type-profile.md` for **any** type (seed or discovered) | Copy profile to `AiTasks/.type-profiles/<primary-type>.md` (create or overwrite if confidence is higher) |
-| **report** | Task completes with a refined `.type-profile.md` | Merge refinements back to `AiTasks/.type-profiles/<primary-type>.md` (append refinement log, update sections that changed) |
+| **research** | Builds or updates `.type-profile.md` for **any** type (seed or discovered) | Copy profile to `AiTasks/.type-profiles/<primary-type>.md` (create or overwrite if confidence is higher). Apply directory-safe transform: replace `:` with `-` in type for filename |
+| **report** | Task completes with a refined `.type-profile.md` | Merge refinements back to `AiTasks/.type-profiles/<primary-type>.md` (append refinement log, update sections that changed). Apply directory-safe transform for `:` in type |
 
 **Note**: ALL types sync to shared profiles — including seed types. Over time, shared profiles become richer than static reference tables because they incorporate real task execution experience (tool discoveries, verified patterns, phase-specific intelligence). Static tables remain as initial fallback only.
 
@@ -213,7 +236,7 @@ AiTasks/.type-profiles/
 When research needs domain intelligence for a type, it checks sources in this order:
 
 ```
-1. AiTasks/.type-profiles/<type>.md     ← shared profile from prior tasks (most specific)
+1. AiTasks/.type-profiles/<type>.md     ← shared profile from prior tasks (most specific; apply directory-safe transform: `:` → `-`)
 2. Per-type seed files                   ← init/references/seed-types/<type>.md (factory defaults)
 3. Web search from scratch              ← fallback for completely unknown types
 ```
@@ -237,7 +260,7 @@ For type `A|B`, shared profiles are stored by **primary** type: `AiTasks/.type-p
 | research | Entire profile (gap detection) | All sections (new domain info) | Always — research is the primary type intelligence source |
 | plan | All sections (methodology selection) | Domain Classification, Methodology | Initial creation; re-plan if nature changed |
 | verify | Verification Standards | Verification Standards | Testing approach proved inadequate for this domain |
-| check | Verification Standards, Quality metrics | Verification Standards | Evaluation criteria mismatched domain norms |
+| check | Verification Standards, Quality metrics, Audit Adaptation | Verification Standards, Audit Adaptation | Evaluation criteria or audit checkpoints mismatched domain norms |
 | exec | Implementation Patterns, Key tools | Implementation Patterns | Discovered tools/patterns differ from profile |
 
 **Refinement log**: Every update appends to the "Refinement log" in Domain Classification, creating an audit trail of how the type understanding evolved.
@@ -272,7 +295,7 @@ All phases read `.type-profile.md` as their **first** source of domain methodolo
 1. **research** reads entire profile → discovers/validates type, identifies gaps, collects phase-directed intelligence
 2. **plan** reads all sections → selects methodology, generates domain-appropriate plan
 3. **verify** reads "Verification Standards" → determines what to test and how
-4. **check** reads "Verification Standards" + "Quality metrics" → sets evaluation criteria
+4. **check** reads "Verification Standards" + "Quality metrics" + "Audit Adaptation" → sets evaluation criteria and domain-specific audit checkpoints
 5. **exec** reads "Implementation Patterns" + "Key tools" → chooses tools and approach
 
 When `.type-profile.md` conflicts with static reference tables, the **profile takes precedence** (it's task-specific and research-informed, while tables are generic defaults).
