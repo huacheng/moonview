@@ -1,0 +1,9 @@
+.worktrees/
+AiTasks/**/.tmp-annotations.json
+AiTasks/**/.auto-signal
+AiTasks/**/.auto-signal.tmp
+AiTasks/**/.auto-stop
+AiTasks/**/.lock
+AiTasks/.experiences/.lock
+AiTasks/.references/.lock
+AiTasks/.type-profiles/.lock
