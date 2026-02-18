@@ -53,7 +53,7 @@ Process `.tmp-annotations.json` from the Plan panel. Supports 4 annotation types
     - Update `updated` timestamp
 12. **Write** `.summary.md` with condensed context reflecting annotation changes
 13. **Clean up** the `.tmp-annotations.json` file (delete after processing)
-14. **Git commit**: `-- ai-cli-task(<module>):annotate annotations processed`
+14. **Git commit**: `ai-cli-task(<module>):annotate annotations processed`
 15. **Write** `.auto-signal`: `{ "step": "annotate", "result": "(processed)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
 16. **Generate** execution report (print to screen or append to file per mode)
 
@@ -73,7 +73,7 @@ Process `.tmp-annotations.json` from the Plan panel. Supports 4 annotation types
 ## Git
 
 ```
--- ai-cli-task(<module>):annotate annotations processed
+ai-cli-task(<module>):annotate annotations processed
 ```
 
 ## .auto-signal

@@ -47,7 +47,7 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 19. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
 20. Write task-level `.summary.md` with condensed context: plan overview, key decisions, requirements summary, known constraints (integrate from directory summaries)
 21. Update `.index.json`: set `type` field (if not already set or if task nature changed), status → `planning` (from `draft`/`planning`/`blocked`) or `re-planning` (from `review`/`executing`/`re-planning`), update timestamp. If the **new** status is `re-planning`, set `phase: needs-check`. For all other **new** statuses, clear `phase` to `""`. Reset `completed_steps` to `0` (new/revised plan invalidates prior progress)
-22. **Git commit**: `-- ai-cli-task(<module>):plan generate implementation plan`
+22. **Git commit**: `ai-cli-task(<module>):plan generate implementation plan`
 23. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
 24. Report plan summary to user
 
@@ -69,7 +69,7 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 ## Git
 
 ```
--- ai-cli-task(<module>):plan generate implementation plan
+ai-cli-task(<module>):plan generate implementation plan
 ```
 
 ## .auto-signal

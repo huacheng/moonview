@@ -289,7 +289,7 @@ Every task module has a dedicated git branch. Worktrees are optional for paralle
 All ai-cli-task triggered commits use `--` prefix to distinguish from user manual commits:
 
 ```
--- ai-cli-task(<module>):<type> <description>
+ai-cli-task(<module>):<type> <description>
 ```
 
 | type | Scenario | Commit Scope |
@@ -311,23 +311,23 @@ All ai-cli-task triggered commits use `--` prefix to distinguish from user manua
 
 Examples:
 ```
--- ai-cli-task(auth-refactor):init initialize task module
--- ai-cli-task(auth-refactor):plan generate implementation plan
--- ai-cli-task(auth-refactor):research collect references
--- ai-cli-task(auth-refactor):check post-plan PASS → review
--- ai-cli-task(auth-refactor):feat add user auth middleware
--- ai-cli-task(auth-refactor):fix fix token expiration check
--- ai-cli-task(auth-refactor):exec step 2/5 done
--- ai-cli-task(auth-refactor):check post-exec ACCEPT
--- ai-cli-task(auth-refactor):refactor cleanup before merge
--- ai-cli-task(auth-refactor):merge merge completed task
--- ai-cli-task(auth-refactor):merge resolve merge conflict
--- ai-cli-task(auth-refactor):merge task completed
--- ai-cli-task(auth-refactor):report generate completion report
--- ai-cli-task(auth-refactor):verify full verification
--- ai-cli-task(auth-refactor):annotate annotations processed
--- ai-cli-task(auth-refactor):summarize regenerate context summary
--- ai-cli-task(auth-refactor):cancel user cancelled
+ai-cli-task(auth-refactor):init initialize task module
+ai-cli-task(auth-refactor):plan generate implementation plan
+ai-cli-task(auth-refactor):research collect references
+ai-cli-task(auth-refactor):check post-plan PASS → review
+ai-cli-task(auth-refactor):feat add user auth middleware
+ai-cli-task(auth-refactor):fix fix token expiration check
+ai-cli-task(auth-refactor):exec step 2/5 done
+ai-cli-task(auth-refactor):check post-exec ACCEPT
+ai-cli-task(auth-refactor):refactor cleanup before merge
+ai-cli-task(auth-refactor):merge merge completed task
+ai-cli-task(auth-refactor):merge resolve merge conflict
+ai-cli-task(auth-refactor):merge task completed
+ai-cli-task(auth-refactor):report generate completion report
+ai-cli-task(auth-refactor):verify full verification
+ai-cli-task(auth-refactor):annotate annotations processed
+ai-cli-task(auth-refactor):summarize regenerate context summary
+ai-cli-task(auth-refactor):cancel user cancelled
 ```
 
 Commit scope: AiTasks/ directory files (state/plan) or project files (feat/fix).

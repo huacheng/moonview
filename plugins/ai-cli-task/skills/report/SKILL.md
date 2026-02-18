@@ -85,7 +85,7 @@ The report is written to `AiTasks/<module_name>/.report.md` and also printed to 
 11. **Write** to `.report.md`
 12. **Distill experience**: If task status is `complete` and `type` is non-empty, validate each pipe-separated segment matches `[a-zA-Z0-9_:-]+`. **Directory-safe transform**: replace `:` with `-` in segment when used as directory name (e.g., `science:astro` → `science-astro`); original type value in `.index.json` is unchanged. Extract key learnings for **each** segment (e.g., type `data-pipeline|ml` → write to both `data-pipeline/` and `ml/`). Acquire `AiTasks/.experiences/.lock` before writing (see Concurrency Protection in `commands/ai-cli-task.md`). For each segment: (a) create `AiTasks/.experiences/<segment>/` directory if not exists; (b) write `AiTasks/.experiences/<segment>/<module>.md` containing: what worked, what didn't, key decisions, tools/patterns discovered; (c) overwrite `AiTasks/.experiences/<segment>/.summary.md` — condensed summary of all entries in that type directory (distilled key patterns + entry index table with module, date, key learnings). Then overwrite top-level `AiTasks/.experiences/.summary.md` — index of all type directories (type, task count, keywords, last updated). Release lock after write
 13. **Sync shared type profile**: If `.type-profile.md` exists, merge refined profile back to `AiTasks/.type-profiles/<primary-type>.md` for ALL types (seed and discovered alike — shared profiles accumulate cross-task intelligence that static tables cannot). Apply directory-safe transform: replace `:` with `-` in type when used as filename (e.g., `science:astro` → `science-astro`). Acquire `AiTasks/.type-profiles/.lock` before writing. If shared profile already exists, update sections that have higher-confidence info (check refinement log dates). Append task's refinement log entries. Release lock after write
-14. **Git commit**: `-- ai-cli-task(<module>):report generate completion report`
+14. **Git commit**: `ai-cli-task(<module>):report generate completion report`
 15. **Write** `.auto-signal`: `{ "step": "report", "result": "(generated)", "next": "(stop)", "checkpoint": "", "timestamp": "..." }`
 16. **Print** report to screen
 
@@ -97,7 +97,7 @@ No status change — report generation is informational. The task must already b
 
 ## Git
 
-- `-- ai-cli-task(<module>):report generate completion report`
+- `ai-cli-task(<module>):report generate completion report`
 
 ## .auto-signal
 

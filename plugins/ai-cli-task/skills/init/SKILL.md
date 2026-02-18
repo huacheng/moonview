@@ -150,7 +150,7 @@ Created automatically by `init` if `AiTasks/` directory does not exist (initiali
     <!-- Any constraints or limitations -->
     ```
 12. **Update** `AiTasks/.index.json`: append `{ "module": "<module_name>", "title": "<title>" }` entry to the array (if not already listed)
-13. **Git commit**: `-- ai-cli-task(<module_name>):init initialize task module`
+13. **Git commit**: `ai-cli-task(<module_name>):init initialize task module`
 14. **Report**: path, files created, branch name, worktree path (if any), next step hint
 
 ## Git
@@ -158,7 +158,7 @@ Created automatically by `init` if `AiTasks/` directory does not exist (initiali
 - Creates branch: `task/<module_name>` from current HEAD
 - Without worktree: `git checkout task/<module_name>` before creating files
 - Optional worktree: `.worktrees/task-<module_name>`
-- Commit: `-- ai-cli-task(<module_name>):init initialize task module`
+- Commit: `ai-cli-task(<module_name>):init initialize task module`
 
 ## Notes
 

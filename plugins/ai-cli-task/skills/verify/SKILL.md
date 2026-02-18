@@ -45,7 +45,7 @@ Run domain-adapted tests and verification procedures for a task module, producin
    - `step-N`: only criteria associated with step N from `.test/` criteria file
 10. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics)
 11. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
-12. **Git commit**: `-- ai-cli-task(<module>):verify <checkpoint> verification`
+12. **Git commit**: `ai-cli-task(<module>):verify <checkpoint> verification`
 13. **Write** `.auto-signal`: `{ "step": "verify", "result": "(pass|fail|partial)", "next": "check", "checkpoint": "<checkpoint>", "timestamp": "..." }`
 14. **Report** results summary to user
 
@@ -64,14 +64,14 @@ None — `verify` is a utility sub-command. It does not change task status.
 ## Git
 
 ```
--- ai-cli-task(<module>):verify <checkpoint> verification
+ai-cli-task(<module>):verify <checkpoint> verification
 ```
 
 Examples:
 ```
--- ai-cli-task(auth-refactor):verify quick verification
--- ai-cli-task(auth-refactor):verify full verification
--- ai-cli-task(auth-refactor):verify step-3 verification
+ai-cli-task(auth-refactor):verify quick verification
+ai-cli-task(auth-refactor):verify full verification
+ai-cli-task(auth-refactor):verify step-3 verification
 ```
 
 ## .auto-signal

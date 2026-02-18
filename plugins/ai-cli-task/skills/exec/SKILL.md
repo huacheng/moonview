@@ -113,11 +113,11 @@ For long-running executions, intermediate progress can be observed by:
 
 ## Git
 
-- On start: `-- ai-cli-task(<module>):exec execution started`
-- Project files (feature): `-- ai-cli-task(<module>):feat <description>`
-- Project files (bugfix): `-- ai-cli-task(<module>):fix <description>`
-- Per step progress: `-- ai-cli-task(<module>):exec step N/M done`
-- On blocked: `-- ai-cli-task(<module>):exec blocked`
+- On start: `ai-cli-task(<module>):exec execution started`
+- Project files (feature): `ai-cli-task(<module>):feat <description>`
+- Project files (bugfix): `ai-cli-task(<module>):fix <description>`
+- Per step progress: `ai-cli-task(<module>):exec step N/M done`
+- On blocked: `ai-cli-task(<module>):exec blocked`
 - Project file changes use `feat`/`fix` type, state file changes use `exec` type
 
 ## .auto-signal

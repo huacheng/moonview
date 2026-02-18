@@ -148,14 +148,14 @@ post-exec REPLAN:        executing → re-planning, phase: needs-plan
 
 | Outcome | Commit Message |
 |---------|---------------|
-| PASS | `-- ai-cli-task(<module>):check post-plan PASS → review` |
-| ACCEPT | `-- ai-cli-task(<module>):check post-exec ACCEPT` |
-| REPLAN | `-- ai-cli-task(<module>):check replan → re-planning` |
-| BLOCKED | `-- ai-cli-task(<module>):check blocked → blocked` |
-| NEEDS_REVISION | `-- ai-cli-task(<module>):check post-plan NEEDS_REVISION` |
-| NEEDS_FIX (mid-exec) | `-- ai-cli-task(<module>):check mid-exec NEEDS_FIX` |
-| NEEDS_FIX (post-exec) | `-- ai-cli-task(<module>):check post-exec NEEDS_FIX` |
-| CONTINUE | `-- ai-cli-task(<module>):check mid-exec CONTINUE` |
+| PASS | `ai-cli-task(<module>):check post-plan PASS → review` |
+| ACCEPT | `ai-cli-task(<module>):check post-exec ACCEPT` |
+| REPLAN | `ai-cli-task(<module>):check replan → re-planning` |
+| BLOCKED | `ai-cli-task(<module>):check blocked → blocked` |
+| NEEDS_REVISION | `ai-cli-task(<module>):check post-plan NEEDS_REVISION` |
+| NEEDS_FIX (mid-exec) | `ai-cli-task(<module>):check mid-exec NEEDS_FIX` |
+| NEEDS_FIX (post-exec) | `ai-cli-task(<module>):check post-exec NEEDS_FIX` |
+| CONTINUE | `ai-cli-task(<module>):check mid-exec CONTINUE` |
 
 All outcomes commit their output files and state updates, regardless of whether status changes.
 

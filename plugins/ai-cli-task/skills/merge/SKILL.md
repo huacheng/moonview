@@ -28,7 +28,7 @@ Merge a completed task's branch into main, with automated conflict resolution an
 ### Phase 1: Pre-Merge Refactoring
 
 1. **Review** code changes on task branch for cleanup opportunities (dead code, naming, duplication)
-2. **Commit** cleanup: `-- ai-cli-task(<module>):refactor cleanup before merge`
+2. **Commit** cleanup: `ai-cli-task(<module>):refactor cleanup before merge`
 
 ### Phase 2: Merge Attempt
 
@@ -36,7 +36,7 @@ Merge a completed task's branch into main, with automated conflict resolution an
 2. **Checkout main** (non-worktree) or already on main (worktree, from main worktree)
 3. **Attempt merge**:
    ```bash
-   git merge task/<module> --no-ff -m "-- ai-cli-task(<module>):merge merge completed task"
+   git merge task/<module> --no-ff -m "ai-cli-task(<module>):merge merge completed task"
    ```
 
 ### Phase 3: Conflict Resolution (if merge fails)
@@ -56,7 +56,7 @@ On successful merge:
 
 1. **Update** `.index.json` status → `complete`, clear `branch` to `""` (branch will be deleted), update timestamp
 2. **Write** `.summary.md` with final task summary: completion status, plan overview, key changes, verification outcome, lessons learned (integrate from directory summaries)
-3. **Git commit** state FIRST: `-- ai-cli-task(<module>):merge task completed` — commit state changes before any destructive cleanup, so status is persisted even if cleanup fails
+3. **Git commit** state FIRST: `ai-cli-task(<module>):merge task completed` — commit state changes before any destructive cleanup, so status is persisted even if cleanup fails
 4. **If worktree exists**: `git worktree remove .worktrees/task-<module>` (failure is non-fatal — log warning, continue)
 5. **Delete** merged branch: `git branch -d task/<module>` (failure is non-fatal — branch may already be deleted or have extra commits; log warning, continue)
 
@@ -88,10 +88,10 @@ On successful merge:
 
 | Action | Commit Message |
 |--------|---------------|
-| Pre-merge cleanup | `-- ai-cli-task(<module>):refactor cleanup before merge` |
-| Merge commit | `-- ai-cli-task(<module>):merge merge completed task` |
-| Conflict resolution | `-- ai-cli-task(<module>):merge resolve merge conflict` |
-| State update | `-- ai-cli-task(<module>):merge task completed` |
+| Pre-merge cleanup | `ai-cli-task(<module>):refactor cleanup before merge` |
+| Merge commit | `ai-cli-task(<module>):merge merge completed task` |
+| Conflict resolution | `ai-cli-task(<module>):merge resolve merge conflict` |
+| State update | `ai-cli-task(<module>):merge task completed` |
 
 ## .auto-signal
 
