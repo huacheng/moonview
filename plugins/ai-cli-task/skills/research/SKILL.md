@@ -1,6 +1,8 @@
 ---
 name: research
 description: Collect and organize external references to support planning and execution phases
+model_tier: medium
+auto_delegatable: true
 arguments:
   - name: task_module
     description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
@@ -117,9 +119,10 @@ Callable independently for preparatory research before any phase, or to suppleme
     | express-middleware.md | Express middleware | routing, middleware, error handling | plan | 2024-01-15 |
     | jest-testing.md | Jest testing framework | unit test, coverage, mocking | verify | 2024-01-16 |
     ```
-14. **Release** `AiTasks/.references/.lock`
-15. **Git commit**: `ai-cli-task(<module>):research collect references` (skip if no files written; include `.type-profile.md` and `AiTasks/.type-profiles/` if updated)
-16. **Write** `.auto-signal`: `{ "step": "research", "result": "(collected)" or "(sufficient)", "next": "<caller>", "checkpoint": "post-research", "timestamp": "..." }` — `next` field routes back to the calling phase (default: `plan`; if `--caller verify` → `verify`; if `--caller check` → `check`; if `--caller exec` → `exec`)
+14. **Flush** any pending plugin registry updates to `AiTasks/.plugin-registry.md` (accumulated during step 12 doc-parse delegation — see `auto/references/plugin-delegation.md` Re-entrancy rule). This happens while still holding `.references/.lock`, avoiding a second lock acquisition
+15. **Release** `AiTasks/.references/.lock`
+16. **Git commit**: `ai-cli-task(<module>):research collect references` (skip if no files written; include `.type-profile.md` and `AiTasks/.type-profiles/` if updated)
+17. **Write** `.auto-signal`: `{ "step": "research", "result": "(collected)" or "(sufficient)", "next": "<caller>", "checkpoint": "post-research", "timestamp": "..." }` — `next` field routes back to the calling phase (default: `plan`; if `--caller verify` → `verify`; if `--caller check` → `check`; if `--caller exec` → `exec`)
 
 ## Output
 

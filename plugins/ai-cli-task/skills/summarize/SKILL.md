@@ -1,6 +1,8 @@
 ---
 name: summarize
 description: Regenerate .summary.md files for context recovery or refresh
+model_tier: light
+auto_delegatable: true
 arguments:
   - name: task_module
     description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"

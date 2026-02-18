@@ -1,6 +1,8 @@
 ---
 name: check
 description: Check plan feasibility at key checkpoints — post-plan, mid-execution, post-execution
+model_tier: heavy
+auto_delegatable: false
 arguments:
   - name: task_module
     description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
@@ -117,15 +119,16 @@ When writing to any history directory (`.analysis/`, `.bugfix/`, `.test/`), also
 5. **Read** all relevant files per checkpoint (use `.summary.md` as primary context, latest file only from each history directory)
 6. **Scan** `AiTasks/.references/.summary.md` if exists — find relevant external reference files to inform evaluation criteria and domain best practices
 7. **Gap check**: if `.type-profile.md` lacks evaluation criteria OR `.references/` lacks domain evaluation standards/benchmarks for the task `type`, trigger `research --scope gap --caller check` to collect missing references before proceeding
-8. **Incorporate verify results**: If fresh verification results exist in `.test/` (from a prior `verify` run, same day and matching checkpoint), read and incorporate them. Otherwise, run verification procedures inline as part of evaluation
+8. **Incorporate verify results**: If fresh verification results exist in `.test/` (from a prior `verify` run, same day and matching checkpoint), read and incorporate them. Otherwise, run verification procedures inline as part of evaluation — inline scope is limited to the criteria in the latest `.test/` criteria file only (build + test + acceptance). For comprehensive domain-adapted verification, invoke `verify` explicitly before `check`
 9. **Evaluate** against criteria
    - **Optional delegation — code-review** (post-exec checkpoint only): Follow `auto/references/plugin-delegation.md` to attempt matching the `code-review` capability slot. If matched, invoke via Task subagent with a git diff summary as input — review results serve as supplementary evaluation evidence. No match or failure → continue standard inline evaluation
 10. **Write** output files per outcome: evaluation to `.analysis/` or `.bugfix/` (per Outcomes tables above), and test results to `.test/<date>-<checkpoint>-results.md` when tests are evaluated (mid-exec and post-exec checkpoints)
 11. **Update** each written directory's `.summary.md` — overwrite with condensed summary of ALL entries in that directory (`.analysis/.summary.md`, `.bugfix/.summary.md`, `.test/.summary.md` as applicable per checkpoint)
 12. **Write** task-level `.summary.md` with condensed context: task state, plan summary, evaluation outcome, progress (`completed_steps`), known issues, key decisions (integrate from directory summaries)
 13. **Update** `.index.json` status and timestamp per outcome
-14. **Write** `.auto-signal` with verdict, next action, and checkpoint (see .auto-signal section below)
-15. **Report** evaluation result with detailed reasoning
+14. **Git commit**: per outcome (see Git section below). All outcomes commit their output files and state updates, regardless of whether status changes
+15. **Write** `.auto-signal` with verdict, next action, and checkpoint (see .auto-signal section below)
+16. **Report** evaluation result with detailed reasoning
 
 ## State Transitions
 

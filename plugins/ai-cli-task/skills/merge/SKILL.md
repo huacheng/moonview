@@ -1,6 +1,8 @@
 ---
 name: merge
 description: "Merge completed task branch to main — with conflict resolution, verification retry, and cleanup. Triggered after check post-exec ACCEPT verdict confirms all tests pass."
+model_tier: medium
+auto_delegatable: false
 arguments:
   - name: task_module
     description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"

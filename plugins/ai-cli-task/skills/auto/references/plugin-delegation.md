@@ -35,6 +35,8 @@ Match the current context against the 6 named slots above (`doc-parse` through `
 
 Read `AiTasks/.plugin-registry.md` if it exists. Check if a previously discovered capability slot matches the current context. Registry entries include the last-matched plugin name — try that plugin first for faster resolution.
 
+**Stale entry detection**: Before invoking a registry-recommended plugin, verify it exists in the current available skill/tool list. If the plugin is no longer available (uninstalled/renamed), mark the entry as `(stale)` in the `Last Matched Plugin` column. After 3 cumulative stale detections for the same entry (across any tasks), remove the row from the registry. This prevents accumulation of entries for uninstalled plugins while tolerating transient unavailability.
+
 ### Level 3: Domain-* Semantic Scan
 
 If no seed slot matched AND no registry entry matched, perform a broad semantic scan:
@@ -50,8 +52,10 @@ If no seed slot matched AND no registry entry matched, perform a broad semantic 
 | Outcome | Action |
 |---------|--------|
 | Match found | Invoke via Task subagent |
-| No match | Skip delegation, continue with inline logic |
+| No match | Skip delegation, continue with inline logic. **Cache the negative result**: write a `(none)` entry to `.plugin-registry.md` for the attempted slot + type combination (e.g., `tdd` + `software` → `(none)`). Subsequent discovery attempts for the same slot + type skip Level 3 scan entirely |
 | Multiple matches | Prefer the most specific match; if tied, use the first alphabetically |
+
+**Negative cache expiry**: `(none)` entries are valid for the current task only. On `init` of a new task, the registry is NOT cleared (capabilities are persistent), but `(none)` entries are ignored when the available skill/tool list has changed (checked at Level 2 by comparing the current available plugin count against the count stored in the `(none)` entry).
 
 ## Runtime Capability Registry
 
@@ -70,6 +74,8 @@ Created on first successful delegation. Updated on each new capability discovery
 ```
 
 **Write protection**: Acquire `AiTasks/.references/.lock` before writing. Reuses the existing references lock to avoid proliferating lock files — the registry is a lightweight companion to `.references/`.
+
+**Re-entrancy rule**: If the calling skill already holds `AiTasks/.references/.lock` (e.g., `research` during steps 11-14), the registry update MUST be batched — accumulate pending registry writes in memory and flush them before releasing the existing lock. Do NOT attempt a second lock acquisition (same-process re-entrant acquire would self-REJECT). Skills that do NOT hold the references lock (e.g., `exec`, `check`, `verify`) acquire the lock normally for registry writes.
 
 ## Task Subagent Invocation Template
 

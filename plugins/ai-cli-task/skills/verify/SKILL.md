@@ -1,6 +1,8 @@
 ---
 name: verify
 description: "Run domain-adapted tests and verification procedures, producing result files. Triggered after plan generation (post-plan), during execution (per-step), or after execution completes (post-exec) to provide evidence for check's verdict."
+model_tier: medium
+auto_delegatable: true
 arguments:
   - name: task_module
     description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"

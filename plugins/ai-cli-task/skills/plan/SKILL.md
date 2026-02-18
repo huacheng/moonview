@@ -1,6 +1,8 @@
 ---
 name: plan
 description: "Generate implementation plans for a task module. Triggered after init when .target.md requirements are defined, or on re-plan when check/exec identify issues requiring plan revision."
+model_tier: heavy
+auto_delegatable: false
 arguments:
   - name: task_module
     description: "Task module name (e.g., auth-refactor)"

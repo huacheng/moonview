@@ -1,6 +1,8 @@
 ---
 name: annotate
 description: "Process Plan panel annotations — triage, cross-impact assessment, and execution. Triggered automatically when annotations (Insert/Delete/Replace/Comment) are submitted from the Plan panel UI."
+model_tier: medium
+auto_delegatable: false
 arguments:
   - name: task_file
     description: "Absolute path to the task file being annotated"

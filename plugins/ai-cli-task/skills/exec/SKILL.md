@@ -1,6 +1,8 @@
 ---
 name: exec
 description: "Execute the implementation plan for a reviewed task module. Triggered after check PASS (from review status) or on NEEDS_FIX continuation (from executing status with fix guidance)."
+model_tier: heavy
+auto_delegatable: false
 arguments:
   - name: task_module
     description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"

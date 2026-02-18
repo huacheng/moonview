@@ -1,6 +1,8 @@
 ---
 name: list
 description: "Query task status and relationships — read-only, no file writes. Use to inspect task inventory, check progress, view dependency graphs, or audit status transition history."
+model_tier: light
+auto_delegatable: true
 arguments:
   - name: task_module
     description: "Task module name (optional — omit to list all tasks)"

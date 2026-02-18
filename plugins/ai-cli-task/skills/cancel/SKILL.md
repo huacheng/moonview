@@ -1,6 +1,8 @@
 ---
 name: cancel
 description: "Cancel a task module — set status to cancelled, stop auto if running, optionally clean up worktree. Use when a task becomes infeasible, is deprioritized, or needs to be abandoned."
+model_tier: light
+auto_delegatable: true
 arguments:
   - name: task_module
     description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
@@ -39,17 +41,19 @@ Cancel a task module, stopping any active auto loop and optionally cleaning up t
    - Delete `.auto-signal` file if exists
    - Delete `.auto-stop` file if exists
    - Delete `.lock` file if exists — first read lock content and verify the holder: (a) if holder `pid` is dead → delete lock (stale); (b) if holder `session` matches the auto session being cancelled → delete lock (same session); (c) if held by a **different live session** → REJECT with error identifying the holding session — user must stop that session first or use `cancel` from the holding session. Cancel does NOT force-override locks held by other live sessions to prevent concurrent write corruption
-3. **If uncommitted changes exist**, git commit snapshot: `ai-cli-task(<module>):cancel pre-cancel snapshot`
-4. **Update** `.index.json`:
+3. **Acquire** `AiTasks/<module>/.lock` (see Concurrency Protection in `commands/ai-cli-task.md`). If lock is held by a different live session (not the auto session stopped in step 2), REJECT — user must stop that session first
+4. **If uncommitted changes exist**, git commit snapshot: `ai-cli-task(<module>):cancel pre-cancel snapshot`
+5. **Update** `.index.json`:
    - Set `status` to `cancelled`
    - Update `updated` timestamp
    - Append cancellation reason to body (if provided)
-5. **Write** `.summary.md` with condensed context: current status, cancellation reason, progress at time of cancellation (`completed_steps`), any known issues
-6. **Git commit**: `ai-cli-task(<module>):cancel user cancelled`
-7. **If `--cleanup`**:
+6. **Write** `.summary.md` with condensed context: current status, cancellation reason, progress at time of cancellation (`completed_steps`), any known issues
+7. **Git commit**: `ai-cli-task(<module>):cancel user cancelled`
+8. **Release** `AiTasks/<module>/.lock`
+9. **If `--cleanup`**:
    - Remove worktree: `git worktree remove .worktrees/task-<module>`
    - Delete branch: `git branch -d task/<module>` (safe delete — warns if unmerged). If `-d` fails because branch has unmerged work, report warning to user with the unmerged commit count. User can explicitly re-run with `git branch -D` if they want to force-delete
-8. **Report** cancellation result
+10. **Report** cancellation result
 
 ## State Transitions
 
@@ -61,3 +65,4 @@ Any non-terminal status → `cancelled`. Terminal statuses (`complete`, `cancell
 - If the task has uncommitted code changes in a worktree, `--cleanup` will warn before deleting
 - Without `--cleanup`, the branch and worktree are preserved for reference
 - A cancelled task can be referenced by `report` for documentation purposes
+- **Concurrency**: Cancel acquires `AiTasks/<module>/.lock` before modifying files and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`). Lock cleanup for the auto session (step 2) is separate from cancel's own lock acquisition (step 3)
