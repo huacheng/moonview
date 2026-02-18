@@ -1,11 +1,11 @@
 {
   "title": "notebook",
   "type": "software",
-  "status": "planning",
+  "status": "review",
   "phase": "",
   "completed_steps": 0,
   "created": "2026-02-18T17:05:00Z",
-  "updated": "2026-02-18T19:40:00Z",
+  "updated": "2026-02-18T19:50:00Z",
   "depends_on": [],
   "tags": [],
   "branch": "task/notebook",
