@@ -103,11 +103,11 @@ export class NotebookDb {
   listNotebooks(userId?: string | null): NotebookRow[] {
     if (userId) {
       return this.db.prepare(
-        'SELECT * FROM notebooks WHERE user_id = ? AND status = ? ORDER BY created_at DESC'
+        'SELECT * FROM notebooks WHERE user_id = ? AND status = ? ORDER BY updated_at DESC'
       ).all(userId, 'active') as NotebookRow[];
     }
     return this.db.prepare(
-      'SELECT * FROM notebooks WHERE status = ? ORDER BY created_at DESC'
+      'SELECT * FROM notebooks WHERE status = ? ORDER BY updated_at DESC'
     ).all('active') as NotebookRow[];
   }
 

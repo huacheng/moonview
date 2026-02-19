@@ -1,3 +1,4 @@
+import { writeFile } from 'fs/promises';
 import crypto from 'crypto';
 import { ClaudeProcess } from './claude-process.js';
 import { GitManager } from './git.js';
@@ -151,6 +152,12 @@ export class SessionManager {
       throw new Error(`Session "${sessionId}" not found.`);
     }
 
+    // Reject concurrent execution: only one cell may run at a time per session.
+    const alreadyRunning = session.notebook.cells.some((c) => c.status === 'running');
+    if (alreadyRunning) {
+      throw new Error('Another cell is already running in this session.');
+    }
+
     // Ensure the cell exists in the server-side notebook.
     const cellExists = session.notebook.cells.some((c) => c.id === cellId);
     if (!cellExists) {
@@ -286,7 +293,6 @@ export class SessionManager {
 
   /** Best-effort auto-save: writes the in-memory notebook to disk and syncs DB metadata. */
   private async autoSave(session: NotebookSession): Promise<void> {
-    const { writeFile } = await import('fs/promises');
     await writeFile(session.notebookPath, JSON.stringify(session.notebook, null, 2), 'utf-8');
     if (session.notebookDbId) {
       this.onAutoSave?.(session.notebookDbId, session.notebook.cells.length);

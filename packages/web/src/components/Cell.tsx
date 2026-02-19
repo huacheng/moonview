@@ -110,15 +110,26 @@ function MarkdownCellBody({ cell }: { cell: MarkdownCell }) {
     return () => clearTimeout(timer);
   }, [draft, storageKey, editing]);
 
-  // Very minimal markdown → HTML (bold, italic, headings, paragraphs)
+  // Escape HTML special chars to prevent XSS before inserting user content into markup.
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Very minimal markdown → HTML (bold, italic, headings, paragraphs).
+  // Input is HTML-escaped first so user content can never inject markup.
   function renderMarkdown(text: string): string {
     const lines = text.split('\n');
     const htmlLines = lines.map((line) => {
-      if (/^### (.+)/.test(line)) return `<h3>${line.slice(4)}</h3>`;
-      if (/^## (.+)/.test(line)) return `<h2>${line.slice(3)}</h2>`;
-      if (/^# (.+)/.test(line)) return `<h1>${line.slice(2)}</h1>`;
+      if (/^### (.+)/.test(line)) return `<h3>${escapeHtml(line.slice(4))}</h3>`;
+      if (/^## (.+)/.test(line))  return `<h2>${escapeHtml(line.slice(3))}</h2>`;
+      if (/^# (.+)/.test(line))   return `<h1>${escapeHtml(line.slice(2))}</h1>`;
       if (line.trim() === '') return '<br/>';
-      let html = line
+      let html = escapeHtml(line)
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/`(.+?)`/g, '<code>$1</code>');

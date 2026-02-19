@@ -45,15 +45,26 @@ export function FilesPanel() {
   const authToken = useStore((s) => s.authToken);
 
   const [subPath, setSubPath] = useState('.');
-  const [files, setFiles] = useState<FileEntry[]>([]);
+  const [files, setFiles] = useState<FileEntry[]>(() => {
+    // Load from cache immediately on mount (will be refreshed async).
+    if (!sessionId) return [];
+    try {
+      const raw = localStorage.getItem(`nb-files-${sessionId}-.`);
+      return raw ? (JSON.parse(raw) as FileEntry[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [creating, setCreating] = useState<'file' | 'folder' | null>(null);
   const [newName, setNewName] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const newNameRef = useRef<HTMLInputElement>(null);
+  const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Focus name input when creation mode starts
   useEffect(() => {
@@ -66,10 +77,19 @@ export function FilesPanel() {
   // ── Fetch file list ───────────────────────────────────────────────────────
 
   const fetchFiles = useCallback(
-    async (path: string) => {
+    async (path: string, silent = false) => {
       if (!sessionId) return;
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
+
+      // Show cached version immediately while fetching.
+      if (!silent) {
+        try {
+          const cached = localStorage.getItem(`nb-files-${sessionId}-${path}`);
+          if (cached) setFiles(JSON.parse(cached) as FileEntry[]);
+        } catch {}
+      }
+
       try {
         const headers: Record<string, string> = {};
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -79,15 +99,19 @@ export function FilesPanel() {
         );
         if (!res.ok) {
           const data = (await res.json()) as { error: string };
-          setError(data.error);
+          if (!silent) setError(data.error);
           return;
         }
         const data = (await res.json()) as ListResult;
         setFiles(data.files);
+        // Persist to cache.
+        try {
+          localStorage.setItem(`nb-files-${sessionId}-${path}`, JSON.stringify(data.files));
+        } catch {}
       } catch (err) {
-        setError(String(err));
+        if (!silent) setError(String(err));
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     },
     [sessionId, authToken],
@@ -114,6 +138,27 @@ export function FilesPanel() {
       fetchFiles(subPath);
     }
   }, [subPath, filesPanelOpen, sessionId, fetchFiles]);
+
+  // Auto-refresh every 3 seconds when panel is open (skips when tab is hidden).
+  useEffect(() => {
+    if (!filesPanelOpen || !sessionId) {
+      if (autoRefreshRef.current) {
+        clearInterval(autoRefreshRef.current);
+        autoRefreshRef.current = null;
+      }
+      return;
+    }
+    autoRefreshRef.current = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      fetchFiles(subPath, true /* silent */);
+    }, 3000);
+    return () => {
+      if (autoRefreshRef.current) {
+        clearInterval(autoRefreshRef.current);
+        autoRefreshRef.current = null;
+      }
+    };
+  }, [filesPanelOpen, sessionId, subPath, fetchFiles]);
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -239,7 +284,12 @@ export function FilesPanel() {
 
   async function deleteEntry(name: string) {
     if (!sessionId) return;
-    if (!window.confirm(`Delete "${name}"?`)) return;
+    // First click — show inline confirm; second click (or explicit confirm) — execute.
+    if (confirmDelete !== name) {
+      setConfirmDelete(name);
+      return;
+    }
+    setConfirmDelete(null);
 
     const filePath = subPath === '.' ? name : `${subPath}/${name}`;
     const headers: Record<string, string> = {};
@@ -425,24 +475,22 @@ export function FilesPanel() {
             <div key={f.name} className="files-entry">
               {f.type === 'directory' ? (
                 <div className="files-entry-row files-entry-dir">
+                  <span className="files-entry-dl-placeholder" />
                   <button className="files-entry-nav" onClick={() => navigateInto(f.name)}>
-                    <span className="files-icon files-icon-dir">⊞</span>
                     <span className="files-entry-name" title={f.name}>{f.name}</span>
                   </button>
                   <span className="files-entry-meta">dir</span>
-                  <button
-                    className="files-entry-del"
-                    onClick={() => deleteEntry(f.name)}
-                    title={`Delete ${f.name}`}
-                  >
-                    ✕
-                  </button>
+                  {confirmDelete === f.name ? (
+                    <span className="files-entry-confirm">
+                      <button className="files-entry-confirm-ok" onClick={() => deleteEntry(f.name)} title="Confirm delete">✓</button>
+                      <button className="files-entry-confirm-cancel" onClick={() => setConfirmDelete(null)} title="Cancel">✗</button>
+                    </span>
+                  ) : (
+                    <button className="files-entry-del" onClick={() => deleteEntry(f.name)} title={`Delete ${f.name}`}>✕</button>
+                  )}
                 </div>
               ) : (
                 <div className="files-entry-row files-entry-file">
-                  <span className="files-entry-name" title={f.name}>{f.name}</span>
-                  <span className="files-icon files-icon-file">{fileTypeLabel(f.name)}</span>
-                  <span className="files-entry-meta">{formatSize(f.size)}</span>
                   <button
                     className="files-entry-dl"
                     onClick={() => downloadFile(f.name)}
@@ -450,13 +498,17 @@ export function FilesPanel() {
                   >
                     ↓
                   </button>
-                  <button
-                    className="files-entry-del"
-                    onClick={() => deleteEntry(f.name)}
-                    title={`Delete ${f.name}`}
-                  >
-                    ✕
-                  </button>
+                  <span className="files-entry-name" title={f.name}>{f.name}</span>
+                  <span className="files-icon files-icon-file">{fileTypeLabel(f.name)}</span>
+                  <span className="files-entry-meta">{formatSize(f.size)}</span>
+                  {confirmDelete === f.name ? (
+                    <span className="files-entry-confirm">
+                      <button className="files-entry-confirm-ok" onClick={() => deleteEntry(f.name)} title="Confirm delete">✓</button>
+                      <button className="files-entry-confirm-cancel" onClick={() => setConfirmDelete(null)} title="Cancel">✗</button>
+                    </span>
+                  ) : (
+                    <button className="files-entry-del" onClick={() => deleteEntry(f.name)} title={`Delete ${f.name}`}>✕</button>
+                  )}
                 </div>
               )}
             </div>

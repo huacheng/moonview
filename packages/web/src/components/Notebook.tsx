@@ -26,6 +26,8 @@ function AddCellButtons({ onAdd }: AddCellButtonsProps) {
 
 function NotebookStatusBar() {
   const notebook = useStore((s) => s.notebook);
+  const activeNotebookId = useStore((s) => s.activeNotebookId);
+  const notebookList = useStore((s) => s.notebookList);
   const sessionId = useStore((s) => s.sessionId);
   const activeTab = useStore((s) => s.activeTab);
   const setActiveTab = useStore((s) => s.setActiveTab);
@@ -33,7 +35,10 @@ function NotebookStatusBar() {
   const wsStatus = useStore((s) => s.wsStatus);
   const connected = wsStatus === 'connected';
 
-  const title = notebook?.metadata.title ?? 'Untitled Notebook';
+  // Prefer the title from the sidebar list (always kept current by renameNotebook +
+  // fetchNotebookList) so the status bar stays in sync after any rename.
+  const listTitle = notebookList.find((n) => n.id === activeNotebookId)?.title;
+  const title = listTitle ?? notebook?.metadata.title ?? 'Untitled Notebook';
   const inSlice = activeTab === 'slice';
 
   function handleExport() {

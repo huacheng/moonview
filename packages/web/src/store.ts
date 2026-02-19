@@ -93,6 +93,7 @@ export interface NotebookStore {
   activeTab: 'notebook' | 'slice';
   ws: WebSocket | null;
   wsStatus: 'disconnected' | 'connecting' | 'connected';
+  wsReconnectExhausted: boolean;
   sessionId: string | null;
   sliceLoading: boolean;
   notebookLoading: boolean;
@@ -151,6 +152,7 @@ export interface NotebookStore {
   setActiveTab(tab: 'notebook' | 'slice'): void;
   clearSessionNotice(): void;
   setLatency(ms: number | null): void;
+  setWsReconnectExhausted(v: boolean): void;
 
   // WebSocket actions
   connectWebSocket(): void;
@@ -170,6 +172,45 @@ export interface NotebookStore {
 let _sourceSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ---------------------------------------------------------------------------
+// Module-level notebook cache helpers
+// ---------------------------------------------------------------------------
+
+let _persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function _cacheKey(notebookId: string) {
+  return `nb-notebook-${notebookId}`;
+}
+
+function _persistNotebook(notebookId: string, notebook: Notebook) {
+  if (_persistTimer) clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(() => {
+    _persistTimer = null;
+    try {
+      localStorage.setItem(_cacheKey(notebookId), JSON.stringify(notebook));
+    } catch {
+      // localStorage quota exceeded — evict oldest notebook caches
+      try {
+        const keys = Object.keys(localStorage).filter((k) => k.startsWith('nb-notebook-'));
+        if (keys.length > 0) {
+          localStorage.removeItem(keys[0]);
+          localStorage.setItem(_cacheKey(notebookId), JSON.stringify(notebook));
+        }
+      } catch {}
+    }
+  }, 400);
+}
+
+function _loadCachedNotebook(notebookId: string): Notebook | null {
+  try {
+    const raw = localStorage.getItem(_cacheKey(notebookId));
+    if (!raw) return null;
+    return JSON.parse(raw) as Notebook;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Store implementation
 // ---------------------------------------------------------------------------
 
@@ -183,6 +224,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
   activeTab: 'notebook',
   ws: null,
   wsStatus: 'disconnected',
+  wsReconnectExhausted: false,
   sessionId: null,
   sliceLoading: false,
   notebookLoading: false,
@@ -283,6 +325,16 @@ export const useStore = create<NotebookStore>((set, get) => ({
             return cached ? { ...item, title: cached } : item;
           });
           set({ notebookList: notebooks, notebookListLoading: false });
+
+          // Purge stale localStorage entries whose notebook ID is no longer on the server.
+          const validIds = new Set(data.notebooks.map((n) => n.id));
+          for (const key of Object.keys(localStorage)) {
+            const m = key.match(/^nb-(?:notebook|scroll|title)-(.+)$/);
+            if (m && !validIds.has(m[1])) localStorage.removeItem(key);
+          }
+          const lastId = localStorage.getItem('nb-last-notebook');
+          if (lastId && !validIds.has(lastId)) localStorage.removeItem('nb-last-notebook');
+
           return;
         }
         break; // Non-2xx — don't retry
@@ -347,17 +399,36 @@ export const useStore = create<NotebookStore>((set, get) => ({
 
   async restoreNotebook(notebookId: string) {
     // Don't restore if already active.
-    if (get().activeNotebookId === notebookId) return;
+    if (get().activeNotebookId === notebookId) {
+      // Still dismiss the creation panel if it's open.
+      if (get().creatingNotebook) set({ creatingNotebook: false });
+      return;
+    }
+    // Dismiss the creation panel when switching to an existing notebook.
+    set({ creatingNotebook: false });
 
-    // Immediately mark this notebook as active and show loading screen.
-    set({
-      sessionNotice: null,
-      notebookLoading: true,
-      activeNotebookId: notebookId,
-      notebook: null,
-      sessionId: null,
-      workspaceDir: null,
-    });
+    // Check for locally cached notebook — show immediately without loading screen.
+    const cached = _loadCachedNotebook(notebookId);
+    if (cached) {
+      set({
+        sessionNotice: null,
+        notebookLoading: false,
+        activeNotebookId: notebookId,
+        notebook: cached,
+        sessionId: null,
+        workspaceDir: null,
+      });
+    } else {
+      // No cache — show loading screen.
+      set({
+        sessionNotice: null,
+        notebookLoading: true,
+        activeNotebookId: notebookId,
+        notebook: null,
+        sessionId: null,
+        workspaceDir: null,
+      });
+    }
 
     const headers: Record<string, string> = {};
     const token = get().authToken;
@@ -371,7 +442,15 @@ export const useStore = create<NotebookStore>((set, get) => ({
       if (!res.ok) {
         const err = (await res.json()) as { error: string };
         console.error('[store] restoreNotebook failed:', err.error);
-        set({ notebookLoading: false, activeNotebookId: null });
+        set({ notebookLoading: false, activeNotebookId: null, notebook: null });
+        // On 404, the notebook no longer exists — purge all local references so
+        // the next page load doesn't attempt a doomed restore.
+        if (res.status === 404) {
+          localStorage.removeItem(_cacheKey(notebookId));
+          if (localStorage.getItem('nb-last-notebook') === notebookId) {
+            localStorage.removeItem('nb-last-notebook');
+          }
+        }
         return;
       }
       const data = (await res.json()) as {
@@ -382,6 +461,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
         workspaceDir: string;
       };
 
+      // Update with authoritative server data.
       set({
         notebook: data.notebook,
         sessionId: data.sessionId,
@@ -391,10 +471,13 @@ export const useStore = create<NotebookStore>((set, get) => ({
         filesPanelOpen: true,
       });
 
+      // Persist fresh server state to cache.
+      _persistNotebook(data.notebookId, data.notebook);
+
       get().fetchNotebookList();
     } catch (err) {
       console.error('[store] restoreNotebook error:', err);
-      set({ notebookLoading: false, activeNotebookId: null });
+      set({ notebookLoading: false, activeNotebookId: null, notebook: null });
     }
   },
 
@@ -410,6 +493,18 @@ export const useStore = create<NotebookStore>((set, get) => ({
     if (get().activeNotebookId === notebookId) {
       set({ notebook: null, sessionId: null, activeNotebookId: null, workspaceDir: null, filesPanelOpen: false });
       localStorage.removeItem('nb-last-notebook');
+    }
+    // Clear local cache for the deleted notebook.
+    localStorage.removeItem(_cacheKey(notebookId));
+    // Clear any draft localStorage keys for cells in the deleted notebook.
+    const notebookForCleanup =
+      get().activeNotebookId === notebookId
+        ? get().notebook
+        : _loadCachedNotebook(notebookId);
+    if (notebookForCleanup) {
+      for (const cell of notebookForCleanup.cells) {
+        localStorage.removeItem(`nb-draft-${cell.id}`);
+      }
     }
 
     try {
@@ -859,6 +954,10 @@ export const useStore = create<NotebookStore>((set, get) => ({
     set({ latency: ms });
   },
 
+  setWsReconnectExhausted(v) {
+    set({ wsReconnectExhausted: v });
+  },
+
   // ── WebSocket actions ───────────────────────────────────────────────────
 
   connectWebSocket() {
@@ -933,7 +1032,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
     ws.onerror = () => {
       if (get().ws === ws) {
         stopPing();
-        set({ wsStatus: 'disconnected', latency: null });
+        set({ wsStatus: 'disconnected', ws: null, latency: null });
       }
     };
 
@@ -1126,3 +1225,16 @@ export const useStore = create<NotebookStore>((set, get) => ({
     }
   },
 }));
+
+// ---------------------------------------------------------------------------
+// Auto-persist notebook to localStorage whenever it changes
+// ---------------------------------------------------------------------------
+useStore.subscribe((state, prevState) => {
+  if (
+    state.notebook !== prevState.notebook &&
+    state.notebook !== null &&
+    state.activeNotebookId !== null
+  ) {
+    _persistNotebook(state.activeNotebookId, state.notebook);
+  }
+});

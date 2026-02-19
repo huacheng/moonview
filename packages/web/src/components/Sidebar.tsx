@@ -63,7 +63,7 @@ function SidebarItem({
   return (
     <div
       className={`sidebar-item${isActive ? ' sidebar-item-active' : ''}`}
-      onDoubleClick={() => { if (!editing && !confirmingDelete) onActivate(); }}
+      onClick={() => { if (!editing && !confirmingDelete) onActivate(); }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' && !editing) onActivate(); }}

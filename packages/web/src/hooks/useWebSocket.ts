@@ -13,6 +13,7 @@ export function useWebSocket(sessionId: string | null) {
   const disconnectWebSocket = useStore((s) => s.disconnectWebSocket);
   const subscribeToSession = useStore((s) => s.subscribeToSession);
   const unsubscribeFromSession = useStore((s) => s.unsubscribeFromSession);
+  const setWsReconnectExhausted = useStore((s) => s.setWsReconnectExhausted);
 
   const reconnectAttempts = useRef(0);
   const prevSessionIdRef = useRef<string | null>(null);
@@ -20,6 +21,7 @@ export function useWebSocket(sessionId: string | null) {
   // Connect once on mount; auto-reconnect on disconnect.
   useEffect(() => {
     reconnectAttempts.current = 0;
+    setWsReconnectExhausted(false);
     connectWebSocket();
 
     const interval = setInterval(() => {
@@ -28,8 +30,12 @@ export function useWebSocket(sessionId: string | null) {
         reconnectAttempts.current += 1;
         connectWebSocket();
       }
+      if (status === 'disconnected' && reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        setWsReconnectExhausted(true);
+      }
       if (status === 'connected') {
         reconnectAttempts.current = 0;
+        setWsReconnectExhausted(false);
       }
     }, RECONNECT_DELAY_MS);
 

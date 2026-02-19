@@ -13,8 +13,12 @@ export const authEnabled = NB_AUTH_TOKEN.length > 0;
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  const len = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.concat([bufA, Buffer.alloc(len - bufA.length)]);
+  const paddedB = Buffer.concat([bufB, Buffer.alloc(len - bufB.length)]);
+  return crypto.timingSafeEqual(paddedA, paddedB) && bufA.length === bufB.length;
 }
 
 // ── Login endpoint handler ──────────────────────────────────────────────────

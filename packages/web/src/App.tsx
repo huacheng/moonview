@@ -91,6 +91,9 @@ function AuthenticatedApp() {
   const activeNotebookId = useStore((s) => s.activeNotebookId);
   const creatingNotebook = useStore((s) => s.creatingNotebook);
   const restoreNotebook = useStore((s) => s.restoreNotebook);
+  const filesPanelOpen = useStore((s) => s.filesPanelOpen);
+  const wsStatus = useStore((s) => s.wsStatus);
+  const wsReconnectExhausted = useStore((s) => s.wsReconnectExhausted);
 
   const contentRef = useRef<HTMLElement | null>(null);
 
@@ -124,15 +127,26 @@ function AuthenticatedApp() {
   return (
     <div className="app">
       <Toolbar />
-      <div className="app-body app-body--files-open">
+      {wsReconnectExhausted && wsStatus === 'disconnected' && (
+        <div className="ws-exhausted-banner">
+          连接已断开，请刷新页面重试。
+          <button
+            className="ws-exhausted-reload"
+            onClick={() => window.location.reload()}
+          >
+            刷新
+          </button>
+        </div>
+      )}
+      <div className={`app-body${filesPanelOpen ? ' app-body--files-open' : ''}`}>
         <Sidebar />
         <main ref={contentRef} className="app-content">
           {notebookLoading ? (
             <NotebookLoadingScreen />
-          ) : hasNotebook ? (
-            <Notebook />
           ) : creatingNotebook ? (
             <NotebookCreationPanel />
+          ) : hasNotebook ? (
+            <Notebook />
           ) : (
             <WelcomeScreen />
           )}

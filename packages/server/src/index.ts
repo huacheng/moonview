@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import path from 'path';
 import {
   WSClientMessageSchema,
+  NotebookSchema,
   type Notebook,
   type NotebookListItem,
 } from '@notebook-ai/shared';
@@ -40,8 +41,18 @@ const wss = new WebSocketServer({ server });
 app.use(express.json());
 
 // CORS middleware for development.
-app.use((_req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+const ALLOWED_ORIGINS = new Set([
+  'https://localhost:3000',
+  'http://localhost:3000',
+  'https://127.0.0.1:3000',
+  'http://127.0.0.1:3000',
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers['origin'] ?? '';
+  if (ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   next();
@@ -461,7 +472,12 @@ app.delete('/api/sessions/:id', async (req: Request, res: Response) => {
  */
 app.post('/api/notebooks/:notebookId/import-content', async (req: Request, res: Response) => {
   const { notebookId } = req.params as { notebookId: string };
-  const notebook = req.body as Notebook;
+  const parseResult = NotebookSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({ error: 'Invalid notebook format.' });
+    return;
+  }
+  const notebook = parseResult.data;
 
   try {
     const row = db.getNotebook(notebookId);
@@ -933,8 +949,14 @@ wss.on('connection', (ws: WebSocket, req) => {
           break;
         }
         try {
-          await notebookStore.save(msg.path, session.notebook);
-          console.log(`[ws] Notebook saved to "${msg.path}"`);
+          // Validate path is within the session workspace to prevent arbitrary file writes.
+          const safePath = await validateWorkspacePath(msg.path, session.cwd).catch(() => null);
+          if (!safePath) {
+            sendToClient(ws, { type: 'error', session_id, message: 'Save path is outside the workspace.' });
+            break;
+          }
+          await notebookStore.save(safePath, session.notebook);
+          console.log(`[ws] Notebook saved to "${safePath}"`);
           if (session.notebookDbId) {
             db.updateNotebook(session.notebookDbId, {
               cell_count: session.notebook.cells.length,

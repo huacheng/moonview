@@ -2,6 +2,21 @@ import { useState } from 'react';
 import type { CellOutput as CellOutputItem } from '@notebook-ai/shared';
 import { Annotations } from './Annotations';
 
+// ── SVG sanitizer ───────────────────────────────────────────────────────────
+// Strips <script> elements and on* event handler attributes from SVG markup
+// to prevent XSS when rendering chart output from the Claude process.
+
+const DANGEROUS_TAGS = /(<script[\s\S]*?<\/script>|<script[^>]*\/>)/gi;
+const DANGEROUS_ATTRS = /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
+const JAVASCRIPT_HREF = /\s+(?:href|xlink:href)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi;
+
+function sanitizeSvg(svg: string): string {
+  return svg
+    .replace(DANGEROUS_TAGS, '')
+    .replace(DANGEROUS_ATTRS, '')
+    .replace(JAVASCRIPT_HREF, '');
+}
+
 interface CellOutputProps {
   outputs: CellOutputItem[];
   cellId?: string;
@@ -118,7 +133,7 @@ function ChartOutputView({ chart_type, svg }: { chart_type: string; svg?: string
     return (
       <div
         className="output-chart"
-        dangerouslySetInnerHTML={{ __html: svg }}
+        dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }}
       />
     );
   }
