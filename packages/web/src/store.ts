@@ -126,6 +126,7 @@ export interface NotebookStore {
   updateCellSource(cellId: string, source: string): void;
   setCellStatus(cellId: string, status: CellStatus): void;
   appendCellOutput(cellId: string, output: CellOutput): void;
+  updateToolResult(cellId: string, toolUseId: string, content: string): void;
   setCellGitDiff(cellId: string, diff: string): void;
 
   // Annotation actions
@@ -541,6 +542,35 @@ export const useStore = create<NotebookStore>((set, get) => ({
     });
   },
 
+  updateToolResult(cellId, toolUseId, content) {
+    set((state) => {
+      if (!state.notebook) return {};
+      return {
+        notebook: {
+          ...state.notebook,
+          cells: state.notebook.cells.map((c) => {
+            if (c.id !== cellId || c.type !== 'prompt') return c;
+            return {
+              ...c,
+              outputs: c.outputs.map((out) => {
+                if (out.type !== 'tool_use') return out;
+                // Match by id in input, or fall back to first unresolved
+                const hasId =
+                  typeof out.input['id'] === 'string' &&
+                  out.input['id'] === toolUseId;
+                const isUnresolved = out.result === undefined;
+                if (hasId || isUnresolved) {
+                  return { ...out, result: content };
+                }
+                return out;
+              }),
+            };
+          }),
+        },
+      };
+    });
+  },
+
   setCellGitDiff(cellId, diff) {
     set((state) => {
       if (!state.notebook) return {};
@@ -713,6 +743,9 @@ export const useStore = create<NotebookStore>((set, get) => ({
       switch (parsed.type) {
         case 'cell_output':
           store.appendCellOutput(parsed.cell_id, parsed.output);
+          break;
+        case 'tool_result':
+          store.updateToolResult(parsed.cell_id, parsed.tool_use_id, parsed.content);
           break;
         case 'execution_complete':
           store.setCellStatus(parsed.cell_id, 'completed');

@@ -13,7 +13,7 @@ export function CellInput({
   onChange,
   onExecute,
   disabled = false,
-  placeholder = 'Enter a prompt… (Shift+Enter to run)',
+  placeholder = 'Enter a prompt… (Ctrl+Enter to run)',
 }: CellInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -30,7 +30,7 @@ export function CellInput({
   }, [value, resize]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && e.shiftKey) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       if (!disabled) onExecute();
     }

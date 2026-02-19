@@ -1,7 +1,5 @@
 import crypto from 'crypto';
-import { TmuxSession } from './tmux.js';
-import { JsonlWatcher } from './jsonl-watcher.js';
-import { setupHooks } from './hooks.js';
+import { ClaudeProcess } from './claude-process.js';
 import { GitManager } from './git.js';
 import {
   NotebookSchema,
@@ -30,24 +28,16 @@ interface ClaudeResultMessage {
   is_error: boolean;
 }
 
-interface ClaudeToolResultMessage {
-  type: 'tool_result';
-  tool_use_id: string;
-  content: string;
-}
-
 type ClaudeJsonlMessage =
   | ClaudeTextMessage
   | ClaudeResultMessage
-  | ClaudeToolResultMessage
   | { type: string };
 
 // ── NotebookSession ──────────────────────────────────────────────────────────
 
 interface NotebookSession {
   id: string;
-  tmux: TmuxSession;
-  watcher: JsonlWatcher | null;
+  claudeProcess: ClaudeProcess;
   notebook: Notebook;
   gitManager: GitManager;
   /** Absolute path to the .notebook.json file on disk. */
@@ -58,8 +48,6 @@ interface NotebookSession {
   notebookDbId?: string;
   /** Tracks per-cell execution start times (ms) for duration calculation. */
   _execStartTimes: Map<string, number>;
-  /** Idle timer that fires when no new JSONL activity follows an assistant message. */
-  _completionTimer: ReturnType<typeof setTimeout> | null;
 }
 
 // ── SessionManager ───────────────────────────────────────────────────────────
@@ -71,12 +59,11 @@ export class SessionManager {
   onAutoSave?: (notebookDbId: string, cellCount: number) => void;
 
   /**
-   * Creates a new notebook session: starts a tmux session running Claude Code,
-   * finds its JSONL file, sets up the stop hook, and starts the JSONL watcher.
+   * Creates a new notebook session: spawns a persistent `claude -p` process,
+   * waits for it to initialise, and wires its stdout to the JSONL message handler.
    *
-   * @param notebookPath  Absolute path to the .notebook.json file (used to
-   *                      derive a stable session name and stored in metadata).
-   * @param cwd           Working directory for the tmux session.
+   * @param notebookPath  Absolute path to the .notebook.json file.
+   * @param cwd           Working directory for the Claude process.
    */
   async createSession(notebookPath: string, cwd: string): Promise<NotebookSession> {
     // Derive a short, deterministic session name from the notebook path.
@@ -87,24 +74,9 @@ export class SessionManager {
       .slice(0, 8);
     const sessionName = `nb-${hash}`;
 
-    const tmux = new TmuxSession(sessionName, cwd);
-    await tmux.start();
-
     // Initialise (or adopt) the git repo for this working directory.
     const gitManager = new GitManager(cwd);
     await gitManager.ensureRepo();
-
-    // Register the stop hook so we can detect when Claude finishes.
-    await setupHooks(sessionName);
-
-    // Locate the JSONL file that Claude Code created for this session.
-    const jsonlPath = await tmux.getSessionId();
-    if (!jsonlPath) {
-      await tmux.stop().catch(() => undefined);
-      throw new Error(
-        `Could not locate JSONL session file for tmux session "${sessionName}".`,
-      );
-    }
 
     const notebook: Notebook = NotebookSchema.parse({
       version: 1,
@@ -124,30 +96,29 @@ export class SessionManager {
 
     const session: NotebookSession = {
       id: sessionName,
-      tmux,
-      watcher: null,
+      claudeProcess: new ClaudeProcess(cwd),
       notebook,
       gitManager,
       notebookPath,
       listeners: new Set(),
       _execStartTimes: new Map(),
-      _completionTimer: null,
     };
 
-    // Start the JSONL watcher – messages arrive asynchronously.
-    const watcher = new JsonlWatcher(
-      jsonlPath,
+    // Start the Claude process.  Messages arrive asynchronously via stdout.
+    await session.claudeProcess.start(
       (raw: unknown) => this.handleJsonlMessage(session, raw),
-      (err: Error) => {
-        console.error(`[session ${sessionName}] JSONL watcher error:`, err.message);
-        this.broadcast(session, {
-          type: 'error',
-          message: `JSONL watcher error: ${err.message}`,
-        });
+      (code) => {
+        // Process exited unexpectedly — complete any running cell as an error.
+        const cellId = findRunningCellId(session.notebook);
+        if (cellId) {
+          console.error(
+            `[session ${sessionName}] Claude process exited (code ${String(code)}) ` +
+            `while cell "${cellId}" was running.`,
+          );
+          this.completeCell(session, cellId, true);
+        }
       },
     );
-    watcher.start();
-    session.watcher = watcher;
 
     this.sessions.set(sessionName, session);
     console.log(`[session] Created session "${sessionName}" for "${notebookPath}"`);
@@ -156,9 +127,8 @@ export class SessionManager {
   }
 
   /**
-   * Sends a prompt to Claude Code and waits (non-blocking) for the stop marker
-   * to appear.  Output messages arrive asynchronously via the JSONL watcher and
-   * are forwarded to registered listeners.
+   * Sends a prompt to Claude and marks the cell as running.
+   * Output messages arrive asynchronously via the process stdout handler.
    */
   async executeCell(sessionId: string, cellId: string, source: string): Promise<void> {
     const session = this.sessions.get(sessionId);
@@ -166,8 +136,7 @@ export class SessionManager {
       throw new Error(`Session "${sessionId}" not found.`);
     }
 
-    // Ensure the cell exists in the server-side notebook. The client may have
-    // added it locally without syncing, so we create a stub if needed.
+    // Ensure the cell exists in the server-side notebook.
     const cellExists = session.notebook.cells.some((c) => c.id === cellId);
     if (!cellExists) {
       session.notebook = {
@@ -186,17 +155,10 @@ export class SessionManager {
       };
     }
 
-    // Update the cell status to 'running'.
     session.notebook = updateCellStatus(session.notebook, cellId, 'running');
-
-    // Record execution start time for duration calculation.
     session._execStartTimes.set(cellId, Date.now());
 
-    // Completion is detected from the JSONL stream (see handleJsonlMessage
-    // for the 'result' message type), NOT from the Stop hook marker.  The
-    // Stop hook fires when the Claude Code *process* exits, not after each
-    // individual prompt/response cycle, so it is not suitable here.
-    await session.tmux.sendPrompt(source);
+    session.claudeProcess.sendPrompt(source);
   }
 
   getSession(sessionId: string): NotebookSession | undefined {
@@ -207,90 +169,38 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    session.watcher?.stop();
-
-    try {
-      await session.tmux.stop();
-    } catch (err) {
-      console.warn(`[session ${sessionId}] Error stopping tmux:`, String(err));
-    }
-
+    session.claudeProcess.stop();
     session.listeners.clear();
     this.sessions.delete(sessionId);
     console.log(`[session] Closed session "${sessionId}"`);
   }
 
   /**
-   * Reconnects to an existing tmux session. Used when restoring a notebook
-   * from the database. If the tmux session is alive, we reattach; otherwise
-   * we create a new one.
+   * Reconnects to a session when restoring a notebook from the database.
    *
-   * Returns the session and a flag indicating whether we reconnected
-   * (true) or created fresh (false).
+   * Since Claude subprocesses do not survive server restarts, this always
+   * spawns a fresh process.  The only "reconnect" case is when the session
+   * is already tracked in-memory within the same server run.
    */
   async reconnectSession(
     sessionName: string,
     notebookPath: string,
     cwd: string,
     notebook: Notebook,
-    jsonlPath?: string | null,
+    _jsonlPath?: string | null,
     notebookDbId?: string,
   ): Promise<{ session: NotebookSession; reconnected: boolean }> {
-    // If we are already tracking this session, just return it.
+    // If already tracked in memory (same server run), return it.
     const existing = this.sessions.get(sessionName);
     if (existing) {
       return { session: existing, reconnected: true };
     }
 
-    const tmux = new TmuxSession(sessionName, cwd);
-    const alive = await tmux.isAlive();
-
-    if (!alive) {
-      // Session is dead — create a brand new one.
-      const newSession = await this.createSession(notebookPath, cwd);
-      newSession.notebook = notebook;
-      newSession.notebookDbId = notebookDbId;
-      return { session: newSession, reconnected: false };
-    }
-
-    // Session is alive — reconnect.
-    const gitManager = new GitManager(cwd);
-    await gitManager.ensureRepo();
-
-    const session: NotebookSession = {
-      id: sessionName,
-      tmux,
-      watcher: null,
-      notebook,
-      gitManager,
-      notebookPath,
-      listeners: new Set(),
-      notebookDbId,
-      _execStartTimes: new Map(),
-      _completionTimer: null,
-    };
-
-    // Try to set up the JSONL watcher.
-    const resolvedJsonlPath = jsonlPath ?? (await tmux.getSessionId());
-    if (resolvedJsonlPath) {
-      const watcher = new JsonlWatcher(
-        resolvedJsonlPath,
-        (raw: unknown) => this.handleJsonlMessage(session, raw),
-        (err: Error) => {
-          console.error(`[session ${sessionName}] JSONL watcher error:`, err.message);
-          this.broadcast(session, {
-            type: 'error',
-            message: `JSONL watcher error: ${err.message}`,
-          });
-        },
-      );
-      watcher.start();
-      session.watcher = watcher;
-    }
-
-    this.sessions.set(sessionName, session);
-    console.log(`[session] Reconnected to session "${sessionName}"`);
-    return { session, reconnected: true };
+    // Subprocess-based sessions don't survive restarts — always create fresh.
+    const newSession = await this.createSession(notebookPath, cwd);
+    newSession.notebook = notebook;
+    newSession.notebookDbId = notebookDbId;
+    return { session: newSession, reconnected: false };
   }
 
   // ── Listener management ──────────────────────────────────────────────────
@@ -305,9 +215,6 @@ export class SessionManager {
     return () => session.listeners.delete(listener);
   }
 
-  /**
-   * Broadcasts a message to all listeners of a given session (by ID).
-   */
   broadcastToSession(sessionId: string, msg: WSServerMessage): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
@@ -327,31 +234,11 @@ export class SessionManager {
   }
 
   /**
-   * Resets (or starts) the idle completion timer for a running cell.
-   * If no new JSONL activity arrives within the timeout, the cell is
-   * marked as completed.  This handles Claude Code's interactive mode
-   * where simple responses do NOT produce a 'result' JSONL message.
-   */
-  private resetCompletionTimer(session: NotebookSession, cellId: string): void {
-    if (session._completionTimer) clearTimeout(session._completionTimer);
-    session._completionTimer = setTimeout(() => {
-      session._completionTimer = null;
-      this.completeCell(session, cellId, false);
-    }, 5_000);
-  }
-
-  /**
    * Marks a cell as completed (or error), broadcasts execution_complete,
    * and kicks off a best-effort git commit.  No-ops if the cell is no
    * longer running (guards against double-completion).
    */
   private completeCell(session: NotebookSession, cellId: string, isError: boolean): void {
-    // Clear any pending idle timer.
-    if (session._completionTimer) {
-      clearTimeout(session._completionTimer);
-      session._completionTimer = null;
-    }
-
     // Guard: only complete if the cell is still running.
     const cell = session.notebook.cells.find((c) => c.id === cellId);
     if (!cell || cell.status !== 'running') return;
@@ -374,13 +261,14 @@ export class SessionManager {
       `[session ${session.id}] Cell "${cellId}" ${status} (${duration_ms}ms)`,
     );
 
-    // Best-effort git commit.
-    this.tryGitCommit(session, cellId).catch(() => {});
-
-    // Auto-save notebook to disk after cell completes.
-    this.autoSave(session).catch((err) => {
-      console.error(`[session ${session.id}] auto-save failed:`, err);
-    });
+    // Defer git commit and auto-save to the next tick so the
+    // execution_complete WebSocket message is flushed first.
+    setTimeout(() => {
+      this.tryGitCommit(session, cellId).catch(() => {});
+      this.autoSave(session).catch((err) => {
+        console.error(`[session ${session.id}] auto-save failed:`, err);
+      });
+    }, 0);
   }
 
   /** Best-effort auto-save: writes the in-memory notebook to disk and syncs DB metadata. */
@@ -422,10 +310,13 @@ export class SessionManager {
    * Converts a raw JSONL message from Claude Code into one or more
    * WSServerMessage events and broadcasts them to listeners.
    *
-   * Claude Code's JSONL format:
-   *   - type "assistant" carries content blocks (text, thinking, tool_use)
-   *   - type "result"    carries the final result text + is_error flag
-   *   - type "tool_result" carries the output of a tool invocation
+   * With `--input-format stream-json --output-format stream-json --verbose`,
+   * Claude emits:
+   *   - type "assistant"    → content blocks (text, thinking, tool_use)
+   *   - type "result"       → final result text + is_error + definitive completion
+   *   - type "tool_result"  → output of a tool invocation
+   *   - type "stream_event" → streaming deltas (ignored; we use complete "assistant" blocks)
+   *   - type "system"       → system messages (ignored)
    */
   private handleJsonlMessage(session: NotebookSession, raw: unknown): void {
     const msg = raw as ClaudeJsonlMessage;
@@ -433,9 +324,6 @@ export class SessionManager {
     switch (msg.type) {
       case 'assistant': {
         const assistant = msg as ClaudeTextMessage;
-
-        // We need a cell ID to associate the output with.  Without an explicit
-        // mapping we use the session's most recently "running" cell.
         const cellId = findRunningCellId(session.notebook);
         if (!cellId) break;
 
@@ -464,9 +352,7 @@ export class SessionManager {
           }
 
           if (output) {
-            // Append the output to the in-memory notebook cell.
             session.notebook = appendCellOutput(session.notebook, cellId, output);
-
             this.broadcast(session, {
               type: 'cell_output',
               cell_id: cellId,
@@ -474,12 +360,6 @@ export class SessionManager {
             });
           }
         }
-
-        // Start/reset the idle completion timer.  In interactive mode,
-        // Claude Code does NOT always emit a 'result' JSONL message after
-        // simple responses.  We detect completion by watching for a period
-        // of inactivity after the last 'assistant' message.
-        this.resetCompletionTimer(session, cellId);
         break;
       }
 
@@ -489,6 +369,7 @@ export class SessionManager {
         if (!cellId) break;
 
         if (result.is_error && result.result) {
+          // Broadcast error output — it won't appear in 'assistant' messages.
           const output: CellOutput = {
             type: 'error',
             message: result.result,
@@ -500,42 +381,17 @@ export class SessionManager {
             cell_id: cellId,
             output,
           });
-        } else if (result.result) {
-          const output: CellOutput = {
-            type: 'text',
-            content: result.result,
-            timestamp: new Date().toISOString(),
-          };
-          session.notebook = appendCellOutput(session.notebook, cellId, output);
-          this.broadcast(session, {
-            type: 'cell_output',
-            cell_id: cellId,
-            output,
-          });
         }
+        // Success: result.result duplicates the text already broadcast via
+        // 'assistant' messages — skip it to avoid duplicate output.
 
-        // 'result' is the definitive completion signal — complete immediately.
+        // 'result' is the definitive completion signal — no idle timer needed.
         this.completeCell(session, cellId, result.is_error);
         break;
       }
 
-      case 'tool_result': {
-        const toolResult = msg as ClaudeToolResultMessage;
-        const cellId = findRunningCellId(session.notebook);
-        if (!cellId) break;
-
-        // Find the matching tool_use output to attach the result.
-        session.notebook = attachToolResult(
-          session.notebook,
-          cellId,
-          toolResult.tool_use_id,
-          toolResult.content,
-        );
-        break;
-      }
-
       default:
-        // Unknown or unhandled message type – silently ignore.
+        // stream_event, system, and other message types are silently ignored.
         break;
     }
   }
@@ -604,38 +460,8 @@ function appendCellOutput(
 }
 
 /**
- * Attaches the tool result string to the matching tool_use output block
- * identified by its tool_use_id.  This mutates the in-memory notebook only.
+ * Attaches the tool result string to the matching tool_use output block.
  */
-function attachToolResult(
-  notebook: Notebook,
-  cellId: string,
-  toolUseId: string,
-  result: string,
-): Notebook {
-  return {
-    ...notebook,
-    cells: notebook.cells.map((cell) => {
-      if (cell.id !== cellId || cell.type !== 'prompt') return cell;
-      return {
-        ...cell,
-        outputs: cell.outputs.map((out) => {
-          if (out.type !== 'tool_use') return out;
-          // Match by tool_use_id stored in the 'input' record if present,
-          // or fall back to the first unresolved tool_use without a result.
-          const hasId =
-            typeof out.input['id'] === 'string' &&
-            out.input['id'] === toolUseId;
-          const isUnresolved = out.result === undefined;
-          if (hasId || isUnresolved) {
-            return { ...out, result };
-          }
-          return out;
-        }),
-      };
-    }),
-  };
-}
 
 /** Returns the cell ID of the first cell that is currently 'running'. */
 function findRunningCellId(notebook: Notebook): string | null {

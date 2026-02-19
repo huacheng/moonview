@@ -1,36 +1,37 @@
-import { useMemo, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Notebook } from './components/Notebook';
 import { SliceView } from './components/SliceView';
+import { Sidebar } from './components/Sidebar';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { LoginPage } from './components/LoginPage';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useStore } from './store';
 import './styles.css';
 
-// Generate a stable session ID per page load
-function useSessionId(): string {
-  return useMemo(() => {
-    const stored = sessionStorage.getItem('nb-session-id');
-    if (stored) return stored;
-    const id = crypto.randomUUID();
-    sessionStorage.setItem('nb-session-id', id);
-    return id;
-  }, []);
-}
-
 function AuthenticatedApp() {
-  const sessionId = useSessionId();
   const activeTab = useStore((s) => s.activeTab);
+  const sessionId = useStore((s) => s.sessionId);
+  const notebook = useStore((s) => s.notebook);
 
-  // Initiate WebSocket connection (with auto-reconnect)
+  // Initiate WebSocket connection only when we have a sessionId.
   useWebSocket(sessionId);
+
+  const hasNotebook = notebook !== null && sessionId !== null;
 
   return (
     <div className="app">
       <Toolbar />
-      <main className="app-content">
-        {activeTab === 'notebook' ? <Notebook /> : <SliceView />}
-      </main>
+      <div className="app-body">
+        <Sidebar />
+        <main className="app-content">
+          {hasNotebook ? (
+            activeTab === 'notebook' ? <Notebook /> : <SliceView />
+          ) : (
+            <WelcomeScreen />
+          )}
+        </main>
+      </div>
     </div>
   );
 }

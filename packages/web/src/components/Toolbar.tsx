@@ -204,10 +204,27 @@ function FileOperations() {
 
 // ── Main Toolbar ────────────────────────────────────────────────────────────
 
+function SidebarToggle() {
+  const toggleSidebar = useStore((s) => s.toggleSidebar);
+  const sidebarOpen = useStore((s) => s.sidebarOpen);
+
+  return (
+    <button
+      className="toolbar-sidebar-toggle"
+      onClick={toggleSidebar}
+      title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+      aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+    >
+      {sidebarOpen ? '\u2630' : '\u2630'}
+    </button>
+  );
+}
+
 export function Toolbar() {
   return (
     <header className="toolbar">
       <div className="toolbar-left">
+        <SidebarToggle />
         <span className="toolbar-logo" aria-label="Notebook AI">
           NB
         </span>

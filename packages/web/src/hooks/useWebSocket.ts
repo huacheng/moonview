@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore } from '../store';
 
 const RECONNECT_DELAY_MS = 3000;
@@ -7,52 +7,40 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 /**
  * Manages WebSocket lifecycle: connection, auto-reconnect, and teardown.
  *
- * Call this once near the top of your component tree. Pass a stable sessionId
- * so the effect only fires when the session actually changes.
+ * Pass a sessionId to connect, or null to skip.
  */
-export function useWebSocket(sessionId: string) {
+export function useWebSocket(sessionId: string | null) {
   const connectWebSocket = useStore((s) => s.connectWebSocket);
   const disconnectWebSocket = useStore((s) => s.disconnectWebSocket);
-  const wsStatus = useStore((s) => s.wsStatus);
 
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const unmounted = useRef(false);
 
-  const connect = useCallback(() => {
-    if (unmounted.current) return;
-    connectWebSocket(sessionId);
-  }, [connectWebSocket, sessionId]);
-
-  // Auto-reconnect when status drops to disconnected
+  // Single effect: connect when sessionId changes, set up reconnect polling.
   useEffect(() => {
-    if (wsStatus === 'disconnected' && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
-      reconnectTimer.current = setTimeout(() => {
-        if (!unmounted.current) {
-          reconnectAttempts.current += 1;
-          connect();
-        }
-      }, RECONNECT_DELAY_MS);
-    }
+    if (!sessionId) return;
 
-    if (wsStatus === 'connected') {
-      reconnectAttempts.current = 0;
-    }
+    reconnectAttempts.current = 0;
+    connectWebSocket(sessionId);
+
+    // Poll-based reconnect: periodically check wsStatus and reconnect if needed.
+    const interval = setInterval(() => {
+      const status = useStore.getState().wsStatus;
+      if (status === 'disconnected' && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts.current += 1;
+        connectWebSocket(sessionId);
+      }
+      if (status === 'connected') {
+        reconnectAttempts.current = 0;
+      }
+    }, RECONNECT_DELAY_MS);
 
     return () => {
+      clearInterval(interval);
       if (reconnectTimer.current !== null) {
         clearTimeout(reconnectTimer.current);
         reconnectTimer.current = null;
       }
-    };
-  }, [wsStatus, connect]);
-
-  // Initial connect on mount; cleanup on unmount
-  useEffect(() => {
-    unmounted.current = false;
-    connect();
-    return () => {
-      unmounted.current = true;
       disconnectWebSocket();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

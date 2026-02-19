@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type {
   Annotation,
   InsertAnnotation,
@@ -126,8 +126,15 @@ function CommentModal({
 export function Annotations({ cellId, outputs }: AnnotationsProps) {
   const addAnnotation = useStore((s) => s.addAnnotation);
   const removeAnnotation = useStore((s) => s.removeAnnotation);
-  const annotations = useStore(
-    (s) => s.notebook?.annotations.filter((a) => a.target_cell === cellId) ?? [],
+  // Select the raw annotations array (stable reference across unrelated store
+  // updates such as appendCellOutput).  Filter locally via useMemo so we never
+  // return a new array reference from the Zustand selector — doing so would
+  // cause useSyncExternalStore to detect a "tear" on every render and loop
+  // indefinitely (React error #185).
+  const allAnnotations = useStore((s) => s.notebook?.annotations);
+  const annotations = useMemo(
+    () => allAnnotations?.filter((a) => a.target_cell === cellId) ?? [],
+    [allAnnotations, cellId],
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -245,7 +252,9 @@ export function Annotations({ cellId, outputs }: AnnotationsProps) {
     (a): a is Exclude<Annotation, InsertAnnotation> => a.type !== 'insert',
   );
 
-  if (outputs.length === 0 && annotations.length === 0) return null;
+  // Don't render anything when there are no annotations at all – avoids
+  // empty wrapper divs / InsertZone buttons cluttering the output area.
+  if (annotations.length === 0) return null;
 
   return (
     <div className="annotations-wrapper" ref={containerRef}>
@@ -258,14 +267,14 @@ export function Annotations({ cellId, outputs }: AnnotationsProps) {
         onComment={handleCommentStart}
       />
 
-      {/* Insert zones between outputs */}
-      {outputs.length > 0 && (
+      {/* Insert annotations rendered at their positions */}
+      {insertAnnotations.length > 0 && outputs.length > 0 && (
         <>
           {outputs.map((_output, i) => {
-            // Insert annotations that go after this output index
             const insertsAfter = insertAnnotations.filter(
               (a) => a.after_output_index === i,
             );
+            if (insertsAfter.length === 0) return null;
             return (
               <div key={`insert-zone-${i}`}>
                 {insertsAfter.map((ann) => (

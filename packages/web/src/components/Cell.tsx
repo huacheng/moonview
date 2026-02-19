@@ -54,7 +54,7 @@ function CellToolbar({
             className="cell-btn cell-btn-run"
             onClick={onRun}
             disabled={status === 'running'}
-            title="Run cell (Shift+Enter)"
+            title="Run cell (Ctrl+Enter)"
           >
             {status === 'running' ? '■' : '▶'}
           </button>

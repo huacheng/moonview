@@ -260,6 +260,13 @@ export const WSClientMessageSchema = z.discriminatedUnion('type', [
   SliceUpdateSchema,
 ]);
 
+export const ToolResultMessageSchema = z.object({
+  type: z.literal('tool_result'),
+  cell_id: z.string(),
+  tool_use_id: z.string(),
+  content: z.string(),
+});
+
 export const WSServerMessageSchema = z.discriminatedUnion('type', [
   CellOutputMessageSchema,
   ExecutionCompleteSchema,
@@ -267,7 +274,32 @@ export const WSServerMessageSchema = z.discriminatedUnion('type', [
   ExportCompleteSchema,
   ErrorMessageSchema,
   SliceUpdateSchema,
+  ToolResultMessageSchema,
 ]);
+
+// ─── Notebook List / Workspace Types ───
+
+export const NotebookListItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  status: z.enum(['active', 'archived']),
+  cellCount: z.number().int().default(0),
+  hasActiveSession: z.boolean().default(false),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const WorkspaceInfoSchema = z.object({
+  workspaceRoot: z.string(),
+  notebookDir: z.string(),
+  notebookPath: z.string(),
+});
+
+export const CreateNotebookRequestSchema = z.object({
+  title: z.string().min(1),
+  userId: z.string().optional(),
+});
 
 // ─── Export Options ───
 
@@ -320,6 +352,11 @@ export type ExportHtml = z.infer<typeof ExportHtmlSchema>;
 export type ExportComplete = z.infer<typeof ExportCompleteSchema>;
 export type ErrorMessage = z.infer<typeof ErrorMessageSchema>;
 
+export type ToolResultMessage = z.infer<typeof ToolResultMessageSchema>;
 export type WSClientMessage = z.infer<typeof WSClientMessageSchema>;
 export type WSServerMessage = z.infer<typeof WSServerMessageSchema>;
 export type ExportOptions = z.infer<typeof ExportOptionsSchema>;
+
+export type NotebookListItem = z.infer<typeof NotebookListItemSchema>;
+export type WorkspaceInfo = z.infer<typeof WorkspaceInfoSchema>;
+export type CreateNotebookRequest = z.infer<typeof CreateNotebookRequestSchema>;

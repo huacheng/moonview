@@ -1,7 +1,5 @@
 import { watch, FSWatcher } from 'chokidar';
-import { createReadStream } from 'fs';
-import { createInterface } from 'readline';
-import { stat } from 'fs/promises';
+import { open, stat } from 'fs/promises';
 
 export class JsonlWatcher {
   private offset = 0;
@@ -74,8 +72,9 @@ export class JsonlWatcher {
   }
 
   /**
-   * Reads all bytes that have been appended to the file since the last read,
-   * parses each line as JSON and calls onMessage for every complete object.
+   * Reads all bytes that have been appended to the file since the last read
+   * using a single file handle + read call. Parses each complete line as
+   * JSON and calls onMessage for every valid object.
    *
    * Partial lines (no trailing newline yet) are NOT emitted; the offset is
    * only advanced to the last complete newline so the partial content will
@@ -93,74 +92,48 @@ export class JsonlWatcher {
 
     if (fileSize <= this.offset) return;
 
-    const stream = createReadStream(this.jsonlPath, {
-      start: this.offset,
-      end: fileSize - 1,
-      encoding: 'utf8',
-    });
+    const bytesToRead = fileSize - this.offset;
+    const buffer = Buffer.alloc(bytesToRead);
 
-    const rl = createInterface({ input: stream, crlfDelay: Infinity });
+    const fh = await open(this.jsonlPath, 'r');
+    try {
+      await fh.read(buffer, 0, bytesToRead, this.offset);
+    } finally {
+      await fh.close();
+    }
 
-    const lines: string[] = [];
+    const raw = buffer.toString('utf8');
+    const endsWithNewline = raw.endsWith('\n');
+    const lines = raw.split('\n');
+
+    // If the file doesn't end with \n, the last element is an incomplete
+    // line — drop it so it will be re-read on the next change event.
+    if (!endsWithNewline) {
+      lines.pop();
+    } else {
+      // split on a trailing \n produces an empty last element — remove it.
+      if (lines.length > 0 && lines[lines.length - 1] === '') {
+        lines.pop();
+      }
+    }
+
     let bytesConsumed = 0;
 
-    await new Promise<void>((resolve, reject) => {
-      rl.on('line', (line) => {
-        lines.push(line);
-      });
-      rl.on('close', () => resolve());
-      rl.on('error', reject);
-      stream.on('error', reject);
-    });
+    for (const line of lines) {
+      // Account for this line + its newline delimiter.
+      bytesConsumed += Buffer.byteLength(line + '\n', 'utf8');
 
-    // readline strips the newline delimiter from each line.  We only want
-    // to advance the offset past lines that ended with a newline (i.e., all
-    // lines except possibly the last one when the file ends mid-line).
-    //
-    // Strategy: re-encode each line plus '\n' to compute expected bytes, and
-    // only emit + advance for lines up to the last newline boundary.
-    //
-    // We determine whether the last line is "complete" by checking whether
-    // the raw slice ends with a newline.
-    const rawSlice = await this.readRawSlice(this.offset, fileSize);
-    const endsWithNewline = rawSlice.endsWith('\n');
-
-    const completeLines = endsWithNewline ? lines : lines.slice(0, -1);
-
-    for (const line of completeLines) {
       const trimmed = line.trimEnd(); // handle \r\n on Windows
-      if (trimmed.length === 0) {
-        bytesConsumed += Buffer.byteLength(line + '\n', 'utf8');
-        continue;
-      }
+      if (trimmed.length === 0) continue;
+
       try {
         const parsed: unknown = JSON.parse(trimmed);
         this.onMessage(parsed);
       } catch {
         // Malformed JSON – skip the line but still advance the offset.
       }
-      bytesConsumed += Buffer.byteLength(line + '\n', 'utf8');
-    }
-
-    // If the last line was incomplete, include its raw bytes so the offset
-    // lands right after the last complete newline.
-    if (!endsWithNewline && lines.length > 0) {
-      // bytesConsumed already excludes the incomplete last line. Good.
     }
 
     this.offset += bytesConsumed;
-  }
-
-  /** Reads a raw UTF-8 slice of the file for newline detection. */
-  private readRawSlice(start: number, end: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      const stream = createReadStream(this.jsonlPath, { start, end: end - 1 });
-      stream.on('data', (chunk) =>
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string)),
-      );
-      stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-      stream.on('error', reject);
-    });
   }
 }

@@ -12,15 +12,17 @@
   },
   "dependencies": {
     "@notebook-ai/shared": "workspace:*",
+    "better-sqlite3": "^12.6.2",
+    "chokidar": "^4.0.0",
     "express": "^5.1.0",
-    "ws": "^8.18.0",
     "simple-git": "^3.27.0",
-    "chokidar": "^4.0.0"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.0",
-    "@types/ws": "^8.18.0",
     "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

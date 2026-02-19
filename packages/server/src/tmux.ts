@@ -26,12 +26,10 @@ export class TmuxSession {
    * Claude to initialise by polling for the JSONL session file.
    */
   async start(): Promise<void> {
-    // Ensure any stale session with the same name is gone first.
+    // Kill any stale session with the same name before starting fresh.
     const alive = await this.isAlive();
     if (alive) {
-      throw new Error(
-        `tmux session "${this.sessionName}" already exists. Stop it first.`,
-      );
+      await this.stop().catch(() => {});
     }
 
     const command =
@@ -58,12 +56,10 @@ export class TmuxSession {
   async sendPrompt(prompt: string): Promise<void> {
     const escaped = shellEscape(prompt);
     try {
+      // Send literal text + Enter in a single shell call to reduce latency.
+      const target = shellEscape(this.sessionName);
       await execAsync(
-        `tmux send-keys -t ${shellEscape(this.sessionName)} -l ${escaped}`,
-      );
-      // Press Enter to submit the prompt.
-      await execAsync(
-        `tmux send-keys -t ${shellEscape(this.sessionName)} Enter`,
+        `tmux send-keys -t ${target} -l ${escaped} && tmux send-keys -t ${target} Enter`,
       );
     } catch (err) {
       throw new Error(
@@ -124,6 +120,21 @@ export class TmuxSession {
 
   getSessionName(): string {
     return this.sessionName;
+  }
+
+  /**
+   * Checks whether Claude Code has returned to its interactive prompt
+   * by looking for the `❯` character in the last few lines of the pane.
+   */
+  async isAtPrompt(): Promise<boolean> {
+    try {
+      const { stdout } = await execAsync(
+        `tmux capture-pane -t ${shellEscape(this.sessionName)} -p -l 5`,
+      );
+      return stdout.includes('❯');
+    } catch {
+      return false;
+    }
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────

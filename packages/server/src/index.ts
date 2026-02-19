@@ -230,7 +230,7 @@ app.post('/api/notebooks/create', async (req: Request, res: Response) => {
 
 /**
  * POST /api/notebooks/:notebookId/restore
- * Restores a notebook from the DB: loads .notebook.json, reconnects or creates tmux session.
+ * Restores a notebook from the DB: loads .notebook.json, reconnects or creates a Claude session.
  */
 app.post('/api/notebooks/:notebookId/restore', async (req: Request, res: Response) => {
   const { notebookId } = req.params as { notebookId: string };
