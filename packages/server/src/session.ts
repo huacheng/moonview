@@ -28,15 +28,25 @@ interface ClaudeResultMessage {
   is_error: boolean;
 }
 
+interface ClaudeToolResultMessage {
+  type: 'tool_result';
+  tool_use_id: string;
+  content: string | Array<{ type: string; text?: string }>;
+  is_error?: boolean;
+}
+
 type ClaudeJsonlMessage =
   | ClaudeTextMessage
   | ClaudeResultMessage
+  | ClaudeToolResultMessage
   | { type: string };
 
 // ── NotebookSession ──────────────────────────────────────────────────────────
 
 interface NotebookSession {
   id: string;
+  /** Absolute path to the notebook's workspace directory (used for file ops). */
+  cwd: string;
   claudeProcess: ClaudeProcess;
   notebook: Notebook;
   gitManager: GitManager;
@@ -74,6 +84,10 @@ export class SessionManager {
       .slice(0, 8);
     const sessionName = `nb-${hash}`;
 
+    // Idempotent: if a session already exists for this notebook, reuse it.
+    const existing = this.sessions.get(sessionName);
+    if (existing) return existing;
+
     // Initialise (or adopt) the git repo for this working directory.
     const gitManager = new GitManager(cwd);
     await gitManager.ensureRepo();
@@ -96,6 +110,7 @@ export class SessionManager {
 
     const session: NotebookSession = {
       id: sessionName,
+      cwd,
       claudeProcess: new ClaudeProcess(cwd),
       notebook,
       gitManager,
@@ -178,9 +193,9 @@ export class SessionManager {
   /**
    * Reconnects to a session when restoring a notebook from the database.
    *
-   * Since Claude subprocesses do not survive server restarts, this always
-   * spawns a fresh process.  The only "reconnect" case is when the session
-   * is already tracked in-memory within the same server run.
+   * createSession is idempotent (same notebookPath → same session name, reuses
+   * in-memory session if present).  `reconnected = true` means an existing
+   * in-memory session was reused; `false` means a fresh process was spawned.
    */
   async reconnectSession(
     sessionName: string,
@@ -190,17 +205,13 @@ export class SessionManager {
     _jsonlPath?: string | null,
     notebookDbId?: string,
   ): Promise<{ session: NotebookSession; reconnected: boolean }> {
-    // If already tracked in memory (same server run), return it.
-    const existing = this.sessions.get(sessionName);
-    if (existing) {
-      return { session: existing, reconnected: true };
+    const existed = this.sessions.has(sessionName);
+    const session = await this.createSession(notebookPath, cwd);
+    if (!existed) {
+      session.notebook = notebook;
+      session.notebookDbId = notebookDbId;
     }
-
-    // Subprocess-based sessions don't survive restarts — always create fresh.
-    const newSession = await this.createSession(notebookPath, cwd);
-    newSession.notebook = notebook;
-    newSession.notebookDbId = notebookDbId;
-    return { session: newSession, reconnected: false };
+    return { session, reconnected: existed };
   }
 
   // ── Listener management ──────────────────────────────────────────────────
@@ -215,7 +226,7 @@ export class SessionManager {
     return () => session.listeners.delete(listener);
   }
 
-  broadcastToSession(sessionId: string, msg: WSServerMessage): void {
+  broadcastToSession(sessionId: string, msg: Record<string, unknown>): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     this.broadcast(session, msg);
@@ -223,10 +234,12 @@ export class SessionManager {
 
   // ── Private helpers ──────────────────────────────────────────────────────
 
-  private broadcast(session: NotebookSession, msg: WSServerMessage): void {
+  // Accept any object — session_id is injected here so call sites stay clean.
+  private broadcast(session: NotebookSession, msg: Record<string, unknown>): void {
+    const msgWithSession = { ...msg, session_id: session.id } as WSServerMessage;
     for (const listener of session.listeners) {
       try {
-        listener(msg);
+        listener(msgWithSession);
       } catch (err) {
         console.error('[session] Listener error:', err);
       }
@@ -345,6 +358,7 @@ export class SessionManager {
           } else if (block.type === 'tool_use') {
             output = {
               type: 'tool_use',
+              tool_use_id: block.id,
               name: block.name,
               input: block.input,
               timestamp: new Date().toISOString(),
@@ -387,6 +401,41 @@ export class SessionManager {
 
         // 'result' is the definitive completion signal — no idle timer needed.
         this.completeCell(session, cellId, result.is_error);
+        break;
+      }
+
+      case 'tool_result': {
+        const toolResult = msg as ClaudeToolResultMessage;
+        const cellId = findRunningCellId(session.notebook);
+        if (!cellId) break;
+
+        // Normalise content to a plain string.
+        const content =
+          typeof toolResult.content === 'string'
+            ? toolResult.content
+            : toolResult.content
+                .map((b) => (b.type === 'text' ? (b.text ?? '') : ''))
+                .join('');
+
+        const isError = toolResult.is_error ?? false;
+
+        // Update the matching tool_use output block in the notebook.
+        session.notebook = attachToolResult(
+          session.notebook,
+          cellId,
+          toolResult.tool_use_id,
+          content,
+          isError,
+        );
+
+        // Broadcast to frontend so tool results show up in real time.
+        this.broadcast(session, {
+          type: 'tool_result',
+          cell_id: cellId,
+          tool_use_id: toolResult.tool_use_id,
+          content,
+          is_error: isError,
+        });
         break;
       }
 
@@ -460,8 +509,36 @@ function appendCellOutput(
 }
 
 /**
- * Attaches the tool result string to the matching tool_use output block.
+ * Attaches a tool result to the matching tool_use output block in a cell.
+ * Matches by tool_use_id; falls back to the first unresolved tool_use block.
  */
+function attachToolResult(
+  notebook: Notebook,
+  cellId: string,
+  toolUseId: string,
+  content: string,
+  isError: boolean,
+): Notebook {
+  return {
+    ...notebook,
+    cells: notebook.cells.map((cell) => {
+      if (cell.id !== cellId || cell.type !== 'prompt') return cell;
+      let matched = false;
+      const outputs = cell.outputs.map((out) => {
+        if (matched || out.type !== 'tool_use') return out;
+        // Match by stored tool_use_id (preferred), fall back to first unresolved.
+        const byId = out.tool_use_id === toolUseId;
+        const unresolved = !byId && out.result === undefined;
+        if (byId || unresolved) {
+          matched = true;
+          return { ...out, result: content, is_error: isError };
+        }
+        return out;
+      });
+      return { ...cell, outputs };
+    }),
+  };
+}
 
 /** Returns the cell ID of the first cell that is currently 'running'. */
 function findRunningCellId(notebook: Notebook): string | null {

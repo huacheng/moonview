@@ -1,113 +1,79 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
-import type { Notebook } from '@notebook-ai/shared';
 
 // ── Connection status badge ─────────────────────────────────────────────────
 
+const SIGNAL_HEIGHTS = [4, 6, 9, 12];
+
+function SignalBars({ latency }: { latency: number | null }) {
+  let bars: number;
+  let color: string;
+
+  if (latency === null) {
+    bars = 0;
+    color = 'rgba(250,250,249,0.25)';
+  } else if (latency < 50) {
+    bars = 4; color = '#4ade80';
+  } else if (latency < 150) {
+    bars = 3; color = '#facc15';
+  } else if (latency < 300) {
+    bars = 2; color = '#fb923c';
+  } else {
+    bars = 1; color = '#f87171';
+  }
+
+  const title = latency === null ? 'Measuring latency…' : `Latency: ${latency}ms`;
+
+  return (
+    <span className="signal-bars" title={title} aria-label={title}>
+      {SIGNAL_HEIGHTS.map((h, i) => (
+        <span
+          key={i}
+          className="signal-bar"
+          style={{
+            height: `${h}px`,
+            background: i < bars ? color : 'rgba(250,250,249,0.18)',
+          }}
+        />
+      ))}
+      <span className="signal-ms" style={{ color: bars > 0 ? color : 'rgba(250,250,249,0.4)' }}>
+        {latency === null ? '--' : latency}ms
+      </span>
+    </span>
+  );
+}
+
 function ConnectionStatus() {
   const wsStatus = useStore((s) => s.wsStatus);
+  const sessionId = useStore((s) => s.sessionId);
+  const notebook = useStore((s) => s.notebook);
+  const latency = useStore((s) => s.latency);
 
-  const label: Record<typeof wsStatus, string> = {
+  const initializing = wsStatus === 'connected' && notebook !== null && !sessionId;
+  const display = initializing ? 'initializing' : wsStatus;
+
+  const label: Record<string, string> = {
     connected: 'Connected',
     connecting: 'Connecting…',
     disconnected: 'Disconnected',
+    initializing: 'Initializing…',
   };
 
+  // Signal bars reflect connection state via color; show even when not yet connected
+  // so the latency area is always visible (0 bars + dim color = not connected).
+  const effectiveLatency = wsStatus === 'connected' ? latency : null;
+
   return (
-    <div className={`connection-status connection-status-${wsStatus}`}>
-      <span className="connection-dot" aria-hidden="true" />
-      <span className="connection-label">{label[wsStatus]}</span>
+    <div
+      className={`connection-status connection-status-${display}`}
+      title={label[display]}
+      aria-label={label[display]}
+    >
+      <SignalBars latency={effectiveLatency} />
     </div>
   );
 }
 
-// ── Editable title ──────────────────────────────────────────────────────────
-
-function NotebookTitle() {
-  const title = useStore((s) => s.notebook?.metadata.title ?? 'Untitled Notebook');
-  const updateTitle = useStore((s) => s.updateTitle);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(title);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.select();
-    }
-  }, [editing]);
-
-  function commit() {
-    const trimmed = draft.trim() || 'Untitled Notebook';
-    updateTitle(trimmed);
-    setDraft(trimmed);
-    setEditing(false);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') commit();
-    if (e.key === 'Escape') {
-      setDraft(title);
-      setEditing(false);
-    }
-  }
-
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        className="toolbar-title-input"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
-        aria-label="Notebook title"
-      />
-    );
-  }
-
-  return (
-    <button
-      className="toolbar-title"
-      onClick={() => {
-        setDraft(title);
-        setEditing(true);
-      }}
-      title="Click to rename notebook"
-    >
-      {title}
-    </button>
-  );
-}
-
-// ── Tab switcher ────────────────────────────────────────────────────────────
-
-function TabSwitcher() {
-  const activeTab = useStore((s) => s.activeTab);
-  const setActiveTab = useStore((s) => s.setActiveTab);
-
-  return (
-    <nav className="tab-switcher" role="tablist" aria-label="Main tabs">
-      <button
-        className={`tab-btn ${activeTab === 'notebook' ? 'tab-btn-active' : ''}`}
-        role="tab"
-        aria-selected={activeTab === 'notebook'}
-        onClick={() => setActiveTab('notebook')}
-      >
-        Notebook
-      </button>
-      <button
-        className={`tab-btn ${activeTab === 'slice' ? 'tab-btn-active' : ''}`}
-        role="tab"
-        aria-selected={activeTab === 'slice'}
-        onClick={() => setActiveTab('slice')}
-      >
-        Slice
-      </button>
-    </nav>
-  );
-}
-
-// ── File operations ─────────────────────────────────────────────────────────
+// ── Logout ──────────────────────────────────────────────────────────────────
 
 function LogoutButton() {
   const authRequired = useStore((s) => s.authRequired);
@@ -122,87 +88,7 @@ function LogoutButton() {
   );
 }
 
-function FileOperations() {
-  const saveNotebook = useStore((s) => s.saveNotebook);
-  const setNotebook = useStore((s) => s.setNotebook);
-  const sessionId = useStore((s) => s.sessionId);
-  const wsStatus = useStore((s) => s.wsStatus);
-  const connected = wsStatus === 'connected';
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImport = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const notebook = JSON.parse(reader.result as string) as Notebook;
-          setNotebook(notebook);
-        } catch {
-          // Silently ignore invalid JSON
-        }
-      };
-      reader.readAsText(file);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    },
-    [setNotebook],
-  );
-
-  function handleExportZip() {
-    if (!sessionId) return;
-    // Direct download via REST endpoint — browser handles the zip download
-    const url = `/api/notebooks/${encodeURIComponent(sessionId)}/export-zip`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-
-  return (
-    <div className="file-ops">
-      <button
-        className="toolbar-btn"
-        onClick={() => saveNotebook()}
-        disabled={!connected}
-        title={connected ? 'Save notebook' : 'Connect to save'}
-      >
-        Save
-      </button>
-      <button
-        className="toolbar-btn"
-        onClick={() => fileInputRef.current?.click()}
-        title="Import a .notebook.json file"
-      >
-        Import
-      </button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json,.notebook.json"
-        onChange={handleImport}
-        style={{ display: 'none' }}
-        aria-label="Import notebook file"
-      />
-      <button
-        className="toolbar-btn"
-        onClick={handleExportZip}
-        disabled={!sessionId}
-        title={sessionId ? 'Export as folder (zip)' : 'No active session'}
-      >
-        Export Zip
-      </button>
-    </div>
-  );
-}
-
-// ── Main Toolbar ────────────────────────────────────────────────────────────
+// ── Sidebar toggle ──────────────────────────────────────────────────────────
 
 function SidebarToggle() {
   const toggleSidebar = useStore((s) => s.toggleSidebar);
@@ -215,28 +101,22 @@ function SidebarToggle() {
       title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
       aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
     >
-      {sidebarOpen ? '\u2630' : '\u2630'}
+      ☰
     </button>
   );
 }
+
+// ── Main Toolbar ────────────────────────────────────────────────────────────
 
 export function Toolbar() {
   return (
     <header className="toolbar">
       <div className="toolbar-left">
         <SidebarToggle />
-        <span className="toolbar-logo" aria-label="Notebook AI">
-          NB
-        </span>
-        <NotebookTitle />
-      </div>
-
-      <div className="toolbar-center">
-        <TabSwitcher />
+        <span className="toolbar-logo" aria-label="Notebook AI">NoteBook AI</span>
       </div>
 
       <div className="toolbar-right">
-        <FileOperations />
         <ConnectionStatus />
         <LogoutButton />
       </div>

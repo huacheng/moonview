@@ -95,6 +95,10 @@ export interface NotebookStore {
   wsStatus: 'disconnected' | 'connecting' | 'connected';
   sessionId: string | null;
   sliceLoading: boolean;
+  notebookLoading: boolean;
+  sessionNotice: string | null; // non-null when notebook was rejected (already open in another tab)
+  latency: number | null; // WebSocket RTT in ms, null = not yet measured
+  creatingNotebook: boolean; // true while the creation-choice panel is shown
 
   // Sidebar / history state
   sidebarOpen: boolean;
@@ -116,6 +120,8 @@ export interface NotebookStore {
   restoreNotebook(notebookId: string): Promise<void>;
   deleteNotebook(notebookId: string): Promise<void>;
   renameNotebook(notebookId: string, newTitle: string): Promise<void>;
+  setCreatingNotebook(v: boolean): void;
+  importNotebookFile(file: File): Promise<void>;
 
   // Notebook actions
   setNotebook(nb: Notebook): void;
@@ -126,7 +132,7 @@ export interface NotebookStore {
   updateCellSource(cellId: string, source: string): void;
   setCellStatus(cellId: string, status: CellStatus): void;
   appendCellOutput(cellId: string, output: CellOutput): void;
-  updateToolResult(cellId: string, toolUseId: string, content: string): void;
+  updateToolResult(cellId: string, toolUseId: string, content: string, isError?: boolean): void;
   setCellGitDiff(cellId: string, diff: string): void;
 
   // Annotation actions
@@ -137,17 +143,31 @@ export interface NotebookStore {
   generateSlice(): Promise<void>;
   updateSliceSections(sections: SliceSection[]): void;
 
+  // Files panel
+  filesPanelOpen: boolean;
+  toggleFilesPanel(): void;
+
   // UI actions
   setActiveTab(tab: 'notebook' | 'slice'): void;
+  clearSessionNotice(): void;
+  setLatency(ms: number | null): void;
 
   // WebSocket actions
-  connectWebSocket(sessionId: string): void;
+  connectWebSocket(): void;
   disconnectWebSocket(): void;
+  subscribeToSession(sessionId: string): void;
+  unsubscribeFromSession(sessionId: string): void;
   executeCell(cellId: string): void;
   saveNotebook(path?: string): void;
   loadNotebook(path: string): void;
   exportHtml(): void;
 }
+
+// ---------------------------------------------------------------------------
+// Module-level adaptive sync state (cell source → server)
+// ---------------------------------------------------------------------------
+
+let _sourceSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ---------------------------------------------------------------------------
 // Store implementation
@@ -165,6 +185,12 @@ export const useStore = create<NotebookStore>((set, get) => ({
   wsStatus: 'disconnected',
   sessionId: null,
   sliceLoading: false,
+  notebookLoading: false,
+  sessionNotice: null,
+
+  filesPanelOpen: false,
+  latency: null,
+  creatingNotebook: false,
 
   sidebarOpen: true,
   notebookList: [],
@@ -241,26 +267,32 @@ export const useStore = create<NotebookStore>((set, get) => ({
 
   async fetchNotebookList() {
     set({ notebookListLoading: true });
-    try {
-      const headers: Record<string, string> = {};
-      const token = get().authToken;
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const headers: Record<string, string> = {};
+        const token = get().authToken;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/notebooks/list', { headers });
-      if (res.ok) {
-        const data = (await res.json()) as { notebooks: NotebookListItem[] };
-        // Merge any pending optimistic title renames from localStorage.
-        const notebooks = data.notebooks.map((item) => {
-          const cached = localStorage.getItem(`nb-title-${item.id}`);
-          return cached ? { ...item, title: cached } : item;
-        });
-        set({ notebookList: notebooks });
+        const res = await fetch('/api/notebooks/list', { headers });
+        if (res.ok) {
+          const data = (await res.json()) as { notebooks: NotebookListItem[] };
+          // Merge any pending optimistic title renames from localStorage.
+          const notebooks = data.notebooks.map((item) => {
+            const cached = localStorage.getItem(`nb-title-${item.id}`);
+            return cached ? { ...item, title: cached } : item;
+          });
+          set({ notebookList: notebooks, notebookListLoading: false });
+          return;
+        }
+        break; // Non-2xx — don't retry
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 600 * attempt));
       }
-    } catch (err) {
-      console.error('[store] fetchNotebookList error:', err);
-    } finally {
-      set({ notebookListLoading: false });
     }
+    if (lastErr) console.error('[store] fetchNotebookList failed:', lastErr);
+    set({ notebookListLoading: false });
   },
 
   async createNewNotebook(title: string) {
@@ -268,11 +300,21 @@ export const useStore = create<NotebookStore>((set, get) => ({
     const token = get().authToken;
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    try {
-      // Disconnect existing WebSocket and clear sessionId to prevent auto-reconnect.
-      get().disconnectWebSocket();
-      set({ sessionId: null });
+    set({ sessionNotice: null });
+    // Optimistic: show blank notebook immediately without waiting for backend.
+    const tempId = crypto.randomUUID();
+    const blankNotebook = makeBlankNotebook();
+    blankNotebook.metadata.title = title;
+    set({
+      notebook: blankNotebook,
+      sessionId: null,
+      activeNotebookId: tempId,
+      workspaceDir: null,
+      filesPanelOpen: true,
+    });
 
+    // Async: create session on backend, then wire up WebSocket.
+    try {
       const res = await fetch('/api/notebooks/create', {
         method: 'POST',
         headers,
@@ -297,8 +339,6 @@ export const useStore = create<NotebookStore>((set, get) => ({
         workspaceDir: data.workspaceDir,
       });
 
-      // useWebSocket hook will auto-connect when sessionId changes.
-      // Refresh the notebook list.
       get().fetchNotebookList();
     } catch (err) {
       console.error('[store] createNewNotebook error:', err);
@@ -309,15 +349,21 @@ export const useStore = create<NotebookStore>((set, get) => ({
     // Don't restore if already active.
     if (get().activeNotebookId === notebookId) return;
 
+    // Immediately mark this notebook as active and show loading screen.
+    set({
+      sessionNotice: null,
+      notebookLoading: true,
+      activeNotebookId: notebookId,
+      notebook: null,
+      sessionId: null,
+      workspaceDir: null,
+    });
+
     const headers: Record<string, string> = {};
     const token = get().authToken;
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     try {
-      // Disconnect existing WebSocket and clear sessionId to prevent auto-reconnect.
-      get().disconnectWebSocket();
-      set({ sessionId: null });
-
       const res = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/restore`, {
         method: 'POST',
         headers,
@@ -325,6 +371,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
       if (!res.ok) {
         const err = (await res.json()) as { error: string };
         console.error('[store] restoreNotebook failed:', err.error);
+        set({ notebookLoading: false, activeNotebookId: null });
         return;
       }
       const data = (await res.json()) as {
@@ -340,13 +387,14 @@ export const useStore = create<NotebookStore>((set, get) => ({
         sessionId: data.sessionId,
         activeNotebookId: data.notebookId,
         workspaceDir: data.workspaceDir,
+        notebookLoading: false,
+        filesPanelOpen: true,
       });
 
-      // useWebSocket hook will auto-connect when sessionId changes.
-      // Refresh list to update active session indicators.
       get().fetchNotebookList();
     } catch (err) {
       console.error('[store] restoreNotebook error:', err);
+      set({ notebookLoading: false, activeNotebookId: null });
     }
   },
 
@@ -355,24 +403,23 @@ export const useStore = create<NotebookStore>((set, get) => ({
     const token = get().authToken;
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
+    // Optimistic: remove from list and clear active state immediately.
+    set((state) => ({
+      notebookList: state.notebookList.filter((n) => n.id !== notebookId),
+    }));
+    if (get().activeNotebookId === notebookId) {
+      set({ notebook: null, sessionId: null, activeNotebookId: null, workspaceDir: null, filesPanelOpen: false });
+      localStorage.removeItem('nb-last-notebook');
+    }
+
     try {
-      await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}`, {
+      const res = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}`, {
         method: 'DELETE',
         headers,
       });
-
-      // If we deleted the active notebook, clear state.
-      if (get().activeNotebookId === notebookId) {
-        get().disconnectWebSocket();
-        set({
-          notebook: null,
-          sessionId: null,
-          activeNotebookId: null,
-          workspaceDir: null,
-        });
+      if (!res.ok && res.status !== 404) {
+        console.error('[store] deleteNotebook failed:', res.status);
       }
-
-      get().fetchNotebookList();
     } catch (err) {
       console.error('[store] deleteNotebook error:', err);
     }
@@ -511,6 +558,24 @@ export const useStore = create<NotebookStore>((set, get) => ({
         },
       };
     });
+
+    // Adaptive sync to server: max(200ms, latency × 3)
+    // Keeps server's in-memory notebook up to date with client edits.
+    if (_sourceSyncTimer) clearTimeout(_sourceSyncTimer);
+    const latency = get().latency ?? 30;
+    const interval = Math.max(200, latency * 3);
+    _sourceSyncTimer = setTimeout(() => {
+      _sourceSyncTimer = null;
+      const { ws, sessionId } = get();
+      if (ws && ws.readyState === WebSocket.OPEN && sessionId) {
+        ws.send(JSON.stringify({
+          type: 'update_cell_source',
+          session_id: sessionId,
+          cell_id: cellId,
+          source,
+        }));
+      }
+    }, interval);
   },
 
   setCellStatus(cellId, status) {
@@ -542,9 +607,10 @@ export const useStore = create<NotebookStore>((set, get) => ({
     });
   },
 
-  updateToolResult(cellId, toolUseId, content) {
+  updateToolResult(cellId, toolUseId, content, isError) {
     set((state) => {
       if (!state.notebook) return {};
+      let matched = false;
       return {
         notebook: {
           ...state.notebook,
@@ -553,14 +619,13 @@ export const useStore = create<NotebookStore>((set, get) => ({
             return {
               ...c,
               outputs: c.outputs.map((out) => {
-                if (out.type !== 'tool_use') return out;
-                // Match by id in input, or fall back to first unresolved
-                const hasId =
-                  typeof out.input['id'] === 'string' &&
-                  out.input['id'] === toolUseId;
-                const isUnresolved = out.result === undefined;
-                if (hasId || isUnresolved) {
-                  return { ...out, result: content };
+                if (matched || out.type !== 'tool_use') return out;
+                // Match by stored tool_use_id (preferred), fall back to first unresolved.
+                const byId = out.tool_use_id === toolUseId;
+                const unresolved = !byId && out.result === undefined;
+                if (byId || unresolved) {
+                  matched = true;
+                  return { ...out, result: content, is_error: isError };
                 }
                 return out;
               }),
@@ -682,7 +747,101 @@ export const useStore = create<NotebookStore>((set, get) => ({
     // Send update to server via WebSocket
     const { ws } = get();
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'slice_update', sections }));
+      ws.send(JSON.stringify({ type: 'slice_update', session_id: get().sessionId ?? '', sections }));
+    }
+  },
+
+  // ── Files panel ─────────────────────────────────────────────────────────
+
+  toggleFilesPanel() {
+    set((state) => ({ filesPanelOpen: !state.filesPanelOpen }));
+  },
+
+  // ── Notebook creation ────────────────────────────────────────────────────
+
+  setCreatingNotebook(v) {
+    set({ creatingNotebook: v });
+  },
+
+  async importNotebookFile(file: File) {
+    let imported: Notebook;
+    try {
+      if (file.name.endsWith('.zip')) {
+        // Extract notebook.json from an exported zip bundle.
+        const formData = new FormData();
+        formData.append('file', file);
+        const headers: Record<string, string> = {};
+        const token = get().authToken;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const extractRes = await fetch('/api/notebooks/extract-zip', {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+        if (!extractRes.ok) {
+          const data = (await extractRes.json()) as { error: string };
+          console.error('[store] extract-zip error:', data.error);
+          return;
+        }
+        imported = (await extractRes.json()) as Notebook;
+      } else {
+        imported = JSON.parse(await file.text()) as Notebook;
+      }
+    } catch {
+      return; // invalid file
+    }
+
+    const title = imported.metadata?.title || 'Imported Notebook';
+    set({ creatingNotebook: false, sessionNotice: null });
+
+    // Create a new session for the imported notebook.
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = get().authToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+      const res = await fetch('/api/notebooks/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) return;
+
+      const data = (await res.json()) as {
+        notebook: Notebook;
+        notebookId: string;
+        sessionId: string;
+        workspaceDir: string;
+      };
+
+      // Merge imported metadata (title/cwd) with a fresh timestamp.
+      const importedWithMeta: Notebook = {
+        ...imported,
+        metadata: {
+          ...imported.metadata,
+          title,
+          updated: new Date().toISOString(),
+        },
+      };
+
+      set({
+        notebook: importedWithMeta,
+        sessionId: data.sessionId,
+        activeNotebookId: data.notebookId,
+        workspaceDir: data.workspaceDir,
+        filesPanelOpen: true,
+      });
+
+      // Persist the imported content to disk.
+      await fetch(`/api/notebooks/${encodeURIComponent(data.notebookId)}/import-content`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(importedWithMeta),
+      });
+
+      get().fetchNotebookList();
+    } catch (err) {
+      console.error('[store] importNotebookFile error:', err);
     }
   },
 
@@ -692,9 +851,17 @@ export const useStore = create<NotebookStore>((set, get) => ({
     set({ activeTab: tab });
   },
 
+  clearSessionNotice() {
+    set({ sessionNotice: null });
+  },
+
+  setLatency(ms) {
+    set({ latency: ms });
+  },
+
   // ── WebSocket actions ───────────────────────────────────────────────────
 
-  connectWebSocket(sessionId) {
+  connectWebSocket() {
     const existing = get().ws;
     if (existing) {
       // Remove handlers before closing to prevent stale onclose from
@@ -705,30 +872,68 @@ export const useStore = create<NotebookStore>((set, get) => ({
       existing.close();
     }
 
-    set({ wsStatus: 'connecting', sessionId });
+    set({ wsStatus: 'connecting', latency: null });
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const tokenParam = get().authToken ? `&token=${encodeURIComponent(get().authToken!)}` : '';
-    const wsUrl = `${protocol}//${window.location.host}/ws?sessionId=${sessionId}${tokenParam}`;
+    const token = get().authToken;
+    const wsUrl = token
+      ? `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`
+      : `${protocol}//${window.location.host}/ws`;
     const ws = new WebSocket(wsUrl);
+
+    // Ping/pong state for this connection
+    let pingTimer: ReturnType<typeof setInterval> | null = null;
+    let pongTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+    let pingSentAt = 0;
+
+    const PING_INTERVAL = 10_000;
+    const PONG_TIMEOUT  =  4_000;
+
+    function sendPing() {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      pingSentAt = performance.now();
+      ws.send(JSON.stringify({ type: 'ping' }));
+      pongTimeoutTimer = setTimeout(() => {
+        if (pingSentAt > 0) {
+          pingSentAt = 0;
+          ws.close(); // pong timed out — trigger reconnect
+        }
+      }, PONG_TIMEOUT);
+    }
+
+    function stopPing() {
+      if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+      if (pongTimeoutTimer) { clearTimeout(pongTimeoutTimer); pongTimeoutTimer = null; }
+      pingSentAt = 0;
+    }
 
     ws.onopen = () => {
       // Only update if this ws is still the current one.
       if (get().ws === ws) {
         set({ wsStatus: 'connected' });
+        // Auto-subscribe to the current session (handles connect-after-sessionId-set case)
+        const { sessionId } = get();
+        if (sessionId) {
+          ws.send(JSON.stringify({ type: 'subscribe', session_id: sessionId }));
+        }
+        // Start ping/pong heartbeat
+        sendPing();
+        pingTimer = setInterval(sendPing, PING_INTERVAL);
       }
     };
 
     ws.onclose = () => {
       // Only update if this ws is still the current one.
       if (get().ws === ws) {
-        set({ wsStatus: 'disconnected', ws: null });
+        stopPing();
+        set({ wsStatus: 'disconnected', ws: null, latency: null });
       }
     };
 
     ws.onerror = () => {
       if (get().ws === ws) {
-        set({ wsStatus: 'disconnected' });
+        stopPing();
+        set({ wsStatus: 'disconnected', latency: null });
       }
     };
 
@@ -745,7 +950,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
           store.appendCellOutput(parsed.cell_id, parsed.output);
           break;
         case 'tool_result':
-          store.updateToolResult(parsed.cell_id, parsed.tool_use_id, parsed.content);
+          store.updateToolResult(parsed.cell_id, parsed.tool_use_id, parsed.content, parsed.is_error);
           break;
         case 'execution_complete':
           store.setCellStatus(parsed.cell_id, 'completed');
@@ -792,6 +997,26 @@ export const useStore = create<NotebookStore>((set, get) => ({
             };
           });
           break;
+        case 'pong':
+          if (pingSentAt > 0) {
+            if (pongTimeoutTimer) { clearTimeout(pongTimeoutTimer); pongTimeoutTimer = null; }
+            const rtt = Math.round(performance.now() - pingSentAt);
+            pingSentAt = 0;
+            // Only update from the primary connection to avoid flicker
+            if (get().ws === ws) set({ latency: rtt });
+          }
+          break;
+
+        case 'session_already_open':
+          // Another tab already owns this session — clear the notebook and show a notice.
+          set({
+            notebook: null,
+            sessionId: null,
+            activeNotebookId: null,
+            workspaceDir: null,
+            sessionNotice: '此 Notebook 已在另一个标签页中打开，请先关闭它。',
+          });
+          break;
         case 'error':
           if (parsed.cell_id) {
             store.setCellStatus(parsed.cell_id, 'error');
@@ -814,6 +1039,20 @@ export const useStore = create<NotebookStore>((set, get) => ({
       ws.close();
     }
     set({ ws: null, wsStatus: 'disconnected' });
+  },
+
+  subscribeToSession(sessionId) {
+    const { ws } = get();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'subscribe', session_id: sessionId }));
+    }
+  },
+
+  unsubscribeFromSession(sessionId) {
+    const { ws } = get();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'unsubscribe', session_id: sessionId }));
+    }
   },
 
   executeCell(cellId) {
@@ -840,6 +1079,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
       ws.send(
         JSON.stringify({
           type: 'execute_request',
+          session_id: get().sessionId ?? '',
           cell_id: cellId,
           source: cell.source,
         })
@@ -858,14 +1098,14 @@ export const useStore = create<NotebookStore>((set, get) => ({
   saveNotebook(path = 'notebook.ai.json') {
     const { ws } = get();
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'save_notebook', path }));
+      ws.send(JSON.stringify({ type: 'save_notebook', session_id: get().sessionId ?? '', path }));
     }
   },
 
   loadNotebook(path: string) {
     const { ws } = get();
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'load_notebook', path }));
+      ws.send(JSON.stringify({ type: 'load_notebook', session_id: get().sessionId ?? '', path }));
     }
   },
 
@@ -875,6 +1115,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
       ws.send(
         JSON.stringify({
           type: 'export_html',
+          session_id: get().sessionId ?? '',
           options: {
             include_slice: true,
             include_replay: true,

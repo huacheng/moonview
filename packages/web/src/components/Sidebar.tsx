@@ -1,41 +1,38 @@
 import { useEffect, useState, useRef } from 'react';
 import { useStore } from '../store';
 
-function formatDate(iso: string): string {
+function formatAge(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString();
+  if (days < 7) return `${days}d`;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function SidebarItem({
   title,
-  cellCount,
-  hasActiveSession,
   updatedAt,
   isActive,
-  onClick,
+  onActivate,
   onDelete,
   onRename,
 }: {
   title: string;
-  cellCount: number;
-  hasActiveSession: boolean;
   updatedAt: string;
   isActive: boolean;
-  onClick: () => void;
+  onActivate: () => void;
   onDelete: () => void;
   onRename: (newTitle: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -43,6 +40,10 @@ function SidebarItem({
       inputRef.current.select();
     }
   }, [editing]);
+
+  useEffect(() => {
+    if (!editing) setDraft(title);
+  }, [title, editing]);
 
   function commit() {
     const trimmed = draft.trim() || 'Untitled Notebook';
@@ -61,16 +62,30 @@ function SidebarItem({
 
   return (
     <div
-      className={`sidebar-item ${isActive ? 'sidebar-item-active' : ''}`}
-      onClick={onClick}
+      className={`sidebar-item${isActive ? ' sidebar-item-active' : ''}`}
+      onDoubleClick={() => { if (!editing && !confirmingDelete) onActivate(); }}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') onClick();
-      }}
+      onKeyDown={(e) => { if (e.key === 'Enter' && !editing) onActivate(); }}
     >
-      <div className="sidebar-item-header">
-        {editing ? (
+      {confirmingDelete ? (
+        <div className="sidebar-item-confirm" onClick={(e) => e.stopPropagation()}>
+          <span className="sidebar-item-confirm-text">Delete?</span>
+          <button
+            className="sidebar-item-confirm-yes"
+            onClick={(e) => { e.stopPropagation(); setConfirmingDelete(false); onDelete(); }}
+          >
+            Delete
+          </button>
+          <button
+            className="sidebar-item-confirm-no"
+            onClick={(e) => { e.stopPropagation(); setConfirmingDelete(false); }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : editing ? (
+        <div className="sidebar-item-row">
           <input
             ref={inputRef}
             className="sidebar-item-title-input"
@@ -81,37 +96,31 @@ function SidebarItem({
             onClick={(e) => e.stopPropagation()}
             aria-label="Rename notebook"
           />
-        ) : (
-          <span
-            className="sidebar-item-title"
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              setDraft(title);
-              setEditing(true);
-            }}
+        </div>
+      ) : (
+        <div className="sidebar-item-row">
+          <button
+            className="sidebar-item-action sidebar-item-action-rename"
+            onClick={(e) => { e.stopPropagation(); setDraft(title); setEditing(true); }}
+            title="Rename"
+            aria-label={`Rename ${title}`}
           >
-            {title}
-          </span>
-        )}
-        {hasActiveSession && (
-          <span className="sidebar-item-live" title="Active session" />
-        )}
-      </div>
-      <div className="sidebar-item-meta">
-        <span>{cellCount} cell{cellCount !== 1 ? 's' : ''}</span>
-        <span>{formatDate(updatedAt)}</span>
-      </div>
-      <button
-        className="sidebar-item-delete"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        title="Delete notebook"
-        aria-label={`Delete ${title}`}
-      >
-        &times;
-      </button>
+            ✎
+          </button>
+          <span className="sidebar-item-title">{title}</span>
+          <span className="sidebar-item-age">{formatAge(updatedAt)}</span>
+          <div className="sidebar-item-actions">
+            <button
+              className="sidebar-item-action sidebar-item-action-delete"
+              onClick={(e) => { e.stopPropagation(); setConfirmingDelete(true); }}
+              title="Delete"
+              aria-label={`Delete ${title}`}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -122,7 +131,7 @@ export function Sidebar() {
   const notebookListLoading = useStore((s) => s.notebookListLoading);
   const activeNotebookId = useStore((s) => s.activeNotebookId);
   const fetchNotebookList = useStore((s) => s.fetchNotebookList);
-  const createNewNotebook = useStore((s) => s.createNewNotebook);
+  const setCreatingNotebook = useStore((s) => s.setCreatingNotebook);
   const restoreNotebook = useStore((s) => s.restoreNotebook);
   const deleteNotebook = useStore((s) => s.deleteNotebook);
   const renameNotebook = useStore((s) => s.renameNotebook);
@@ -141,9 +150,9 @@ export function Sidebar() {
 
       <button
         className="sidebar-new-btn"
-        onClick={() => createNewNotebook('Untitled Notebook')}
+        onClick={() => setCreatingNotebook(true)}
       >
-        + New Notebook
+        + New NoteBook
       </button>
 
       <div className="sidebar-list">
@@ -159,11 +168,9 @@ export function Sidebar() {
           <SidebarItem
             key={item.id}
             title={item.title}
-            cellCount={item.cellCount}
-            hasActiveSession={item.hasActiveSession}
             updatedAt={item.updatedAt}
             isActive={activeNotebookId === item.id}
-            onClick={() => restoreNotebook(item.id)}
+            onActivate={() => restoreNotebook(item.id)}
             onDelete={() => deleteNotebook(item.id)}
             onRename={(newTitle) => renameNotebook(item.id, newTitle)}
           />

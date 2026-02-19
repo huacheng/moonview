@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Cell as CellData, PromptCell, MarkdownCell } from '@notebook-ai/shared';
 import { CellInput } from './CellInput';
 import { CellOutput } from './CellOutput';
@@ -59,8 +59,6 @@ function CellToolbar({
             {status === 'running' ? '■' : '▶'}
           </button>
         )}
-      </div>
-      <div className="cell-toolbar-right">
         <button
           className="cell-btn"
           onClick={onMoveUp}
@@ -77,6 +75,8 @@ function CellToolbar({
         >
           ↓
         </button>
+      </div>
+      <div className="cell-toolbar-right">
         <button
           className="cell-btn cell-btn-delete"
           onClick={onDelete}
@@ -94,6 +94,21 @@ function CellToolbar({
 function MarkdownCellBody({ cell }: { cell: MarkdownCell }) {
   const [editing, setEditing] = useState(!cell.source);
   const updateCellSource = useStore((s) => s.updateCellSource);
+  const storageKey = `nb-draft-${cell.id}`;
+
+  // Initialize from localStorage draft, falling back to committed value.
+  const [draft, setDraft] = useState<string>(
+    () => localStorage.getItem(storageKey) ?? cell.source,
+  );
+
+  // Save draft to localStorage 50ms after each keystroke.
+  useEffect(() => {
+    if (!editing) return;
+    const timer = setTimeout(() => {
+      localStorage.setItem(storageKey, draft);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [draft, storageKey, editing]);
 
   // Very minimal markdown → HTML (bold, italic, headings, paragraphs)
   function renderMarkdown(text: string): string {
@@ -103,7 +118,6 @@ function MarkdownCellBody({ cell }: { cell: MarkdownCell }) {
       if (/^## (.+)/.test(line)) return `<h2>${line.slice(3)}</h2>`;
       if (/^# (.+)/.test(line)) return `<h1>${line.slice(2)}</h1>`;
       if (line.trim() === '') return '<br/>';
-      // bold, italic inline
       let html = line
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -113,19 +127,31 @@ function MarkdownCellBody({ cell }: { cell: MarkdownCell }) {
     return htmlLines.join('');
   }
 
+  function commitDraft() {
+    updateCellSource(cell.id, draft);
+    localStorage.removeItem(storageKey);
+    setEditing(false);
+  }
+
   if (editing) {
     return (
       <div className="markdown-edit-wrapper">
         <textarea
           className="cell-input markdown-input"
-          value={cell.source}
-          onChange={(e) => updateCellSource(cell.id, e.target.value)}
-          placeholder="Enter Markdown…"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              commitDraft();
+            }
+          }}
+          placeholder="Enter Markdown… (Ctrl+Enter to preview)"
           rows={4}
         />
         <button
           className="cell-btn markdown-preview-btn"
-          onClick={() => setEditing(false)}
+          onClick={commitDraft}
         >
           Preview
         </button>
@@ -156,12 +182,19 @@ function PromptCellBody({ cell }: { cell: PromptCell }) {
   return (
     <>
       <CellInput
+        cellId={cell.id}
         value={cell.source}
         onChange={(v) => updateCellSource(cell.id, v)}
         onExecute={handleExecute}
         disabled={cell.status === 'running'}
       />
-      {cell.outputs.length > 0 && <CellOutput outputs={cell.outputs} cellId={cell.id} />}
+      {cell.outputs.length > 0 && (
+        <CellOutput
+          outputs={cell.outputs}
+          cellId={cell.id}
+          isActiveCell={cell.status === 'running'}
+        />
+      )}
       {cell.git_diff && <GitDiffView diff={cell.git_diff} />}
     </>
   );

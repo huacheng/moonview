@@ -10,9 +10,11 @@ export const TextOutputSchema = z.object({
 
 export const ToolUseOutputSchema = z.object({
   type: z.literal('tool_use'),
+  tool_use_id: z.string().optional(),
   name: z.string(),
   input: z.record(z.unknown()),
   result: z.string().optional(),
+  is_error: z.boolean().optional(),
   timestamp: z.string().optional(),
 });
 
@@ -191,49 +193,44 @@ export const NotebookSchema = z.object({
 });
 
 // ─── WebSocket Messages ───
+//
+// All session-scoped messages carry `session_id` so a single shared WebSocket
+// connection can multiplex multiple notebook sessions.
 
+// Client → Server: session management
+export const SubscribeSchema = z.object({
+  type: z.literal('subscribe'),
+  session_id: z.string(),
+});
+
+export const UnsubscribeSchema = z.object({
+  type: z.literal('unsubscribe'),
+  session_id: z.string(),
+});
+
+// Client → Server: session actions (all include session_id)
 export const ExecuteRequestSchema = z.object({
   type: z.literal('execute_request'),
+  session_id: z.string(),
   cell_id: z.string(),
   source: z.string(),
 });
 
-export const CellOutputMessageSchema = z.object({
-  type: z.literal('cell_output'),
-  cell_id: z.string(),
-  output: CellOutputSchema,
-});
-
-export const ExecutionCompleteSchema = z.object({
-  type: z.literal('execution_complete'),
-  cell_id: z.string(),
-  duration_ms: z.number().optional(),
-});
-
-export const GitDiffMessageSchema = z.object({
-  type: z.literal('git_diff'),
-  cell_id: z.string(),
-  diff: z.string(),
-  files_changed: z.array(z.string()).default([]),
-});
-
-export const SliceUpdateSchema = z.object({
-  type: z.literal('slice_update'),
-  sections: z.array(SliceSectionSchema),
-});
-
 export const SaveNotebookSchema = z.object({
   type: z.literal('save_notebook'),
+  session_id: z.string(),
   path: z.string(),
 });
 
 export const LoadNotebookSchema = z.object({
   type: z.literal('load_notebook'),
+  session_id: z.string(),
   path: z.string(),
 });
 
 export const ExportHtmlSchema = z.object({
   type: z.literal('export_html'),
+  session_id: z.string(),
   options: z.object({
     include_slice: z.boolean().default(true),
     include_replay: z.boolean().default(true),
@@ -241,30 +238,87 @@ export const ExportHtmlSchema = z.object({
   }).default({}),
 });
 
-export const ExportCompleteSchema = z.object({
-  type: z.literal('export_complete'),
-  html: z.string(),
+export const SliceUpdateSchema = z.object({
+  type: z.literal('slice_update'),
+  session_id: z.string(),
+  sections: z.array(SliceSectionSchema),
 });
 
-export const ErrorMessageSchema = z.object({
-  type: z.literal('error'),
-  message: z.string(),
-  cell_id: z.string().optional(),
+export const PingSchema = z.object({
+  type: z.literal('ping'),
+});
+
+export const UpdateCellSourceSchema = z.object({
+  type: z.literal('update_cell_source'),
+  session_id: z.string(),
+  cell_id: z.string(),
+  source: z.string(),
 });
 
 export const WSClientMessageSchema = z.discriminatedUnion('type', [
+  SubscribeSchema,
+  UnsubscribeSchema,
   ExecuteRequestSchema,
   SaveNotebookSchema,
   LoadNotebookSchema,
   ExportHtmlSchema,
   SliceUpdateSchema,
+  PingSchema,
+  UpdateCellSourceSchema,
 ]);
+
+// Server → Client: all session-scoped messages carry session_id
+export const CellOutputMessageSchema = z.object({
+  type: z.literal('cell_output'),
+  session_id: z.string(),
+  cell_id: z.string(),
+  output: CellOutputSchema,
+});
+
+export const ExecutionCompleteSchema = z.object({
+  type: z.literal('execution_complete'),
+  session_id: z.string(),
+  cell_id: z.string(),
+  duration_ms: z.number().optional(),
+});
+
+export const GitDiffMessageSchema = z.object({
+  type: z.literal('git_diff'),
+  session_id: z.string(),
+  cell_id: z.string(),
+  diff: z.string(),
+  files_changed: z.array(z.string()).default([]),
+});
+
+export const ExportCompleteSchema = z.object({
+  type: z.literal('export_complete'),
+  session_id: z.string(),
+  html: z.string(),
+});
+
+export const ErrorMessageSchema = z.object({
+  type: z.literal('error'),
+  session_id: z.string().optional(), // optional: connection-level errors have no session
+  message: z.string(),
+  cell_id: z.string().optional(),
+});
 
 export const ToolResultMessageSchema = z.object({
   type: z.literal('tool_result'),
+  session_id: z.string(),
   cell_id: z.string(),
   tool_use_id: z.string(),
   content: z.string(),
+  is_error: z.boolean().optional(),
+});
+
+export const PongSchema = z.object({
+  type: z.literal('pong'),
+});
+
+export const SessionAlreadyOpenSchema = z.object({
+  type: z.literal('session_already_open'),
+  session_id: z.string(),
 });
 
 export const WSServerMessageSchema = z.discriminatedUnion('type', [
@@ -275,6 +329,8 @@ export const WSServerMessageSchema = z.discriminatedUnion('type', [
   ErrorMessageSchema,
   SliceUpdateSchema,
   ToolResultMessageSchema,
+  SessionAlreadyOpenSchema,
+  PongSchema,
 ]);
 
 // ─── Notebook List / Workspace Types ───

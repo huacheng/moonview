@@ -5,8 +5,6 @@ import crypto from 'crypto';
 import path from 'path';
 import {
   WSClientMessageSchema,
-  NotebookSchema,
-  type WSServerMessage,
   type Notebook,
   type NotebookListItem,
 } from '@notebook-ai/shared';
@@ -22,10 +20,14 @@ import {
 import { exportToHtml, exportToFolder } from './export.js';
 import { generateSlice } from './slice-generator.js';
 import { authMiddleware, authEnabled, handleLogin, handleAuthStatus } from './auth.js';
+import { listWorkspaceFiles, validateWorkspacePath } from './workspace-files.js';
+import multer from 'multer';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { rm } from 'fs/promises';
+import { rm, copyFile, unlink, stat, mkdir, readFile, writeFile } from 'fs/promises';
+import { createReadStream } from 'fs';
+import { spawn } from 'child_process';
 
 const execAsync = promisify(exec);
 
@@ -320,9 +322,10 @@ app.post('/api/notebooks/:notebookId/restore', async (req: Request, res: Respons
 
 /**
  * PATCH /api/notebooks/:notebookId
- * Updates notebook metadata (title, etc.).
+ * Updates notebook metadata (title, etc.). When title changes, renames the
+ * .notebook.json file on disk to match the new slug.
  */
-app.patch('/api/notebooks/:notebookId', (req: Request, res: Response) => {
+app.patch('/api/notebooks/:notebookId', async (req: Request, res: Response) => {
   const { notebookId } = req.params as { notebookId: string };
   const { title } = req.body as { title?: string };
 
@@ -333,12 +336,35 @@ app.patch('/api/notebooks/:notebookId', (req: Request, res: Response) => {
       return;
     }
 
-    const updates: Record<string, unknown> = {};
+    const updates: Partial<{ title: string; notebook_path: string }> = {};
+
     if (typeof title === 'string' && title.trim()) {
       updates.title = title.trim();
+
+      // Rename the .notebook.json file to match the new title slug.
+      const newSlug = titleToSlug(title.trim());
+      const newNotebookPath = path.join(row.workspace_dir, `${newSlug}.notebook.json`);
+
+      if (newNotebookPath !== row.notebook_path) {
+        try {
+          const { rename } = await import('fs/promises');
+          await rename(row.notebook_path, newNotebookPath);
+          updates.notebook_path = newNotebookPath;
+
+          // Keep any active in-memory session in sync.
+          const activeSessionRow = db.getActiveSession(notebookId);
+          if (activeSessionRow) {
+            const session = sessionManager.getSession(activeSessionRow.tmux_session);
+            if (session) session.notebookPath = newNotebookPath;
+          }
+        } catch (err) {
+          // File may already exist at the new path or source missing — skip rename.
+          console.warn('[PATCH] Could not rename notebook file:', err);
+        }
+      }
     }
 
-    const updated = db.updateNotebook(notebookId, updates as { title?: string });
+    const updated = db.updateNotebook(notebookId, updates);
     res.json({ notebook: updated });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -347,9 +373,10 @@ app.patch('/api/notebooks/:notebookId', (req: Request, res: Response) => {
 
 /**
  * DELETE /api/notebooks/:notebookId
- * Archives (soft-deletes) a notebook.
+ * Closes the active session, deletes the workspace directory, and removes the
+ * notebook + its session records from the DB.
  */
-app.delete('/api/notebooks/:notebookId', (req: Request, res: Response) => {
+app.delete('/api/notebooks/:notebookId', async (req: Request, res: Response) => {
   const { notebookId } = req.params as { notebookId: string };
 
   try {
@@ -359,7 +386,18 @@ app.delete('/api/notebooks/:notebookId', (req: Request, res: Response) => {
       return;
     }
 
+    // Close any in-memory Claude session.
+    const activeSession = db.getActiveSession(notebookId);
+    if (activeSession) {
+      await sessionManager.closeSession(activeSession.tmux_session);
+    }
+
+    // Delete the workspace directory from disk.
+    await rm(row.workspace_dir, { recursive: true, force: true });
+
+    // Hard-delete notebook + sessions from DB.
     db.deleteNotebook(notebookId);
+
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -411,6 +449,43 @@ app.delete('/api/sessions/:id', async (req: Request, res: Response) => {
     // Close matching DB session record.
     try { db.closeSessionRecord(id); } catch { /* best effort */ }
     res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/**
+ * POST /api/notebooks/:notebookId/import-content
+ * Replaces the session's in-memory notebook with the supplied JSON body and
+ * persists it to disk.  Used by the "Import .notebook.json" flow in the UI.
+ */
+app.post('/api/notebooks/:notebookId/import-content', async (req: Request, res: Response) => {
+  const { notebookId } = req.params as { notebookId: string };
+  const notebook = req.body as Notebook;
+
+  try {
+    const row = db.getNotebook(notebookId);
+    if (!row) {
+      res.status(404).json({ error: `Notebook "${notebookId}" not found.` });
+      return;
+    }
+
+    // Save imported notebook to disk.
+    await notebookStore.save(row.notebook_path, notebook);
+
+    // Update the active in-memory session so subsequent auto-saves use the imported content.
+    const activeSessionRow = db.getActiveSession(notebookId);
+    if (activeSessionRow) {
+      const session = sessionManager.getSession(activeSessionRow.tmux_session);
+      if (session) session.notebook = notebook;
+    }
+
+    db.updateNotebook(notebookId, {
+      cell_count: notebook.cells.length,
+      updated_at: new Date().toISOString(),
+    });
+
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -496,12 +571,263 @@ app.get('/api/notebooks/:sessionId/export-zip', async (req: Request, res: Respon
   }
 });
 
+// ── REST: Workspace file management ──────────────────────────────────────────
+
+const upload = multer({
+  dest: path.join(os.tmpdir(), 'nb-uploads'),
+  limits: { fileSize: 100 * 1024 * 1024, files: 20 },
+});
+
+/**
+ * POST /api/notebooks/extract-zip
+ * Accepts an exported .zip bundle, extracts data/notebook.json from it,
+ * and returns the notebook JSON.  Used by the Import flow to support
+ * importing the zip produced by the Export button.
+ */
+app.post('/api/notebooks/extract-zip', upload.single('file'), async (req: Request, res: Response) => {
+  const file = req.file;
+  if (!file) {
+    res.status(400).json({ error: 'No file uploaded.' });
+    return;
+  }
+
+  const tmpDir = path.join(os.tmpdir(), `nb-extract-${Date.now()}`);
+  try {
+    await mkdir(tmpDir, { recursive: true });
+    await execAsync(`unzip -q "${file.path}" -d "${tmpDir}"`);
+
+    // The zip contains <slug>/data/notebook.json — find it regardless of slug.
+    const { stdout } = await execAsync(
+      `find "${tmpDir}" -name "notebook.json" -path "*/data/notebook.json"`,
+    );
+    const jsonPath = stdout.trim();
+    if (!jsonPath) {
+      res.status(422).json({ error: 'No data/notebook.json found in the zip.' });
+      return;
+    }
+
+    const content = await readFile(jsonPath, 'utf-8');
+    const notebook = JSON.parse(content) as Notebook;
+    res.json(notebook);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await rm(file.path, { force: true }).catch(() => {});
+  }
+});
+
+/**
+ * GET /api/notebooks/:sessionId/files?path=<subpath>
+ * Lists files in the workspace directory (or a subdirectory).
+ */
+app.get('/api/notebooks/:sessionId/files', async (req: Request, res: Response) => {
+  const { sessionId } = req.params as { sessionId: string };
+  const subPath = typeof req.query['path'] === 'string' ? req.query['path'] : '.';
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) {
+    res.status(404).json({ error: `Session "${sessionId}" not found.` });
+    return;
+  }
+
+  try {
+    const result = await listWorkspaceFiles(session.cwd, subPath);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
+/**
+ * POST /api/notebooks/:sessionId/files
+ * Uploads one or more files into the workspace (multipart/form-data, field "files").
+ */
+app.post(
+  '/api/notebooks/:sessionId/files',
+  upload.array('files', 20),
+  async (req: Request, res: Response) => {
+    const { sessionId } = req.params as { sessionId: string };
+    const subPath = typeof req.query['path'] === 'string' ? req.query['path'] : '.';
+
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      res.status(404).json({ error: `Session "${sessionId}" not found.` });
+      return;
+    }
+
+    const uploaded = req.files as Express.Multer.File[] | undefined;
+    if (!uploaded || uploaded.length === 0) {
+      res.status(400).json({ error: 'No files provided.' });
+      return;
+    }
+
+    const results: string[] = [];
+    try {
+      for (const file of uploaded) {
+        const destPath = await validateWorkspacePath(
+          path.join(subPath, path.basename(file.originalname)),
+          session.cwd,
+        );
+        await copyFile(file.path, destPath);
+        await unlink(file.path).catch(() => {});
+        results.push(path.basename(file.originalname));
+      }
+      res.json({ uploaded: results });
+    } catch (err) {
+      // Clean up any remaining temp files
+      for (const file of uploaded) {
+        await unlink(file.path).catch(() => {});
+      }
+      res.status(400).json({ error: String(err) });
+    }
+  },
+);
+
+/**
+ * GET /api/notebooks/:sessionId/files/download?path=<relative-path>
+ * Streams a single file from the workspace as a download.
+ */
+app.get('/api/notebooks/:sessionId/files/download', async (req: Request, res: Response) => {
+  const { sessionId } = req.params as { sessionId: string };
+  const filePath = typeof req.query['path'] === 'string' ? req.query['path'] : '';
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) {
+    res.status(404).json({ error: `Session "${sessionId}" not found.` });
+    return;
+  }
+
+  try {
+    const resolved = await validateWorkspacePath(filePath, session.cwd);
+    const fileStat = await stat(resolved);
+    if (fileStat.isDirectory()) {
+      res.status(400).json({ error: 'Cannot download a directory. Use workspace-zip instead.' });
+      return;
+    }
+    const filename = path.basename(resolved);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('Content-Length', fileStat.size);
+    createReadStream(resolved).pipe(res);
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
+/**
+ * GET /api/notebooks/:sessionId/files/zip
+ * Streams the entire workspace as a tar.gz archive.
+ */
+app.get('/api/notebooks/:sessionId/files/zip', (req: Request, res: Response) => {
+  const { sessionId } = req.params as { sessionId: string };
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) {
+    res.status(404).json({ error: `Session "${sessionId}" not found.` });
+    return;
+  }
+
+  const slug = path.basename(session.cwd);
+  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Disposition', `attachment; filename="${slug}.tar.gz"`);
+
+  const tar = spawn('tar', ['czf', '-', '-C', session.cwd, '.']);
+  tar.stdout.pipe(res);
+  tar.stderr.on('data', (d: Buffer) => console.error('[tar]', d.toString()));
+  tar.on('error', (err) => {
+    if (!res.headersSent) res.status(500).json({ error: String(err) });
+  });
+});
+
+/**
+ * POST /api/notebooks/:sessionId/files/new-file?path=<subpath>&name=<filename>
+ * Creates an empty file in the workspace.
+ */
+app.post('/api/notebooks/:sessionId/files/new-file', async (req: Request, res: Response) => {
+  const { sessionId } = req.params as { sessionId: string };
+  const subPath = typeof req.query['path'] === 'string' ? req.query['path'] : '.';
+  const name = (typeof req.query['name'] === 'string' ? req.query['name'] : '').trim();
+
+  if (!name || name.includes('/') || name === '.' || name === '..') {
+    res.status(400).json({ error: 'Invalid file name.' });
+    return;
+  }
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) { res.status(404).json({ error: `Session "${sessionId}" not found.` }); return; }
+
+  try {
+    const targetPath = await validateWorkspacePath(path.join(subPath, name), session.cwd);
+    await writeFile(targetPath, '', { flag: 'wx' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
+/**
+ * POST /api/notebooks/:sessionId/files/mkdir?path=<subpath>&name=<dirname>
+ * Creates a new directory in the workspace.
+ */
+app.post('/api/notebooks/:sessionId/files/mkdir', async (req: Request, res: Response) => {
+  const { sessionId } = req.params as { sessionId: string };
+  const subPath = typeof req.query['path'] === 'string' ? req.query['path'] : '.';
+  const name = (typeof req.query['name'] === 'string' ? req.query['name'] : '').trim();
+
+  if (!name || name.includes('/') || name === '.' || name === '..') {
+    res.status(400).json({ error: 'Invalid directory name.' });
+    return;
+  }
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) { res.status(404).json({ error: `Session "${sessionId}" not found.` }); return; }
+
+  try {
+    const targetPath = await validateWorkspacePath(path.join(subPath, name), session.cwd);
+    await mkdir(targetPath);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
+/**
+ * DELETE /api/notebooks/:sessionId/files?path=<relative-path>
+ * Deletes a file or directory (recursively) from the workspace.
+ */
+app.delete('/api/notebooks/:sessionId/files', async (req: Request, res: Response) => {
+  const { sessionId } = req.params as { sessionId: string };
+  const filePath = typeof req.query['path'] === 'string' ? req.query['path'] : '';
+
+  if (!filePath || filePath === '.') {
+    res.status(400).json({ error: 'Cannot delete workspace root.' });
+    return;
+  }
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) { res.status(404).json({ error: `Session "${sessionId}" not found.` }); return; }
+
+  try {
+    const resolved = await validateWorkspacePath(filePath, session.cwd);
+    await rm(resolved, { recursive: true, force: false });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
 // ── WebSocket routing ────────────────────────────────────────────────────────
 
+// Global: session_id → the one WS connection allowed to subscribe to it.
+// Enforces "one Tab per notebook" — different WS connections cannot subscribe
+// to the same session. The same WS connection can subscribe to multiple sessions
+// (split-screen within a single Tab).
+const sessionOwners = new Map<string, WebSocket>();
+
 wss.on('connection', (ws: WebSocket, req) => {
-  // Extract session ID and auth token from the URL query string
+  // Only token for auth — no sessionId in URL (clients subscribe via messages)
   const url = new URL(req.url ?? '/', `http://localhost`);
-  const sessionId = url.searchParams.get('sessionId') ?? undefined;
   const token = url.searchParams.get('token') ?? undefined;
 
   // Validate auth token for WebSocket connections
@@ -515,26 +841,10 @@ wss.on('connection', (ws: WebSocket, req) => {
   }
 
   const clientId = crypto.randomUUID();
-  console.log(`[ws] Client ${clientId} connected${sessionId ? ` (session: ${sessionId})` : ''}`);
+  console.log(`[ws] Client ${clientId} connected`);
 
-  // Notify client if the requested session is unknown.
-  if (sessionId) {
-    const session = sessionManager.getSession(sessionId);
-    if (!session) {
-      sendToClient(ws, {
-        type: 'error',
-        message: `Session "${sessionId}" not found.`,
-      });
-    }
-  }
-
-  // Register a listener that forwards session events to this WebSocket client.
-  let removeListener: (() => void) | null = null;
-  if (sessionId) {
-    removeListener = sessionManager.addListener(sessionId, (msg) => {
-      sendToClient(ws, msg);
-    });
-  }
+  // Per-connection subscription map: sessionId → removeListener
+  const subscriptions = new Map<string, () => void>();
 
   ws.on('message', async (data) => {
     let parsed: unknown;
@@ -557,42 +867,74 @@ wss.on('connection', (ws: WebSocket, req) => {
     const msg = result.data;
 
     switch (msg.type) {
-      case 'execute_request': {
-        if (!sessionId) {
+      case 'subscribe': {
+        const { session_id } = msg;
+        if (subscriptions.has(session_id)) break; // This connection already subscribed
+
+        // Reject if a *different* WS connection already owns this session.
+        const owner = sessionOwners.get(session_id);
+        if (owner && owner !== ws) {
+          sendToClient(ws, { type: 'session_already_open', session_id });
+          break;
+        }
+
+        const session = sessionManager.getSession(session_id);
+        if (!session) {
           sendToClient(ws, {
             type: 'error',
-            message: 'No sessionId provided in WebSocket URL.',
+            session_id,
+            message: `Session "${session_id}" not found.`,
           });
           break;
         }
+        const remove = sessionManager.addListener(session_id, (event) => {
+          sendToClient(ws, event);
+        });
+        if (remove) {
+          subscriptions.set(session_id, remove);
+          sessionOwners.set(session_id, ws);
+          console.log(`[ws] Client ${clientId} subscribed to session ${session_id}`);
+        }
+        break;
+      }
+
+      case 'unsubscribe': {
+        const { session_id } = msg;
+        const remove = subscriptions.get(session_id);
+        if (remove) {
+          remove();
+          subscriptions.delete(session_id);
+          if (sessionOwners.get(session_id) === ws) sessionOwners.delete(session_id);
+          console.log(`[ws] Client ${clientId} unsubscribed from session ${session_id}`);
+        }
+        break;
+      }
+
+      case 'execute_request': {
+        const { session_id, cell_id, source } = msg;
         try {
-          await sessionManager.executeCell(sessionId, msg.cell_id, msg.source);
+          await sessionManager.executeCell(session_id, cell_id, source);
         } catch (err) {
           sendToClient(ws, {
             type: 'error',
+            session_id,
             message: String(err),
-            cell_id: msg.cell_id,
+            cell_id,
           });
         }
         break;
       }
 
       case 'save_notebook': {
-        // The client sends the path; the current notebook state lives in the session.
-        if (!sessionId) {
-          sendToClient(ws, { type: 'error', message: 'No sessionId provided.' });
-          break;
-        }
-        const session = sessionManager.getSession(sessionId);
+        const { session_id } = msg;
+        const session = sessionManager.getSession(session_id);
         if (!session) {
-          sendToClient(ws, { type: 'error', message: `Session "${sessionId}" not found.` });
+          sendToClient(ws, { type: 'error', session_id, message: `Session "${session_id}" not found.` });
           break;
         }
         try {
           await notebookStore.save(msg.path, session.notebook);
           console.log(`[ws] Notebook saved to "${msg.path}"`);
-
-          // Sync cell count and updated_at to the DB.
           if (session.notebookDbId) {
             db.updateNotebook(session.notebookDbId, {
               cell_count: session.notebook.cells.length,
@@ -600,73 +942,77 @@ wss.on('connection', (ws: WebSocket, req) => {
             });
           }
         } catch (err) {
-          sendToClient(ws, { type: 'error', message: String(err) });
+          sendToClient(ws, { type: 'error', session_id, message: String(err) });
         }
         break;
       }
 
       case 'load_notebook': {
+        const { session_id } = msg;
         let notebook: Notebook;
         try {
           notebook = await notebookStore.load(msg.path);
         } catch (err) {
-          sendToClient(ws, { type: 'error', message: String(err) });
+          sendToClient(ws, { type: 'error', session_id, message: String(err) });
           break;
         }
-
-        // If there is an active session, update its in-memory notebook.
-        if (sessionId) {
-          const session = sessionManager.getSession(sessionId);
-          if (session) {
-            session.notebook = notebook;
-          }
-        }
-
+        const loadSession = sessionManager.getSession(session_id);
+        if (loadSession) loadSession.notebook = notebook;
         console.log(`[ws] Notebook loaded from "${msg.path}"`);
-        // Echo the notebook back as a git_diff message (reusing the channel
-        // for structural data) is out of scope here; the client can re-fetch
-        // via REST.  We simply ack success silently.
         break;
       }
 
       case 'export_html': {
-        let notebook: Notebook | undefined;
-        if (sessionId) {
-          const session = sessionManager.getSession(sessionId);
-          if (session) {
-            notebook = session.notebook;
-          }
-        }
-        if (!notebook) {
+        const { session_id } = msg;
+        const session = sessionManager.getSession(session_id);
+        if (!session) {
           sendToClient(ws, {
             type: 'error',
+            session_id,
             message: 'No notebook found for this session.',
           });
           break;
         }
         try {
-          const html = await exportToHtml(notebook, { ...msg.options, minify: false });
-          sendToClient(ws, { type: 'export_complete', html });
+          const html = await exportToHtml(session.notebook, { ...msg.options, minify: false });
+          sendToClient(ws, { type: 'export_complete', session_id, html });
         } catch (err) {
-          sendToClient(ws, { type: 'error', message: String(err) });
+          sendToClient(ws, { type: 'error', session_id, message: String(err) });
         }
         break;
       }
 
       case 'slice_update': {
-        // Update the slice on the in-memory notebook for the session.
-        if (sessionId) {
-          const session = sessionManager.getSession(sessionId);
-          if (session) {
-            session.notebook = {
-              ...session.notebook,
-              slice: {
-                ...session.notebook.slice,
-                sections: msg.sections,
-                updated_at: new Date().toISOString(),
-              },
-            };
-          }
+        const { session_id } = msg;
+        const session = sessionManager.getSession(session_id);
+        if (session) {
+          session.notebook = {
+            ...session.notebook,
+            slice: {
+              ...session.notebook.slice,
+              sections: msg.sections,
+              updated_at: new Date().toISOString(),
+            },
+          };
+        }
+        break;
+      }
+
+      case 'ping': {
+        sendToClient(ws, { type: 'pong' });
+        break;
+      }
+
+      case 'update_cell_source': {
+        const { session_id, cell_id, source } = msg;
+        const session = sessionManager.getSession(session_id);
+        if (session) {
+          session.notebook = {
+            ...session.notebook,
+            cells: session.notebook.cells.map((c) =>
+              c.id === cell_id ? { ...c, source } : c,
+            ),
+          };
         }
         break;
       }
@@ -680,22 +1026,94 @@ wss.on('connection', (ws: WebSocket, req) => {
     }
   });
 
+  function cleanup() {
+    for (const [session_id, remove] of subscriptions.entries()) {
+      remove();
+      if (sessionOwners.get(session_id) === ws) sessionOwners.delete(session_id);
+    }
+    subscriptions.clear();
+  }
+
   ws.on('close', () => {
     console.log(`[ws] Client ${clientId} disconnected`);
-    removeListener?.();
+    cleanup();
   });
 
   ws.on('error', (err) => {
     console.error(`[ws] Client ${clientId} error:`, err.message);
-    removeListener?.();
+    cleanup();
   });
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function sendToClient(ws: WebSocket, msg: WSServerMessage): void {
+function sendToClient(ws: WebSocket, msg: object): void {
   if (ws.readyState === ws.OPEN) {
     ws.send(JSON.stringify(msg));
+  }
+}
+
+// ── Startup: import notebooks from disk that have no DB record ────────────────
+
+async function importExistingNotebooks(): Promise<void> {
+  const { readdir, readFile } = await import('fs/promises');
+  const workspaceRoot = process.env['NB_WORKSPACE_DIR'] ?? path.join(os.homedir(), 'nb-workspaces');
+
+  let slugs: string[];
+  try {
+    slugs = await readdir(workspaceRoot);
+  } catch {
+    return; // workspace root doesn't exist yet — nothing to import
+  }
+
+  // Build a set of workspace dirs already tracked in the DB.
+  const existingDirs = new Set(
+    db.listNotebooks().map((r) => r.workspace_dir),
+  );
+
+  let imported = 0;
+  for (const slug of slugs) {
+    const workspaceDir = path.join(workspaceRoot, slug);
+    if (existingDirs.has(workspaceDir)) continue;
+
+    const notebookPath = path.join(workspaceDir, `${slug}.notebook.json`);
+    let raw: string;
+    try {
+      raw = await readFile(notebookPath, 'utf-8');
+    } catch {
+      continue; // not a notebook directory
+    }
+
+    try {
+      const nb = JSON.parse(raw) as { metadata?: { title?: string; created?: string; updated?: string } };
+      const title = nb.metadata?.title ?? 'Untitled Notebook';
+      const created = nb.metadata?.created ?? new Date().toISOString();
+      const updated = nb.metadata?.updated ?? created;
+      const cells: unknown[] = (nb as Record<string, unknown>)['cells'] as unknown[] ?? [];
+
+      const notebookId = crypto.randomUUID();
+      db.createNotebook({
+        id: notebookId,
+        user_id: null,
+        title,
+        slug,
+        workspace_dir: workspaceDir,
+        notebook_path: notebookPath,
+        status: 'active',
+        created_at: created,
+        updated_at: updated,
+      });
+      if (cells.length > 0) {
+        db.updateNotebook(notebookId, { cell_count: cells.length });
+      }
+      imported++;
+    } catch (err) {
+      console.warn(`[import] Failed to import "${slug}":`, err);
+    }
+  }
+
+  if (imported > 0) {
+    console.log(`[import] Imported ${imported} notebook(s) from disk.`);
   }
 }
 
@@ -704,4 +1122,5 @@ function sendToClient(ws: WebSocket, msg: WSServerMessage): void {
 const PORT = process.env['PORT'] ?? 3002;
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  importExistingNotebooks().catch((err) => console.error('[import] Error:', err));
 });

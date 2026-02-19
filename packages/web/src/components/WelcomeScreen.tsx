@@ -1,20 +1,27 @@
 import { useStore } from '../store';
 
 export function WelcomeScreen() {
-  const createNewNotebook = useStore((s) => s.createNewNotebook);
+  const setCreatingNotebook = useStore((s) => s.setCreatingNotebook);
+  const sessionNotice = useStore((s) => s.sessionNotice);
+  const clearSessionNotice = useStore((s) => s.clearSessionNotice);
 
   return (
     <div className="welcome-screen">
-      <div className="welcome-logo">NB</div>
-      <h1 className="welcome-title">Notebook AI</h1>
+      {sessionNotice && (
+        <div className="session-notice">
+          <span>{sessionNotice}</span>
+          <button className="session-notice-close" onClick={clearSessionNotice}>✕</button>
+        </div>
+      )}
+      <h1 className="welcome-title">NoteBook AI</h1>
       <p className="welcome-subtitle">
-        Create a new notebook to start an interactive Claude Code session.
+        An interactive notebook for AI-Cli
       </p>
       <button
         className="welcome-create-btn"
-        onClick={() => createNewNotebook('Untitled Notebook')}
+        onClick={() => setCreatingNotebook(true)}
       >
-        Create New Notebook
+        + New NoteBook
       </button>
     </div>
   );

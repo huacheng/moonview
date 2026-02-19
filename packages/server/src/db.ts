@@ -103,15 +103,15 @@ export class NotebookDb {
   listNotebooks(userId?: string | null): NotebookRow[] {
     if (userId) {
       return this.db.prepare(
-        'SELECT * FROM notebooks WHERE user_id = ? AND status = ? ORDER BY updated_at DESC'
+        'SELECT * FROM notebooks WHERE user_id = ? AND status = ? ORDER BY created_at DESC'
       ).all(userId, 'active') as NotebookRow[];
     }
     return this.db.prepare(
-      'SELECT * FROM notebooks WHERE status = ? ORDER BY updated_at DESC'
+      'SELECT * FROM notebooks WHERE status = ? ORDER BY created_at DESC'
     ).all('active') as NotebookRow[];
   }
 
-  updateNotebook(id: string, updates: Partial<Pick<NotebookRow, 'title' | 'slug' | 'status' | 'cell_count' | 'updated_at'>>): NotebookRow | undefined {
+  updateNotebook(id: string, updates: Partial<Pick<NotebookRow, 'title' | 'slug' | 'notebook_path' | 'status' | 'cell_count' | 'updated_at'>>): NotebookRow | undefined {
     const fields: string[] = [];
     const values: Record<string, unknown> = { id };
 
@@ -134,14 +134,16 @@ export class NotebookDb {
   }
 
   deleteNotebook(id: string): void {
-    this.updateNotebook(id, { status: 'archived', updated_at: new Date().toISOString() });
+    // Hard-delete: remove sessions first (no ON DELETE CASCADE), then the notebook.
+    this.db.prepare('DELETE FROM sessions WHERE notebook_id = ?').run(id);
+    this.db.prepare('DELETE FROM notebooks WHERE id = ?').run(id);
   }
 
   // ── Session CRUD ─────────────────────────────────────────────────────────
 
   createSessionRecord(session: Omit<SessionRow, 'closed_at'>): SessionRow {
     const stmt = this.db.prepare(`
-      INSERT INTO sessions (id, notebook_id, tmux_session, jsonl_path, cwd, status, created_at)
+      INSERT OR REPLACE INTO sessions (id, notebook_id, tmux_session, jsonl_path, cwd, status, created_at)
       VALUES (@id, @notebook_id, @tmux_session, @jsonl_path, @cwd, @status, @created_at)
     `);
     stmt.run(session);

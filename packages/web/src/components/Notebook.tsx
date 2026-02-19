@@ -1,6 +1,7 @@
 import type { CellType } from '@notebook-ai/shared';
 import { useStore } from '../store';
 import { Cell } from './Cell';
+import { SliceView } from './SliceView';
 
 // ── Add cell buttons ────────────────────────────────────────────────────────
 
@@ -21,46 +22,60 @@ function AddCellButtons({ onAdd }: AddCellButtonsProps) {
   );
 }
 
-// ── Slice view ──────────────────────────────────────────────────────────────
+// ── Notebook status bar ─────────────────────────────────────────────────────
 
-function SliceView() {
+function NotebookStatusBar() {
   const notebook = useStore((s) => s.notebook);
-  const slice = notebook?.slice;
+  const sessionId = useStore((s) => s.sessionId);
+  const activeTab = useStore((s) => s.activeTab);
+  const setActiveTab = useStore((s) => s.setActiveTab);
+  const saveNotebook = useStore((s) => s.saveNotebook);
+  const wsStatus = useStore((s) => s.wsStatus);
+  const connected = wsStatus === 'connected';
 
-  if (!slice || !slice.generated || slice.sections.length === 0) {
-    return (
-      <div className="slice-empty">
-        <p>No slice generated yet.</p>
-        <p className="slice-empty-hint">
-          Run cells in the Notebook tab and the AI will populate a structured summary here.
-        </p>
-      </div>
-    );
+  const title = notebook?.metadata.title ?? 'Untitled Notebook';
+  const inSlice = activeTab === 'slice';
+
+  function handleExport() {
+    if (!sessionId) return;
+    const url = `/api/notebooks/${encodeURIComponent(sessionId)}/export-zip`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   return (
-    <div className="slice-view">
-      {slice.sections
-        .slice()
-        .sort((a, b) => a.order - b.order)
-        .map((section) => (
-          <div key={section.id} className="slice-section">
-            <h2 className="slice-section-title">{section.title}</h2>
-            <div className="slice-section-content">
-              <p>{section.content}</p>
-            </div>
-            {section.cell_refs.length > 0 && (
-              <div className="slice-section-refs">
-                <span>Referenced cells: </span>
-                {section.cell_refs.map((ref) => (
-                  <code key={ref} className="slice-cell-ref">
-                    {ref.slice(0, 8)}
-                  </code>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+    <div className="notebook-statusbar">
+      <span className="notebook-statusbar-title" title={title}>{title}</span>
+
+      <div className="notebook-statusbar-actions">
+        <button
+          className="notebook-statusbar-btn"
+          onClick={() => saveNotebook()}
+          disabled={!connected}
+          title={connected ? 'Save notebook' : 'Not connected'}
+        >
+          Save
+        </button>
+        <button
+          className="notebook-statusbar-btn"
+          onClick={handleExport}
+          disabled={!sessionId}
+          title={sessionId ? 'Export notebook as bundle' : 'No active session'}
+        >
+          Export
+        </button>
+        <button
+          className={`notebook-statusbar-btn notebook-statusbar-slice-btn${inSlice ? ' active' : ''}`}
+          onClick={() => setActiveTab(inSlice ? 'notebook' : 'slice')}
+          title={inSlice ? 'Back to Notebook' : 'Open Slice view'}
+        >
+          {inSlice ? '◂ Notebook' : 'Slice ▸'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -76,6 +91,8 @@ export function Notebook() {
 
   return (
     <div className="notebook-container">
+      <NotebookStatusBar />
+
       {activeTab === 'notebook' && (
         <div className="notebook-cells">
           {cells.length === 0 && (

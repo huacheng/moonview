@@ -212,7 +212,7 @@ export function SliceView() {
         </p>
         <div style={{ marginTop: '16px' }}>
           <button
-            className="toolbar-btn"
+            className="content-btn"
             onClick={() => generateSlice()}
             disabled={sliceLoading}
           >
@@ -228,7 +228,7 @@ export function SliceView() {
     <div className="slice-view">
       <div className="slice-toolbar">
         <button
-          className="toolbar-btn"
+          className="content-btn"
           onClick={() => generateSlice()}
           disabled={sliceLoading}
         >

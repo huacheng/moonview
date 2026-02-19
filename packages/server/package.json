@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "@notebook-ai/shared": "workspace:*",
+    "@types/multer": "^2.0.0",
     "better-sqlite3": "^12.6.2",
     "chokidar": "^4.0.0",
     "express": "^5.1.0",
+    "multer": "^2.0.2",
     "simple-git": "^3.27.0",
     "ws": "^8.18.0"
   },
