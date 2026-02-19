@@ -5,11 +5,20 @@ import crypto from 'crypto';
 import path from 'path';
 import {
   WSClientMessageSchema,
+  NotebookSchema,
   type WSServerMessage,
   type Notebook,
+  type NotebookListItem,
 } from '@notebook-ai/shared';
 import { SessionManager } from './session.js';
 import { NotebookStore } from './notebook-store.js';
+import { NotebookDb } from './db.js';
+import {
+  titleToSlug,
+  uniqueSlug,
+  ensureWorkspaceDir,
+  getNotebookFilePath,
+} from './workspace.js';
 import { exportToHtml, exportToFolder } from './export.js';
 import { generateSlice } from './slice-generator.js';
 import { authMiddleware, authEnabled, handleLogin, handleAuthStatus } from './auth.js';
@@ -53,6 +62,15 @@ app.use(authMiddleware);
 
 const sessionManager = new SessionManager();
 const notebookStore = new NotebookStore();
+const db = new NotebookDb();
+
+// Wire auto-save: when a cell completes, sync cell_count + updated_at to DB.
+sessionManager.onAutoSave = (notebookDbId, cellCount) => {
+  db.updateNotebook(notebookDbId, {
+    cell_count: cellCount,
+    updated_at: new Date().toISOString(),
+  });
+};
 
 // ── REST: Health ─────────────────────────────────────────────────────────────
 
@@ -119,6 +137,235 @@ app.post('/api/notebooks', async (req: Request, res: Response) => {
   }
 });
 
+// ── REST: Notebook History (DB-backed) ───────────────────────────────────
+
+/**
+ * GET /api/notebooks/list
+ * Returns all notebooks from the DB, ordered by updated_at DESC.
+ */
+app.get('/api/notebooks/list', (_req: Request, res: Response) => {
+  try {
+    const rows = db.listNotebooks();
+    const items: NotebookListItem[] = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      status: row.status,
+      cellCount: row.cell_count,
+      hasActiveSession: !!db.getActiveSession(row.id),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+    res.json({ notebooks: items });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/**
+ * POST /api/notebooks/create
+ * Creates a new notebook with an isolated workspace directory and tmux session.
+ * Body: { title: string; userId?: string }
+ */
+app.post('/api/notebooks/create', async (req: Request, res: Response) => {
+  const { title, userId } = req.body as { title?: string; userId?: string };
+
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    res.status(400).json({ error: '"title" must be a non-empty string.' });
+    return;
+  }
+
+  try {
+    const baseSlug = titleToSlug(title.trim());
+    const slug = uniqueSlug(baseSlug, userId);
+    const workspaceDir = ensureWorkspaceDir(slug, userId);
+    const notebookPath = getNotebookFilePath(workspaceDir, slug);
+    const notebookId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    // Create the notebook in the DB.
+    db.createNotebook({
+      id: notebookId,
+      user_id: userId ?? null,
+      title: title.trim(),
+      slug,
+      workspace_dir: workspaceDir,
+      notebook_path: notebookPath,
+      status: 'active',
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Create a blank notebook and persist it to disk.
+    const notebook = notebookStore.createNew(title.trim(), workspaceDir);
+    await notebookStore.save(notebookPath, notebook);
+
+    // Create a tmux session.
+    const session = await sessionManager.createSession(notebookPath, workspaceDir);
+    session.notebook = notebook;
+    session.notebookDbId = notebookId;
+
+    // Record the session in the DB.
+    db.createSessionRecord({
+      id: session.id,
+      notebook_id: notebookId,
+      tmux_session: session.id,
+      jsonl_path: null,
+      cwd: workspaceDir,
+      status: 'active',
+      created_at: now,
+    });
+
+    res.status(201).json({
+      notebook,
+      notebookId,
+      sessionId: session.id,
+      slug,
+      workspaceDir,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/**
+ * POST /api/notebooks/:notebookId/restore
+ * Restores a notebook from the DB: loads .notebook.json, reconnects or creates tmux session.
+ */
+app.post('/api/notebooks/:notebookId/restore', async (req: Request, res: Response) => {
+  const { notebookId } = req.params as { notebookId: string };
+
+  try {
+    const row = db.getNotebook(notebookId);
+    if (!row) {
+      res.status(404).json({ error: `Notebook "${notebookId}" not found.` });
+      return;
+    }
+
+    // Load the notebook from disk.
+    let notebook: Notebook;
+    try {
+      notebook = await notebookStore.load(row.notebook_path);
+    } catch {
+      // If file is missing, create a fresh one.
+      notebook = notebookStore.createNew(row.title, row.workspace_dir);
+      await notebookStore.save(row.notebook_path, notebook);
+    }
+
+    // Check for an active session in the DB.
+    const activeSessionRow = db.getActiveSession(notebookId);
+    const sessionName = activeSessionRow?.tmux_session;
+
+    let sessionId: string;
+    let reconnected = false;
+
+    if (sessionName) {
+      // Try to reconnect to the existing tmux session.
+      const result = await sessionManager.reconnectSession(
+        sessionName,
+        row.notebook_path,
+        row.workspace_dir,
+        notebook,
+        activeSessionRow?.jsonl_path,
+        notebookId,
+      );
+      sessionId = result.session.id;
+      reconnected = result.reconnected;
+
+      if (!reconnected) {
+        // Old session died; close it in DB and record the new one.
+        db.closeSessionRecord(activeSessionRow!.id);
+        db.createSessionRecord({
+          id: result.session.id,
+          notebook_id: notebookId,
+          tmux_session: result.session.id,
+          jsonl_path: null,
+          cwd: row.workspace_dir,
+          status: 'active',
+          created_at: new Date().toISOString(),
+        });
+      }
+    } else {
+      // No active session — create one.
+      const session = await sessionManager.createSession(row.notebook_path, row.workspace_dir);
+      session.notebook = notebook;
+      session.notebookDbId = notebookId;
+      sessionId = session.id;
+
+      db.createSessionRecord({
+        id: session.id,
+        notebook_id: notebookId,
+        tmux_session: session.id,
+        jsonl_path: null,
+        cwd: row.workspace_dir,
+        status: 'active',
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    // Update the notebook's updated_at.
+    db.updateNotebook(notebookId, { updated_at: new Date().toISOString() });
+
+    res.json({
+      notebook,
+      sessionId,
+      reconnected,
+      notebookId,
+      workspaceDir: row.workspace_dir,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/**
+ * PATCH /api/notebooks/:notebookId
+ * Updates notebook metadata (title, etc.).
+ */
+app.patch('/api/notebooks/:notebookId', (req: Request, res: Response) => {
+  const { notebookId } = req.params as { notebookId: string };
+  const { title } = req.body as { title?: string };
+
+  try {
+    const row = db.getNotebook(notebookId);
+    if (!row) {
+      res.status(404).json({ error: `Notebook "${notebookId}" not found.` });
+      return;
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (typeof title === 'string' && title.trim()) {
+      updates.title = title.trim();
+    }
+
+    const updated = db.updateNotebook(notebookId, updates as { title?: string });
+    res.json({ notebook: updated });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/**
+ * DELETE /api/notebooks/:notebookId
+ * Archives (soft-deletes) a notebook.
+ */
+app.delete('/api/notebooks/:notebookId', (req: Request, res: Response) => {
+  const { notebookId } = req.params as { notebookId: string };
+
+  try {
+    const row = db.getNotebook(notebookId);
+    if (!row) {
+      res.status(404).json({ error: `Notebook "${notebookId}" not found.` });
+      return;
+    }
+
+    db.deleteNotebook(notebookId);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ── REST: Sessions ───────────────────────────────────────────────────────────
 
 /**
@@ -161,6 +408,8 @@ app.delete('/api/sessions/:id', async (req: Request, res: Response) => {
 
   try {
     await sessionManager.closeSession(id);
+    // Close matching DB session record.
+    try { db.closeSessionRecord(id); } catch { /* best effort */ }
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -342,6 +591,14 @@ wss.on('connection', (ws: WebSocket, req) => {
         try {
           await notebookStore.save(msg.path, session.notebook);
           console.log(`[ws] Notebook saved to "${msg.path}"`);
+
+          // Sync cell count and updated_at to the DB.
+          if (session.notebookDbId) {
+            db.updateNotebook(session.notebookDbId, {
+              cell_count: session.notebook.cells.length,
+              updated_at: new Date().toISOString(),
+            });
+          }
         } catch (err) {
           sendToClient(ws, { type: 'error', message: String(err) });
         }
