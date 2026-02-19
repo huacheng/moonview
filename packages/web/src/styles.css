@@ -62,6 +62,11 @@
   /* Shadows */
   --shadow-cell: 0 1px 3px rgba(0, 0, 0, 0.07);
   --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+  /* Sidebar */
+  --sidebar-width: 280px;
+  --sidebar-bg: #f8fafc;
+  --sidebar-border: #e2e8f0;
 }
 
 /* ============================================================
@@ -119,12 +124,20 @@ textarea.cell-input {
   min-height: 100vh;
 }
 
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .app-content {
   flex: 1;
   max-width: 960px;
   width: 100%;
   margin: 0 auto;
   padding: var(--space-xl) var(--space-lg);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* ============================================================
@@ -283,6 +296,249 @@ textarea.cell-input {
 
 .connection-status-connected .connection-label { color: var(--color-completed); }
 .connection-status-connecting .connection-label { color: var(--color-running); }
+
+/* ── Sidebar toggle button ──────────────────────────────── */
+.toolbar-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--toolbar-text);
+  font-size: 1.1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.toolbar-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.sidebar-header-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-new-btn {
+  display: block;
+  width: calc(100% - var(--space-lg) * 2);
+  margin: var(--space-md) var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: center;
+}
+
+.sidebar-new-btn:hover {
+  background: var(--color-primary-dark);
+}
+
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-sm) 0;
+}
+
+.sidebar-loading,
+.sidebar-empty {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.sidebar-item {
+  position: relative;
+  padding: var(--space-sm) var(--space-lg);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.sidebar-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.sidebar-item-active {
+  background: rgba(74, 158, 255, 0.08);
+  border-left-color: var(--color-primary);
+}
+
+.sidebar-item-active:hover {
+  background: rgba(74, 158, 255, 0.12);
+}
+
+.sidebar-item-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.sidebar-item-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.sidebar-item-title-input {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-xs);
+  outline: none;
+  width: 100%;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.15);
+}
+
+.sidebar-item-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-completed);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  flex-shrink: 0;
+}
+
+.sidebar-item-meta {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.sidebar-item-delete {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.sidebar-item:hover .sidebar-item-delete {
+  opacity: 1;
+}
+
+.sidebar-item-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+}
+
+/* ============================================================
+   Welcome Screen
+   ============================================================ */
+.welcome-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - var(--toolbar-height) - var(--space-xl) * 2);
+  text-align: center;
+  gap: var(--space-md);
+}
+
+.welcome-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  border-radius: 18px;
+  margin-bottom: var(--space-sm);
+}
+
+.welcome-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.welcome-subtitle {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  max-width: 400px;
+}
+
+.welcome-create-btn {
+  margin-top: var(--space-md);
+  padding: 12px 32px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.welcome-create-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.welcome-create-btn:active {
+  transform: translateY(0);
+}
 
 /* ============================================================
    Notebook container
@@ -1113,6 +1369,16 @@ textarea.cell-input {
 
   .tab-btn {
     padding: 5px 12px;
+  }
+
+  /* Sidebar as overlay on small screens */
+  .sidebar {
+    position: fixed;
+    top: var(--toolbar-height);
+    left: 0;
+    bottom: 0;
+    z-index: 90;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.1);
   }
 }
 
