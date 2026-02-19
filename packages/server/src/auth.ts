@@ -2,13 +2,13 @@ import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 
 // ── Token source ────────────────────────────────────────────────────────────
-// AUTH_TOKEN env var sets the shared secret. If unset, auth is disabled
+// NB_AUTH_TOKEN env var sets the shared secret. If unset, auth is disabled
 // (open access — useful for local development).
 
-const AUTH_TOKEN = process.env['AUTH_TOKEN'] ?? '';
+const NB_AUTH_TOKEN = process.env['NB_AUTH_TOKEN'] ?? '';
 
-/** Whether auth is enabled (non-empty AUTH_TOKEN). */
-export const authEnabled = AUTH_TOKEN.length > 0;
+/** Whether auth is enabled (non-empty NB_AUTH_TOKEN). */
+export const authEnabled = NB_AUTH_TOKEN.length > 0;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ export function handleLogin(req: Request, res: Response): void {
     return;
   }
 
-  if (!timingSafeEqual(token, AUTH_TOKEN)) {
+  if (!timingSafeEqual(token, NB_AUTH_TOKEN)) {
     res.status(401).json({ error: 'Invalid token.' });
     return;
   }
@@ -77,7 +77,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   const token = authHeader.slice(7);
-  if (!timingSafeEqual(token, AUTH_TOKEN)) {
+  if (!timingSafeEqual(token, NB_AUTH_TOKEN)) {
     res.status(401).json({ error: 'Invalid token.' });
     return;
   }

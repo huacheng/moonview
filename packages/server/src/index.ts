@@ -257,8 +257,8 @@ wss.on('connection', (ws: WebSocket, req) => {
 
   // Validate auth token for WebSocket connections
   if (authEnabled) {
-    const AUTH_TOKEN = process.env['AUTH_TOKEN'] ?? '';
-    if (!token || token !== AUTH_TOKEN) {
+    const NB_AUTH_TOKEN = process.env['NB_AUTH_TOKEN'] ?? '';
+    if (!token || token !== NB_AUTH_TOKEN) {
       sendToClient(ws, { type: 'error', message: 'Unauthorized.' });
       ws.close(4001, 'Unauthorized');
       return;
