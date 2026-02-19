@@ -12,6 +12,7 @@ import { SessionManager } from './session.js';
 import { NotebookStore } from './notebook-store.js';
 import { exportToHtml, exportToFolder } from './export.js';
 import { generateSlice } from './slice-generator.js';
+import { authMiddleware, authEnabled, handleLogin, handleAuthStatus } from './auth.js';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -39,6 +40,14 @@ app.use((_req, res, next) => {
 app.options('/{*path}', (_req, res) => {
   res.sendStatus(204);
 });
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+app.post('/api/auth/login', handleLogin);
+app.get('/api/auth/status', handleAuthStatus);
+
+// Auth middleware — protects all routes below this point.
+app.use(authMiddleware);
 
 // ── Singletons ───────────────────────────────────────────────────────────────
 
@@ -241,9 +250,20 @@ app.get('/api/notebooks/:sessionId/export-zip', async (req: Request, res: Respon
 // ── WebSocket routing ────────────────────────────────────────────────────────
 
 wss.on('connection', (ws: WebSocket, req) => {
-  // Extract session ID from the URL query string: ws://host/ws?sessionId=nb-xxxx
+  // Extract session ID and auth token from the URL query string
   const url = new URL(req.url ?? '/', `http://localhost`);
   const sessionId = url.searchParams.get('sessionId') ?? undefined;
+  const token = url.searchParams.get('token') ?? undefined;
+
+  // Validate auth token for WebSocket connections
+  if (authEnabled) {
+    const AUTH_TOKEN = process.env['AUTH_TOKEN'] ?? '';
+    if (!token || token !== AUTH_TOKEN) {
+      sendToClient(ws, { type: 'error', message: 'Unauthorized.' });
+      ws.close(4001, 'Unauthorized');
+      return;
+    }
+  }
 
   const clientId = crypto.randomUUID();
   console.log(`[ws] Client ${clientId} connected${sessionId ? ` (session: ${sessionId})` : ''}`);

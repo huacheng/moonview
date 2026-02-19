@@ -82,12 +82,23 @@ function makeBlankNotebook(): Notebook {
 // ---------------------------------------------------------------------------
 
 export interface NotebookStore {
+  // Auth state
+  authToken: string | null;
+  authRequired: boolean | null; // null = not yet checked
+  authError: string | null;
+  authLoading: boolean;
+
   notebook: Notebook | null;
   activeTab: 'notebook' | 'slice';
   ws: WebSocket | null;
   wsStatus: 'disconnected' | 'connecting' | 'connected';
   sessionId: string | null;
   sliceLoading: boolean;
+
+  // Auth actions
+  checkAuthStatus(): Promise<void>;
+  login(token: string): Promise<void>;
+  logout(): void;
 
   // Notebook actions
   setNotebook(nb: Notebook): void;
@@ -125,12 +136,74 @@ export interface NotebookStore {
 // ---------------------------------------------------------------------------
 
 export const useStore = create<NotebookStore>((set, get) => ({
+  authToken: localStorage.getItem('nb-auth-token'),
+  authRequired: null,
+  authError: null,
+  authLoading: false,
+
   notebook: makeBlankNotebook(),
   activeTab: 'notebook',
   ws: null,
   wsStatus: 'disconnected',
   sessionId: null,
   sliceLoading: false,
+
+  // ── Auth actions ────────────────────────────────────────────────────────
+
+  async checkAuthStatus() {
+    try {
+      const res = await fetch('/api/auth/status');
+      const data = (await res.json()) as { authEnabled: boolean };
+      set({ authRequired: data.authEnabled });
+
+      // If auth is enabled and we have a stored token, validate it
+      if (data.authEnabled) {
+        const token = get().authToken;
+        if (token) {
+          const check = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+          });
+          if (!check.ok) {
+            // Stored token is invalid — clear it
+            localStorage.removeItem('nb-auth-token');
+            set({ authToken: null });
+          }
+        }
+      }
+    } catch {
+      // If we can't reach the server, assume auth not required for now
+      set({ authRequired: false });
+    }
+  },
+
+  async login(token: string) {
+    set({ authLoading: true, authError: null });
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error: string };
+        set({ authError: data.error, authLoading: false });
+        return;
+      }
+      localStorage.setItem('nb-auth-token', token);
+      set({ authToken: token, authError: null, authLoading: false });
+    } catch {
+      set({ authError: 'Failed to connect to server.', authLoading: false });
+    }
+  },
+
+  logout() {
+    localStorage.removeItem('nb-auth-token');
+    set({ authToken: null });
+    // Disconnect WebSocket on logout
+    get().disconnectWebSocket();
+  },
 
   // ── Notebook actions ────────────────────────────────────────────────────
 
@@ -317,9 +390,13 @@ export const useStore = create<NotebookStore>((set, get) => ({
 
     set({ sliceLoading: true });
     try {
+      const headers: Record<string, string> = {};
+      const token = get().authToken;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(
-        `http://localhost:3002/api/notebooks/${encodeURIComponent(sessionId)}/generate-slice`,
-        { method: 'POST' },
+        `/api/notebooks/${encodeURIComponent(sessionId)}/generate-slice`,
+        { method: 'POST', headers },
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Unknown error' }));
@@ -386,7 +463,8 @@ export const useStore = create<NotebookStore>((set, get) => ({
     set({ wsStatus: 'connecting', sessionId });
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws?session=${sessionId}`;
+    const tokenParam = get().authToken ? `&token=${encodeURIComponent(get().authToken!)}` : '';
+    const wsUrl = `${protocol}//${window.location.host}/ws?session=${sessionId}${tokenParam}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

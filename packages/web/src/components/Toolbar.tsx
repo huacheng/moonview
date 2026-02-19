@@ -109,6 +109,19 @@ function TabSwitcher() {
 
 // ── File operations ─────────────────────────────────────────────────────────
 
+function LogoutButton() {
+  const authRequired = useStore((s) => s.authRequired);
+  const logout = useStore((s) => s.logout);
+
+  if (!authRequired) return null;
+
+  return (
+    <button className="toolbar-btn" onClick={logout} title="Sign out">
+      Logout
+    </button>
+  );
+}
+
 function FileOperations() {
   const saveNotebook = useStore((s) => s.saveNotebook);
   const setNotebook = useStore((s) => s.setNotebook);
@@ -208,6 +221,7 @@ export function Toolbar() {
       <div className="toolbar-right">
         <FileOperations />
         <ConnectionStatus />
+        <LogoutButton />
       </div>
     </header>
   );
