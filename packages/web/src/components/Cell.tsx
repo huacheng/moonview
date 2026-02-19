@@ -161,7 +161,7 @@ function PromptCellBody({ cell }: { cell: PromptCell }) {
         onExecute={handleExecute}
         disabled={cell.status === 'running'}
       />
-      {cell.outputs.length > 0 && <CellOutput outputs={cell.outputs} />}
+      {cell.outputs.length > 0 && <CellOutput outputs={cell.outputs} cellId={cell.id} />}
       {cell.git_diff && <GitDiffView diff={cell.git_diff} />}
     </>
   );

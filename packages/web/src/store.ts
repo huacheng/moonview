@@ -8,6 +8,7 @@ import type {
   PromptCell,
   MarkdownCell,
   SliceSection,
+  Annotation,
   WSServerMessage,
 } from '@notebook-ai/shared';
 
@@ -98,6 +99,10 @@ export interface NotebookStore {
   setCellStatus(cellId: string, status: CellStatus): void;
   appendCellOutput(cellId: string, output: CellOutput): void;
   setCellGitDiff(cellId: string, diff: string): void;
+
+  // Annotation actions
+  addAnnotation(annotation: Annotation): void;
+  removeAnnotation(annotationId: string): void;
 
   // Slice actions
   generateSlice(): Promise<void>;
@@ -263,6 +268,42 @@ export const useStore = create<NotebookStore>((set, get) => ({
             if (c.id !== cellId || c.type !== 'prompt') return c;
             return { ...c, git_diff: diff };
           }),
+        },
+      };
+    });
+  },
+
+  // ── Annotation actions ──────────────────────────────────────────────────
+
+  addAnnotation(annotation) {
+    set((state) => {
+      if (!state.notebook) return {};
+      return {
+        notebook: {
+          ...state.notebook,
+          annotations: [...state.notebook.annotations, annotation],
+          metadata: {
+            ...state.notebook.metadata,
+            updated: new Date().toISOString(),
+          },
+        },
+      };
+    });
+  },
+
+  removeAnnotation(annotationId) {
+    set((state) => {
+      if (!state.notebook) return {};
+      return {
+        notebook: {
+          ...state.notebook,
+          annotations: state.notebook.annotations.filter(
+            (a) => a.id !== annotationId,
+          ),
+          metadata: {
+            ...state.notebook.metadata,
+            updated: new Date().toISOString(),
+          },
         },
       };
     });

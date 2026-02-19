@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { CellOutput as CellOutputItem } from '@notebook-ai/shared';
+import { Annotations } from './Annotations';
 
 interface CellOutputProps {
   outputs: CellOutputItem[];
+  cellId?: string;
 }
 
 // ── Individual output renderers ────────────────────────────────────────────
@@ -100,7 +102,7 @@ function ChartOutputView({ chart_type, svg }: { chart_type: string; svg?: string
 
 // ── Dispatcher ─────────────────────────────────────────────────────────────
 
-function OutputItem({ item }: { item: CellOutputItem }) {
+export function OutputItem({ item }: { item: CellOutputItem }) {
   switch (item.type) {
     case 'text':
       return <TextOutputView content={item.content} />;
@@ -125,14 +127,17 @@ function OutputItem({ item }: { item: CellOutputItem }) {
 
 // ── Public component ────────────────────────────────────────────────────────
 
-export function CellOutput({ outputs }: CellOutputProps) {
-  if (outputs.length === 0) return null;
+export function CellOutput({ outputs, cellId }: CellOutputProps) {
+  if (outputs.length === 0 && !cellId) return null;
 
   return (
     <div className="cell-output-area">
       {outputs.map((item, i) => (
         <OutputItem key={i} item={item} />
       ))}
+      {cellId && (
+        <Annotations cellId={cellId} outputs={outputs} />
+      )}
     </div>
   );
 }
