@@ -970,7 +970,7 @@ function buildJs(includeReplay: boolean): string {
 
 // ── Main export function ──────────────────────────────────────────────────────
 
-export async function exportToHtml(notebook: Notebook, options?: ExportOptions): Promise<string> {
+export async function exportToHtml(notebook: Notebook, options?: Partial<ExportOptions>): Promise<string> {
   const opts = {
     include_slice: options?.include_slice ?? true,
     include_replay: options?.include_replay ?? true,
