@@ -111,8 +111,8 @@ function TabSwitcher() {
 
 function FileOperations() {
   const saveNotebook = useStore((s) => s.saveNotebook);
-  const exportHtml = useStore((s) => s.exportHtml);
   const setNotebook = useStore((s) => s.setNotebook);
+  const sessionId = useStore((s) => s.sessionId);
   const wsStatus = useStore((s) => s.wsStatus);
   const connected = wsStatus === 'connected';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,18 +128,29 @@ function FileOperations() {
           const notebook = JSON.parse(reader.result as string) as Notebook;
           setNotebook(notebook);
         } catch {
-          // Silently ignore invalid JSON; a production app would show a toast.
+          // Silently ignore invalid JSON
         }
       };
       reader.readAsText(file);
 
-      // Reset so the same file can be re-imported
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     },
     [setNotebook],
   );
+
+  function handleExportZip() {
+    if (!sessionId) return;
+    // Direct download via REST endpoint — browser handles the zip download
+    const url = `/api/notebooks/${encodeURIComponent(sessionId)}/export-zip`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
   return (
     <div className="file-ops">
@@ -156,7 +167,7 @@ function FileOperations() {
         onClick={() => fileInputRef.current?.click()}
         title="Import a .notebook.json file"
       >
-        Import Notebook
+        Import
       </button>
       <input
         ref={fileInputRef}
@@ -168,11 +179,11 @@ function FileOperations() {
       />
       <button
         className="toolbar-btn"
-        onClick={() => exportHtml()}
-        disabled={!connected}
-        title={connected ? 'Export as HTML' : 'Connect to export'}
+        onClick={handleExportZip}
+        disabled={!sessionId}
+        title={sessionId ? 'Export as folder (zip)' : 'No active session'}
       >
-        Export HTML
+        Export Zip
       </button>
     </div>
   );

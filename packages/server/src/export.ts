@@ -968,26 +968,107 @@ function buildJs(includeReplay: boolean): string {
   return tabSwitchingJs + '\n\n' + replayJs;
 }
 
-// ── Main export function ──────────────────────────────────────────────────────
+// ── Export: folder-based bundle ───────────────────────────────────────────────
+//
+// Produces a directory structure:
+//   <name>/
+//   ├── index.html          (structure, references ./styles.css & ./app.js)
+//   ├── styles.css          (all CSS)
+//   ├── app.js              (tab switching + replay engine)
+//   └── data/
+//       └── notebook.json   (full notebook data)
+//
+// The caller zips this directory for download.  Opening index.html locally
+// (file:// protocol) works because everything uses relative paths and no
+// external fetches are required (notebook.json is loaded synchronously via
+// an inline <script> tag that reads it with a fetch to ./data/notebook.json,
+// with a fallback embedded in a <script type="application/json"> block).
 
-export async function exportToHtml(notebook: Notebook, options?: Partial<ExportOptions>): Promise<string> {
-  const opts = {
+import { mkdir, writeFile } from 'fs/promises';
+import nodePath from 'path';
+
+export interface ExportBundle {
+  /** Absolute path to the created directory. */
+  dir: string;
+  files: string[];
+}
+
+function resolveOpts(options?: Partial<ExportOptions>) {
+  return {
     include_slice: options?.include_slice ?? true,
     include_replay: options?.include_replay ?? true,
     include_annotations: options?.include_annotations ?? true,
     minify: options?.minify ?? false,
   };
+}
 
+/**
+ * Legacy single-file export (still used by WS `export_html` handler).
+ */
+export async function exportToHtml(notebook: Notebook, options?: Partial<ExportOptions>): Promise<string> {
+  const opts = resolveOpts(options);
+  const { indexHtml } = buildBundle(notebook, opts, 'inline');
+  return indexHtml;
+}
+
+/**
+ * Folder-based export — writes files to `outDir/<slug>/`.
+ * Returns the directory path and file list so the caller can zip & serve.
+ */
+export async function exportToFolder(
+  notebook: Notebook,
+  outDir: string,
+  options?: Partial<ExportOptions>,
+): Promise<ExportBundle> {
+  const opts = resolveOpts(options);
+  const slug = slugify(notebook.metadata.title);
+  const dir = nodePath.join(outDir, slug);
+  const dataDir = nodePath.join(dir, 'data');
+
+  await mkdir(dataDir, { recursive: true });
+
+  const { indexHtml, css, js } = buildBundle(notebook, opts, 'external');
+  const notebookJson = JSON.stringify(notebook, null, 2);
+
+  const files = [
+    nodePath.join(dir, 'index.html'),
+    nodePath.join(dir, 'styles.css'),
+    nodePath.join(dir, 'app.js'),
+    nodePath.join(dataDir, 'notebook.json'),
+  ];
+
+  await Promise.all([
+    writeFile(files[0], indexHtml, 'utf-8'),
+    writeFile(files[1], css, 'utf-8'),
+    writeFile(files[2], js, 'utf-8'),
+    writeFile(files[3], notebookJson, 'utf-8'),
+  ]);
+
+  return { dir, files };
+}
+
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'notebook';
+}
+
+// ── Build helpers ─────────────────────────────────────────────────────────────
+
+function buildBundle(
+  notebook: Notebook,
+  opts: ReturnType<typeof resolveOpts>,
+  mode: 'inline' | 'external',
+) {
   const title = escapeHtml(notebook.metadata.title);
   const createdAt = escapeHtml(notebook.metadata.created);
   const updatedAt = notebook.metadata.updated ? escapeHtml(notebook.metadata.updated) : createdAt;
 
-  // Render cells
   const cellsHtml = notebook.cells
     .map((cell) => renderCell(cell, notebook.annotations, opts.include_annotations))
     .join('\n\n');
 
-  // Render slice sections (sorted by order)
   let sliceHtml: string;
   if (opts.include_slice && notebook.slice.generated && notebook.slice.sections.length > 0) {
     const sorted = [...notebook.slice.sections].sort((a, b) => a.order - b.order);
@@ -998,10 +1079,8 @@ export async function exportToHtml(notebook: Notebook, options?: Partial<ExportO
     sliceHtml = `<p class="slice-empty">Slice view disabled.</p>`;
   }
 
-  // Embed notebook JSON for the replay engine
   const notebookJson = JSON.stringify(notebook);
 
-  // Replay panel HTML
   const replayPanelHtml = opts.include_replay
     ? `
 <div id="replay-panel" class="replay-panel" style="display:none">
@@ -1016,15 +1095,26 @@ export async function exportToHtml(notebook: Notebook, options?: Partial<ExportO
   const css = buildCss();
   const js = buildJs(opts.include_replay);
 
-  const html = `<!DOCTYPE html>
+  // In 'external' mode: reference separate files; in 'inline' mode: embed everything.
+  const headBlock = mode === 'external'
+    ? `  <link rel="stylesheet" href="./styles.css">`
+    : `  <style>\n${css}\n  </style>`;
+
+  const scriptBlock = mode === 'external'
+    ? `<script src="./app.js"></script>`
+    : `<script>\n${js}\n</script>`;
+
+  // Notebook data — always embedded as a <script> tag for file:// compat.
+  // In external mode we ALSO write notebook.json for programmatic access.
+  const dataBlock = `<script id="notebook-data" type="application/json">\n${notebookJson}\n</script>`;
+
+  const indexHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title}</title>
-  <style>
-${css}
-  </style>
+${headBlock}
 </head>
 <body>
 
@@ -1042,22 +1132,16 @@ ${css}
 ${cellsHtml || '<p style="text-align:center;color:#9ca3af;margin-top:48px">No cells.</p>'}
 </div>
 
-${opts.include_slice ? `<div id="slice-view" class="tab-content" style="display:none">
-${sliceHtml}
-</div>` : ''}
+${opts.include_slice ? `<div id="slice-view" class="tab-content" style="display:none">\n${sliceHtml}\n</div>` : ''}
 
 ${replayPanelHtml}
 
-<script id="notebook-data" type="application/json">
-${notebookJson}
-</script>
+${dataBlock}
 
-<script>
-${js}
-</script>
+${scriptBlock}
 
 </body>
 </html>`;
 
-  return html;
+  return { indexHtml, css, js };
 }

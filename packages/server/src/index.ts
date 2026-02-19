@@ -10,8 +10,14 @@ import {
 } from '@notebook-ai/shared';
 import { SessionManager } from './session.js';
 import { NotebookStore } from './notebook-store.js';
-import { exportToHtml } from './export.js';
+import { exportToHtml, exportToFolder } from './export.js';
 import { generateSlice } from './slice-generator.js';
+import os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { rm } from 'fs/promises';
+
+const execAsync = promisify(exec);
 
 // ── App setup ────────────────────────────────────────────────────────────────
 
@@ -190,6 +196,44 @@ app.post('/api/notebooks/:sessionId/generate-slice', (_req: Request, res: Respon
 
     res.json({ sections });
   } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ── REST: Export as folder (zip download) ────────────────────────────────────
+
+/**
+ * GET /api/notebooks/:sessionId/export-zip
+ * Exports the notebook as a folder bundle, zips it, and streams the zip.
+ */
+app.get('/api/notebooks/:sessionId/export-zip', async (req: Request, res: Response) => {
+  const { sessionId } = req.params as { sessionId: string };
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) {
+    res.status(404).json({ error: `Session "${sessionId}" not found.` });
+    return;
+  }
+
+  const tmpBase = path.join(os.tmpdir(), `notebook-export-${Date.now()}`);
+
+  try {
+    const bundle = await exportToFolder(session.notebook, tmpBase);
+    const zipPath = `${bundle.dir}.zip`;
+
+    // Create zip (-r recursive, -j junk paths → NO, we want the folder structure)
+    await execAsync(`cd "${tmpBase}" && zip -r "${zipPath}" "${path.basename(bundle.dir)}"`);
+
+    const zipFilename = `${path.basename(bundle.dir)}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+    res.sendFile(zipPath, async () => {
+      // Cleanup temp files
+      await rm(tmpBase, { recursive: true, force: true }).catch(() => {});
+      await rm(zipPath, { force: true }).catch(() => {});
+    });
+  } catch (err) {
+    await rm(tmpBase, { recursive: true, force: true }).catch(() => {});
     res.status(500).json({ error: String(err) });
   }
 });
