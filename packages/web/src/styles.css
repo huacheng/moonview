@@ -1,45 +1,47 @@
 /* ============================================================
-   CSS Variables — theming foundation
+   CSS Variables — "Atelier" warm studio theme
    ============================================================ */
 :root {
-  /* Brand */
-  --color-primary: #4a9eff;
-  --color-primary-dark: #2c7de0;
+  /* Brand — warm amber accent */
+  --color-primary: #b45309;
+  --color-primary-dark: #92400e;
+  --color-primary-light: rgba(180, 83, 9, 0.08);
+  --color-primary-ring: rgba(180, 83, 9, 0.25);
 
-  /* Status colors */
-  --color-running: #4a9eff;
-  --color-completed: #22c55e;
-  --color-error: #ef4444;
-  --color-idle: #94a3b8;
+  /* Status colors — muted, warm-toned */
+  --color-running: #b45309;
+  --color-completed: #15803d;
+  --color-error: #dc2626;
+  --color-idle: #a8a29e;
 
-  /* Toolbar */
-  --toolbar-bg: #1e2433;
-  --toolbar-text: #e2e8f0;
-  --toolbar-border: #2d3748;
-  --toolbar-height: 52px;
+  /* Toolbar — warm dark */
+  --toolbar-bg: #1c1917;
+  --toolbar-text: #fafaf9;
+  --toolbar-border: #292524;
+  --toolbar-height: 54px;
 
-  /* Content */
-  --bg-page: #f8fafc;
+  /* Content — paper-warm backgrounds */
+  --bg-page: #faf9f7;
   --bg-cell: #ffffff;
-  --bg-cell-hover: #f1f5f9;
-  --bg-output: #f8fafc;
+  --bg-cell-hover: #f5f5f4;
+  --bg-output: #fafaf9;
   --bg-thinking: #fefce8;
-  --bg-tool-use: #f0f9ff;
+  --bg-tool-use: #f5f5f4;
   --bg-error: #fef2f2;
 
-  /* Text */
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-mono: #334155;
+  /* Text — warm ink tones */
+  --text-primary: #1c1917;
+  --text-secondary: #78716c;
+  --text-mono: #44403c;
 
-  /* Borders */
-  --border-default: #e2e8f0;
+  /* Borders — warm grays */
+  --border-default: #e7e5e4;
   --border-running: var(--color-running);
   --border-completed: var(--color-completed);
   --border-error: var(--color-error);
 
   /* Cell left-gutter indicator */
-  --cell-gutter-width: 6px;
+  --cell-gutter-width: 4px;
 
   /* Spacing */
   --space-xs: 4px;
@@ -47,26 +49,32 @@
   --space-md: 12px;
   --space-lg: 16px;
   --space-xl: 24px;
+  --space-2xl: 32px;
 
-  /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  /* Typography — editorial pairing + CJK */
+  --font-display: 'Bricolage Grotesque', 'LXGW WenKai Mono', system-ui, sans-serif;
+  --font-sans: 'Outfit', 'LXGW WenKai Mono', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'LXGW WenKai Mono', Menlo, Monaco, 'Courier New', monospace;
+  --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
   --font-size-base: 0.9375rem;
+  --font-size-lg: 1.125rem;
 
-  /* Radius */
+  /* Radius — slightly more rounded */
   --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
-  /* Shadows */
-  --shadow-cell: 0 1px 3px rgba(0, 0, 0, 0.07);
-  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.15);
+  /* Shadows — warm-toned, layered */
+  --shadow-cell: 0 1px 2px rgba(28, 25, 23, 0.04), 0 2px 8px rgba(28, 25, 23, 0.03);
+  --shadow-cell-hover: 0 2px 4px rgba(28, 25, 23, 0.06), 0 4px 16px rgba(28, 25, 23, 0.04);
+  --shadow-dropdown: 0 4px 6px rgba(28, 25, 23, 0.05), 0 12px 32px rgba(28, 25, 23, 0.12);
 
   /* Sidebar */
-  --sidebar-width: 280px;
-  --sidebar-bg: #f8fafc;
-  --sidebar-border: #e2e8f0;
+  --sidebar-width: 272px;
+  --sidebar-bg: #f5f5f4;
+  --sidebar-border: #e7e5e4;
 }
 
 /* ============================================================
@@ -94,6 +102,8 @@ body {
   background: var(--bg-page);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern' 1, 'liga' 1;
 }
 
 button {
@@ -156,6 +166,7 @@ textarea.cell-input {
   top: 0;
   z-index: 100;
   gap: var(--space-md);
+  backdrop-filter: blur(12px);
 }
 
 .toolbar-left,
@@ -176,43 +187,48 @@ textarea.cell-input {
 }
 
 .toolbar-logo {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--color-primary);
   flex-shrink: 0;
+  text-shadow: 0 0 20px rgba(180, 83, 9, 0.3);
 }
 
 .toolbar-title {
   background: none;
   border: none;
   color: var(--toolbar-text);
+  font-family: var(--font-display);
   font-size: var(--font-size-base);
   font-weight: 500;
   cursor: text;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
-  transition: background 0.15s;
-  max-width: 260px;
+  transition: background 0.2s ease;
+  max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .toolbar-title:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .toolbar-title-input {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--color-primary);
   color: var(--toolbar-text);
+  font-family: var(--font-display);
   font-size: var(--font-size-base);
   font-weight: 500;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   outline: none;
-  max-width: 260px;
+  max-width: 280px;
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 /* ── Tab switcher ────────────────────────────────────────── */
@@ -225,18 +241,20 @@ textarea.cell-input {
 }
 
 .tab-btn {
-  padding: 5px 18px;
+  padding: 6px 20px;
   border-radius: calc(var(--radius-md) - 2px);
-  color: rgba(226, 232, 240, 0.7);
+  color: rgba(250, 250, 249, 0.55);
+  font-family: var(--font-display);
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
 .tab-btn:hover {
   color: var(--toolbar-text);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .tab-btn-active {
@@ -253,17 +271,20 @@ textarea.cell-input {
 .toolbar-btn {
   padding: 5px 14px;
   border-radius: var(--radius-sm);
-  color: var(--toolbar-text);
-  background: rgba(255, 255, 255, 0.08);
+  color: rgba(250, 250, 249, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  transition: background 0.15s;
-  border: 1px solid var(--toolbar-border);
+  transition: background 0.2s ease, color 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   white-space: nowrap;
 }
 
 .toolbar-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--toolbar-text);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* ── Connection status ───────────────────────────────────── */
@@ -341,11 +362,12 @@ textarea.cell-input {
 }
 
 .sidebar-header-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
 .sidebar-new-btn {
@@ -357,15 +379,21 @@ textarea.cell-input {
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
+  font-family: var(--font-display);
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
   text-align: center;
 }
 
 .sidebar-new-btn:hover {
   background: var(--color-primary-dark);
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.25);
+}
+
+.sidebar-new-btn:active {
+  transform: translateY(1px);
 }
 
 .sidebar-list {
@@ -395,12 +423,12 @@ textarea.cell-input {
 }
 
 .sidebar-item-active {
-  background: rgba(74, 158, 255, 0.08);
+  background: var(--color-primary-light);
   border-left-color: var(--color-primary);
 }
 
 .sidebar-item-active:hover {
-  background: rgba(74, 158, 255, 0.12);
+  background: rgba(180, 83, 9, 0.1);
 }
 
 .sidebar-item-header {
@@ -420,16 +448,17 @@ textarea.cell-input {
 }
 
 .sidebar-item-title-input {
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-primary);
-  background: transparent;
+  background: #fff;
   border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
   padding: 0 var(--space-xs);
   outline: none;
   width: 100%;
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.15);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 .sidebar-item-live {
@@ -497,47 +526,55 @@ textarea.cell-input {
   justify-content: center;
   width: 72px;
   height: 72px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  background: var(--color-primary);
   color: #fff;
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  border-radius: 18px;
+  letter-spacing: -0.02em;
+  border-radius: var(--radius-xl);
   margin-bottom: var(--space-sm);
+  box-shadow: 0 4px 24px rgba(180, 83, 9, 0.3);
 }
 
 .welcome-title {
-  font-size: 1.75rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.03em;
 }
 
 .welcome-subtitle {
   font-size: var(--font-size-base);
   color: var(--text-secondary);
   max-width: 400px;
+  line-height: 1.7;
 }
 
 .welcome-create-btn {
-  margin-top: var(--space-md);
-  padding: 12px 32px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  margin-top: var(--space-lg);
+  padding: 12px 36px;
+  background: var(--color-primary);
   color: #fff;
+  font-family: var(--font-display);
   font-size: var(--font-size-base);
   font-weight: 600;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .welcome-create-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  background: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(180, 83, 9, 0.25);
 }
 
 .welcome-create-btn:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 /* ============================================================
@@ -569,11 +606,12 @@ textarea.cell-input {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-cell);
   overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .cell:hover {
-  border-color: #cbd5e1;
+  border-color: #d6d3d1;
+  box-shadow: var(--shadow-cell-hover);
 }
 
 /* Left-side colored gutter based on cell status */
@@ -657,14 +695,14 @@ textarea.cell-input {
 }
 
 .cell-btn-run:hover:not(:disabled) {
-  background: rgba(74, 158, 255, 0.1);
+  background: var(--color-primary-light);
   color: var(--color-primary-dark);
 }
 
 .cell-btn-delete:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.08);
+  background: rgba(220, 38, 38, 0.06);
   color: var(--color-error);
-  border-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(220, 38, 38, 0.15);
 }
 
 /* ── Cell content area ───────────────────────────────────── */
@@ -708,7 +746,7 @@ textarea.cell-input {
   width: 100%;
   min-height: 48px;
   padding: var(--space-sm) var(--space-md);
-  background: #f8fafc;
+  background: var(--bg-output);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   color: var(--text-primary);
@@ -717,23 +755,23 @@ textarea.cell-input {
   line-height: 1.7;
   resize: none;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   overflow: hidden;
 }
 
 .cell-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.12);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
   background: #fff;
 }
 
 .cell-input::placeholder {
-  color: #94a3b8;
+  color: var(--color-idle);
   font-style: italic;
 }
 
 .cell-input:disabled {
-  background: #f1f5f9;
+  background: var(--bg-cell-hover);
   color: var(--text-secondary);
 }
 
@@ -758,9 +796,10 @@ textarea.cell-input {
   background: var(--color-primary);
   color: #fff;
   border-radius: var(--radius-sm);
+  font-family: var(--font-display);
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  transition: background 0.15s;
+  font-weight: 600;
+  transition: background 0.2s ease;
 }
 
 .markdown-preview-btn:hover {
@@ -779,7 +818,7 @@ textarea.cell-input {
 
 .markdown-preview:hover {
   border-color: var(--color-primary);
-  background: rgba(74, 158, 255, 0.02);
+  background: var(--color-primary-light);
 }
 
 .markdown-preview h1,
@@ -908,32 +947,33 @@ textarea.cell-input {
 
 /* Tool use */
 .output-tool-use {
-  border: 1px solid #bae6fd;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--bg-tool-use);
   overflow: hidden;
 }
 
 .tool-use-label {
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #0369a1;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
 .tool-use-name {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  color: #0c4a6e;
-  background: rgba(3, 105, 161, 0.08);
+  color: var(--text-primary);
+  background: rgba(28, 25, 23, 0.05);
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 
 .tool-use-details {
   padding: var(--space-md);
-  border-top: 1px solid #bae6fd;
+  border-top: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -947,11 +987,12 @@ textarea.cell-input {
 }
 
 .tool-use-section-label {
-  font-size: 0.75rem;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #0369a1;
+  color: var(--text-secondary);
 }
 
 .tool-use-json,
@@ -959,13 +1000,13 @@ textarea.cell-input {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--text-mono);
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.6);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm);
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.55;
-  border: 1px solid rgba(186, 230, 253, 0.8);
+  border: 1px solid var(--border-default);
 }
 
 /* Chart */
@@ -1077,7 +1118,7 @@ textarea.cell-input {
 .add-cell-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: rgba(74, 158, 255, 0.04);
+  background: var(--color-primary-light);
 }
 
 .add-cell-dropdown {
@@ -1209,6 +1250,7 @@ textarea.cell-input {
 
 .slice-title-input {
   width: 100%;
+  font-family: var(--font-display);
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -1217,7 +1259,7 @@ textarea.cell-input {
   padding: var(--space-xs) var(--space-sm);
   outline: none;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.12);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
   margin-bottom: var(--space-md);
 }
 
@@ -1251,7 +1293,7 @@ textarea.cell-input {
   padding: var(--space-md);
   outline: none;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.12);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
   line-height: 1.7;
   resize: vertical;
 }
@@ -1296,10 +1338,10 @@ textarea.cell-input {
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(74, 158, 255, 0.3);
+  border: 2px solid rgba(180, 83, 9, 0.2);
   border-top-color: var(--color-running);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: spin 0.8s linear infinite;
   flex-shrink: 0;
 }
 
@@ -1341,8 +1383,8 @@ textarea.cell-input {
 }
 
 @keyframes cell-running-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 158, 255, 0); }
-  50% { box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.18); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(180, 83, 9, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.12); }
 }
 
 /* ============================================================
@@ -1396,6 +1438,7 @@ textarea.cell-input {
   box-shadow: var(--shadow-dropdown);
   white-space: nowrap;
   user-select: none;
+  animation: float-in 0.12s ease-out;
 }
 
 .selection-float-btn {
@@ -1420,17 +1463,17 @@ textarea.cell-input {
 
 .selection-float-delete:hover {
   color: var(--color-error);
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(220, 38, 38, 0.12);
 }
 
 .selection-float-replace:hover {
   color: var(--color-primary);
-  background: rgba(74, 158, 255, 0.15);
+  background: var(--color-primary-light);
 }
 
 .selection-float-comment:hover {
   color: var(--color-completed);
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(21, 128, 61, 0.12);
 }
 
 /* ============================================================
@@ -1490,8 +1533,8 @@ textarea.cell-input {
   width: 100%;
   min-height: 56px;
   padding: var(--space-sm) var(--space-md);
-  background: #fffdf0;
-  border: 1px solid #fbbf24;
+  background: #fffbeb;
+  border: 1px solid #d97706;
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -1499,16 +1542,16 @@ textarea.cell-input {
   line-height: 1.6;
   resize: vertical;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .insert-zone-textarea:focus {
-  border-color: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 .insert-zone-textarea::placeholder {
-  color: #94a3b8;
+  color: var(--color-idle);
   font-style: italic;
 }
 
@@ -1541,23 +1584,23 @@ textarea.cell-input {
 
 /* Type-specific left border colors */
 .annotation-card-insert {
-  border-left-color: #f59e0b;
-  background: #fffdf5;
+  border-left-color: #d97706;
+  background: #fffbeb;
 }
 
 .annotation-card-delete {
   border-left-color: var(--color-error);
-  background: #fef8f8;
+  background: #fef2f2;
 }
 
 .annotation-card-replace {
   border-left-color: var(--color-primary);
-  background: #f8fbff;
+  background: #fffbf5;
 }
 
 .annotation-card-comment {
   border-left-color: var(--color-completed);
-  background: #f6fef6;
+  background: #f0fdf4;
 }
 
 /* Card header */
@@ -1682,31 +1725,34 @@ textarea.cell-input {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(28, 25, 23, 0.4);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 500;
-  animation: fade-in 0.12s ease-out;
+  animation: fade-in 0.15s ease-out;
 }
 
 .annotation-modal {
   background: var(--bg-cell);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-dropdown);
-  padding: var(--space-xl);
+  box-shadow: 0 8px 32px rgba(28, 25, 23, 0.15), 0 2px 8px rgba(28, 25, 23, 0.08);
+  padding: var(--space-2xl);
   min-width: 380px;
   max-width: 520px;
   width: 90%;
-  animation: expand 0.15s ease-out;
+  animation: modal-enter 0.2s ease-out;
 }
 
 .annotation-modal-title {
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: var(--space-lg);
+  letter-spacing: -0.01em;
 }
 
 .annotation-modal-field {
@@ -1752,7 +1798,7 @@ textarea.cell-input {
 
 .annotation-modal-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.12);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 .annotation-modal-actions {
@@ -1786,10 +1832,12 @@ textarea.cell-input {
   background: var(--color-primary);
   color: #fff;
   border-color: var(--color-primary);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .annotation-modal-confirm:hover:not(:disabled) {
   background: var(--color-primary-dark);
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.25);
 }
 
 .annotation-modal-confirm:disabled {
@@ -1820,19 +1868,30 @@ textarea.cell-input {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  background: #1c1917;
   padding: var(--space-xl);
+  position: relative;
+}
+
+.login-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 20%, rgba(180, 83, 9, 0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 80%, rgba(180, 83, 9, 0.05) 0%, transparent 50%);
+  pointer-events: none;
 }
 
 .login-card {
   background: #fff;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 48px 40px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 8px 16px rgba(0, 0, 0, 0.2);
   text-align: center;
-  animation: expand 0.3s ease-out;
+  animation: modal-enter 0.4s ease-out;
+  position: relative;
 }
 
 .login-logo {
@@ -1841,20 +1900,24 @@ textarea.cell-input {
   justify-content: center;
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  background: var(--color-primary);
   color: #fff;
+  font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  border-radius: 14px;
+  letter-spacing: -0.02em;
+  border-radius: var(--radius-lg);
   margin-bottom: var(--space-lg);
+  box-shadow: 0 4px 16px rgba(180, 83, 9, 0.3);
 }
 
 .login-title {
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--space-xs);
+  letter-spacing: -0.02em;
 }
 
 .login-subtitle {
@@ -1897,7 +1960,7 @@ textarea.cell-input {
 
 .login-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 .login-input::placeholder {
@@ -1915,27 +1978,100 @@ textarea.cell-input {
 }
 
 .login-btn {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  padding: 12px 24px;
+  background: var(--color-primary);
   color: #fff;
+  font-family: var(--font-display);
   font-size: var(--font-size-base);
   font-weight: 600;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .login-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--color-primary-dark);
   transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(180, 83, 9, 0.25);
 }
 
 .login-btn:active:not(:disabled) {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 .login-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ============================================================
+   Atmosphere & polish
+   ============================================================ */
+
+/* Subtle paper grain texture on page background */
+.app-body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Modal entrance animation */
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Selection float entrance */
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth focus ring transition for all inputs */
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: none;
+}
+
+/* Refined scrollbar for sidebar and content */
+.sidebar-list::-webkit-scrollbar,
+.app-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-list::-webkit-scrollbar-track,
+.app-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-list::-webkit-scrollbar-thumb,
+.app-content::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+.sidebar-list::-webkit-scrollbar-thumb:hover,
+.app-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-idle);
 }
