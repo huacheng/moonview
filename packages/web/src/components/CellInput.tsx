@@ -1,4 +1,5 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
+import { useDraft } from '../hooks/useDraft';
 
 interface CellInputProps {
   cellId: string;
@@ -17,13 +18,8 @@ export function CellInput({
   disabled = false,
   placeholder = 'Enter a prompt… (Ctrl+Enter to run)',
 }: CellInputProps) {
-  const storageKey = `nb-draft-${cellId}`;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Initialize from localStorage draft, falling back to committed value.
-  const [draft, setDraft] = useState<string>(
-    () => localStorage.getItem(storageKey) ?? value,
-  );
+  const { draft, setDraft, clearDraft } = useDraft(cellId, value);
 
   // Auto-resize textarea to fit content.
   const resize = useCallback(() => {
@@ -35,21 +31,13 @@ export function CellInput({
 
   useEffect(() => { resize(); }, [draft, resize]);
 
-  // Save draft to localStorage 50ms after each keystroke.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      localStorage.setItem(storageKey, draft);
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [draft, storageKey]);
-
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       if (disabled) return;
       // Commit draft to store first, then execute.
       onChange(draft);
-      localStorage.removeItem(storageKey);
+      clearDraft();
       onExecute();
     }
   }

@@ -8,6 +8,14 @@ import {
   type WSServerMessage,
   type CellOutput,
 } from '@notebook-ai/shared';
+import {
+  updateCellStatus,
+  updateCellDuration,
+  updateCellGitDiff,
+  appendCellOutput,
+  attachToolResult,
+  findRunningCellId,
+} from './notebook-mutations.js';
 
 // ── Claude Code JSONL message shapes ────────────────────────────────────────
 // Claude Code emits streaming JSONL records.  We only need a subset.
@@ -452,102 +460,3 @@ export class SessionManager {
   }
 }
 
-// ── Notebook mutation helpers (pure functions) ───────────────────────────────
-
-function updateCellStatus(
-  notebook: Notebook,
-  cellId: string,
-  status: 'idle' | 'running' | 'completed' | 'error',
-): Notebook {
-  return {
-    ...notebook,
-    cells: notebook.cells.map((cell) =>
-      cell.id === cellId ? { ...cell, status } : cell,
-    ),
-  };
-}
-
-function updateCellDuration(
-  notebook: Notebook,
-  cellId: string,
-  duration_ms: number,
-): Notebook {
-  return {
-    ...notebook,
-    cells: notebook.cells.map((cell) =>
-      cell.id === cellId && cell.type === 'prompt'
-        ? { ...cell, duration_ms }
-        : cell,
-    ),
-  };
-}
-
-function updateCellGitDiff(
-  notebook: Notebook,
-  cellId: string,
-  git_diff: string,
-): Notebook {
-  return {
-    ...notebook,
-    cells: notebook.cells.map((cell) =>
-      cell.id === cellId && cell.type === 'prompt'
-        ? { ...cell, git_diff }
-        : cell,
-    ),
-  };
-}
-
-function appendCellOutput(
-  notebook: Notebook,
-  cellId: string,
-  output: CellOutput,
-): Notebook {
-  return {
-    ...notebook,
-    cells: notebook.cells.map((cell) => {
-      if (cell.id !== cellId || cell.type !== 'prompt') return cell;
-      return {
-        ...cell,
-        outputs: [...cell.outputs, output],
-      };
-    }),
-  };
-}
-
-/**
- * Attaches a tool result to the matching tool_use output block in a cell.
- * Matches by tool_use_id; falls back to the first unresolved tool_use block.
- */
-function attachToolResult(
-  notebook: Notebook,
-  cellId: string,
-  toolUseId: string,
-  content: string,
-  isError: boolean,
-): Notebook {
-  return {
-    ...notebook,
-    cells: notebook.cells.map((cell) => {
-      if (cell.id !== cellId || cell.type !== 'prompt') return cell;
-      let matched = false;
-      const outputs = cell.outputs.map((out) => {
-        if (matched || out.type !== 'tool_use') return out;
-        // Match by stored tool_use_id (preferred), fall back to first unresolved.
-        const byId = out.tool_use_id === toolUseId;
-        const unresolved = !byId && out.result === undefined;
-        if (byId || unresolved) {
-          matched = true;
-          return { ...out, result: content, is_error: isError };
-        }
-        return out;
-      });
-      return { ...cell, outputs };
-    }),
-  };
-}
-
-/** Returns the cell ID of the first cell that is currently 'running'. */
-function findRunningCellId(notebook: Notebook): string | null {
-  const running = notebook.cells.find((c) => c.status === 'running');
-  return running ? running.id : null;
-}
