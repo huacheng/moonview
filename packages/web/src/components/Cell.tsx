@@ -1,13 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import type { Cell as CellData, PromptCell, MarkdownCell } from '@notebook-ai/shared';
 import { CellInput } from './CellInput';
 import { CellOutput } from './CellOutput';
 import { GitDiffView } from './GitDiffView';
 import { useStore } from '../store';
+import { useDraft } from '../hooks/useDraft';
 
 // ── Status indicator ────────────────────────────────────────────────────────
 
-function StatusIndicator({ status }: { status: CellData['status'] }) {
+const StatusIndicator = memo(function StatusIndicator({ status }: { status: CellData['status'] }) {
   const labels: Record<CellData['status'], string> = {
     idle: '',
     running: 'Running…',
@@ -20,7 +21,7 @@ function StatusIndicator({ status }: { status: CellData['status'] }) {
       {labels[status]}
     </span>
   );
-}
+});
 
 // ── Toolbar for each cell ───────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ interface CellToolbarProps {
   onMoveDown(): void;
 }
 
-function CellToolbar({
+const CellToolbar = memo(function CellToolbar({
   cellType,
   status,
   isFirst,
@@ -87,28 +88,23 @@ function CellToolbar({
       </div>
     </div>
   );
-}
+});
 
 // ── Markdown cell ───────────────────────────────────────────────────────────
 
 function MarkdownCellBody({ cell }: { cell: MarkdownCell }) {
   const [editing, setEditing] = useState(!cell.source);
   const updateCellSource = useStore((s) => s.updateCellSource);
-  const storageKey = `nb-draft-${cell.id}`;
+  const { draft, setDraft, clearDraft } = useDraft(cell.id, cell.source);
 
-  // Initialize from localStorage draft, falling back to committed value.
-  const [draft, setDraft] = useState<string>(
-    () => localStorage.getItem(storageKey) ?? cell.source,
-  );
-
-  // Save draft to localStorage 50ms after each keystroke.
+  // Pause localStorage saves when not editing.
   useEffect(() => {
     if (!editing) return;
     const timer = setTimeout(() => {
-      localStorage.setItem(storageKey, draft);
+      localStorage.setItem(`nb-draft-${cell.id}`, draft);
     }, 50);
     return () => clearTimeout(timer);
-  }, [draft, storageKey, editing]);
+  }, [draft, cell.id, editing]);
 
   // Escape HTML special chars to prevent XSS before inserting user content into markup.
   function escapeHtml(s: string): string {
@@ -140,7 +136,7 @@ function MarkdownCellBody({ cell }: { cell: MarkdownCell }) {
 
   function commitDraft() {
     updateCellSource(cell.id, draft);
-    localStorage.removeItem(storageKey);
+    clearDraft();
     setEditing(false);
   }
 
@@ -227,6 +223,11 @@ export function Cell({ cell, index, totalCells }: CellProps) {
   const isFirst = index === 0;
   const isLast = index === totalCells - 1;
 
+  const handleRun = useCallback(() => executeCell(cell.id), [cell.id, executeCell]);
+  const handleDelete = useCallback(() => removeCell(cell.id), [cell.id, removeCell]);
+  const handleMoveUp = useCallback(() => moveCell(cell.id, 'up'), [cell.id, moveCell]);
+  const handleMoveDown = useCallback(() => moveCell(cell.id, 'down'), [cell.id, moveCell]);
+
   return (
     <div
       className={`cell cell-${cell.type} cell-status-indicator-${cell.status}`}
@@ -245,10 +246,10 @@ export function Cell({ cell, index, totalCells }: CellProps) {
           status={cell.status}
           isFirst={isFirst}
           isLast={isLast}
-          onRun={() => executeCell(cell.id)}
-          onDelete={() => removeCell(cell.id)}
-          onMoveUp={() => moveCell(cell.id, 'up')}
-          onMoveDown={() => moveCell(cell.id, 'down')}
+          onRun={handleRun}
+          onDelete={handleDelete}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
         />
 
         <div className="cell-content">
