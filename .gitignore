@@ -1,3 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
 .worktrees/
 AiTasks/**/.tmp-annotations.json
 AiTasks/**/.auto-signal
