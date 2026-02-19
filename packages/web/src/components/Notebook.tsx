@@ -1,66 +1,22 @@
-import { useState, useRef, useEffect } from 'react';
 import type { CellType } from '@notebook-ai/shared';
 import { useStore } from '../store';
 import { Cell } from './Cell';
 
-// ── Add cell dropdown ───────────────────────────────────────────────────────
+// ── Add cell buttons ────────────────────────────────────────────────────────
 
-interface AddCellButtonProps {
+interface AddCellButtonsProps {
   onAdd(type: CellType): void;
-  label?: string;
 }
 
-function AddCellButton({ onAdd, label = '+ Add Cell' }: AddCellButtonProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+function AddCellButtons({ onAdd }: AddCellButtonsProps) {
   return (
-    <div className="add-cell-wrapper" ref={ref}>
-      <button
-        className="add-cell-btn"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="true"
-        aria-expanded={open}
-      >
-        {label}
+    <div className="add-cell-wrapper">
+      <button className="add-cell-btn" onClick={() => onAdd('prompt')}>
+        <span className="add-cell-option-icon">⚡</span> + Prompt
       </button>
-      {open && (
-        <div className="add-cell-dropdown" role="menu">
-          <button
-            className="add-cell-option"
-            role="menuitem"
-            onClick={() => {
-              onAdd('prompt');
-              setOpen(false);
-            }}
-          >
-            <span className="add-cell-option-icon">⚡</span>
-            Prompt cell
-          </button>
-          <button
-            className="add-cell-option"
-            role="menuitem"
-            onClick={() => {
-              onAdd('markdown');
-              setOpen(false);
-            }}
-          >
-            <span className="add-cell-option-icon">M↓</span>
-            Markdown cell
-          </button>
-        </div>
-      )}
+      <button className="add-cell-btn" onClick={() => onAdd('markdown')}>
+        <span className="add-cell-option-icon">M↓</span> + Markdown
+      </button>
     </div>
   );
 }
@@ -139,7 +95,7 @@ export function Notebook() {
           ))}
 
           <div className="notebook-add-cell-row">
-            <AddCellButton onAdd={(type) => addCell(type)} />
+            <AddCellButtons onAdd={(type) => addCell(type)} />
           </div>
         </div>
       )}
