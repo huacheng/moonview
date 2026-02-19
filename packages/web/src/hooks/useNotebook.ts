@@ -24,6 +24,7 @@ export function useNotebook() {
   const setActiveTab = useStore((s) => s.setActiveTab);
   const executeCell = useStore((s) => s.executeCell);
   const saveNotebook = useStore((s) => s.saveNotebook);
+  const loadNotebook = useStore((s) => s.loadNotebook);
   const exportHtml = useStore((s) => s.exportHtml);
 
   function addCellAfter(type: CellType, afterId: string) {
@@ -52,6 +53,7 @@ export function useNotebook() {
     setActiveTab,
     executeCell,
     saveNotebook,
+    loadNotebook,
     exportHtml,
   };
 }

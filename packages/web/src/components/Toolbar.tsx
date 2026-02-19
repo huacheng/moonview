@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
+import type { Notebook } from '@notebook-ai/shared';
 
 // ── Connection status badge ─────────────────────────────────────────────────
 
@@ -111,8 +112,34 @@ function TabSwitcher() {
 function FileOperations() {
   const saveNotebook = useStore((s) => s.saveNotebook);
   const exportHtml = useStore((s) => s.exportHtml);
+  const setNotebook = useStore((s) => s.setNotebook);
   const wsStatus = useStore((s) => s.wsStatus);
   const connected = wsStatus === 'connected';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImport = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const notebook = JSON.parse(reader.result as string) as Notebook;
+          setNotebook(notebook);
+        } catch {
+          // Silently ignore invalid JSON; a production app would show a toast.
+        }
+      };
+      reader.readAsText(file);
+
+      // Reset so the same file can be re-imported
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [setNotebook],
+  );
 
   return (
     <div className="file-ops">
@@ -124,6 +151,21 @@ function FileOperations() {
       >
         Save
       </button>
+      <button
+        className="toolbar-btn"
+        onClick={() => fileInputRef.current?.click()}
+        title="Import a .notebook.json file"
+      >
+        Import Notebook
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,.notebook.json"
+        onChange={handleImport}
+        style={{ display: 'none' }}
+        aria-label="Import notebook file"
+      />
       <button
         className="toolbar-btn"
         onClick={() => exportHtml()}
