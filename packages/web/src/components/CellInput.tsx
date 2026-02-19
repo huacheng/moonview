@@ -1,25 +1,21 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { useDraft } from '../hooks/useDraft';
 
 interface CellInputProps {
-  cellId: string;
-  value: string;          // committed value from store (only used as initial fallback)
-  onChange(value: string): void;  // called on Ctrl+Enter to commit draft to store
+  draft: string;
+  setDraft(v: string): void;
   onExecute(): void;
   disabled?: boolean;
   placeholder?: string;
 }
 
 export function CellInput({
-  cellId,
-  value,
-  onChange,
+  draft,
+  setDraft,
   onExecute,
   disabled = false,
   placeholder = 'Enter a prompt… (Ctrl+Enter to run)',
 }: CellInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { draft, setDraft, clearDraft } = useDraft(cellId, value);
 
   // Auto-resize textarea to fit content.
   const resize = useCallback(() => {
@@ -35,9 +31,6 @@ export function CellInput({
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       if (disabled) return;
-      // Commit draft to store first, then execute.
-      onChange(draft);
-      clearDraft();
       onExecute();
     }
   }

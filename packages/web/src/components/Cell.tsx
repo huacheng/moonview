@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, memo } from 'react';
+import { useState, useCallback, useEffect, useRef, memo } from 'react';
 import type { Cell as CellData, PromptCell, MarkdownCell } from '@notebook-ai/shared';
 import { CellInput } from './CellInput';
 import { CellOutput } from './CellOutput';
@@ -35,6 +35,8 @@ interface CellToolbarProps {
   onDelete(): void;
   onMoveUp(): void;
   onMoveDown(): void;
+  onUpload?(): void;
+  uploading?: boolean;
 }
 
 const CellToolbar = memo(function CellToolbar({
@@ -46,6 +48,8 @@ const CellToolbar = memo(function CellToolbar({
   onDelete,
   onMoveUp,
   onMoveDown,
+  onUpload,
+  uploading,
 }: CellToolbarProps) {
   return (
     <div className="cell-toolbar">
@@ -76,6 +80,16 @@ const CellToolbar = memo(function CellToolbar({
         >
           ↓
         </button>
+        {onUpload && (
+          <button
+            className="cell-btn cell-btn-upload"
+            onClick={onUpload}
+            disabled={status === 'running' || uploading}
+            title="Attach file to prompt"
+          >
+            {uploading ? '…' : '+'}
+          </button>
+        )}
       </div>
       <div className="cell-toolbar-right">
         <button
@@ -178,20 +192,74 @@ function MarkdownCellBody({ cell }: { cell: MarkdownCell }) {
 
 // ── Prompt cell ─────────────────────────────────────────────────────────────
 
-function PromptCellBody({ cell }: { cell: PromptCell }) {
+interface PromptCellBodyProps {
+  cell: PromptCell;
+  onRegisterUploadTrigger(fn: (() => void) | null): void;
+  onUploadingChange(uploading: boolean): void;
+}
+
+function PromptCellBody({ cell, onRegisterUploadTrigger, onUploadingChange }: PromptCellBodyProps) {
   const updateCellSource = useStore((s) => s.updateCellSource);
   const executeCell = useStore((s) => s.executeCell);
+  const sessionId = useStore((s) => s.sessionId);
+
+  const { draft, setDraft, clearDraft } = useDraft(cell.id, cell.source);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Register the upload trigger so CellToolbar can invoke it.
+  useEffect(() => {
+    onRegisterUploadTrigger(() => fileInputRef.current?.click());
+    return () => onRegisterUploadTrigger(null);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !sessionId) return;
+
+    onUploadingChange(true);
+    try {
+      const formData = new FormData();
+      for (const file of Array.from(files)) {
+        formData.append('files', file);
+      }
+      const res = await fetch(`/api/notebooks/${sessionId}/files`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { uploaded: string[] };
+        if (data.uploaded.length > 0) {
+          const refs = data.uploaded.map((name) => `[file: ${name}]`).join('\n');
+          setDraft((prev) => (prev ? `${prev}\n${refs}` : refs));
+        }
+      }
+    } catch {
+      // silently ignore upload errors
+    } finally {
+      onUploadingChange(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
 
   const handleExecute = useCallback(() => {
+    updateCellSource(cell.id, draft);
+    clearDraft();
     executeCell(cell.id);
-  }, [executeCell, cell.id]);
+  }, [cell.id, draft, updateCellSource, clearDraft, executeCell]);
 
   return (
     <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFilesChange}
+        tabIndex={-1}
+      />
       <CellInput
-        cellId={cell.id}
-        value={cell.source}
-        onChange={(v) => updateCellSource(cell.id, v)}
+        draft={draft}
+        setDraft={setDraft}
         onExecute={handleExecute}
         disabled={cell.status === 'running'}
       />
@@ -228,6 +296,16 @@ export function Cell({ cell, index, totalCells }: CellProps) {
   const handleMoveUp = useCallback(() => moveCell(cell.id, 'up'), [cell.id, moveCell]);
   const handleMoveDown = useCallback(() => moveCell(cell.id, 'down'), [cell.id, moveCell]);
 
+  // Upload coordination: PromptCellBody registers a trigger fn; CellToolbar calls it.
+  const uploadTriggerRef = useRef<(() => void) | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUploadClick = useCallback(() => uploadTriggerRef.current?.(), []);
+  const handleRegisterUpload = useCallback(
+    (fn: (() => void) | null) => { uploadTriggerRef.current = fn; },
+    [],
+  );
+
   return (
     <div
       className={`cell cell-${cell.type} cell-status-indicator-${cell.status}`}
@@ -250,10 +328,18 @@ export function Cell({ cell, index, totalCells }: CellProps) {
           onDelete={handleDelete}
           onMoveUp={handleMoveUp}
           onMoveDown={handleMoveDown}
+          onUpload={cell.type === 'prompt' ? handleUploadClick : undefined}
+          uploading={uploading}
         />
 
         <div className="cell-content">
-          {cell.type === 'prompt' && <PromptCellBody cell={cell} />}
+          {cell.type === 'prompt' && (
+            <PromptCellBody
+              cell={cell}
+              onRegisterUploadTrigger={handleRegisterUpload}
+              onUploadingChange={setUploading}
+            />
+          )}
           {cell.type === 'markdown' && <MarkdownCellBody cell={cell} />}
           {cell.type === 'visualization' && (
             <div className="cell-visualization-placeholder">
