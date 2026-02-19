@@ -256,6 +256,15 @@ export class SessionManager {
     return () => session.listeners.delete(listener);
   }
 
+  /**
+   * Broadcasts a message to all listeners of a given session (by ID).
+   */
+  broadcastToSession(sessionId: string, msg: WSServerMessage): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    this.broadcast(session, msg);
+  }
+
   // ── Private helpers ──────────────────────────────────────────────────────
 
   private broadcast(session: NotebookSession, msg: WSServerMessage): void {

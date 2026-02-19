@@ -11,6 +11,7 @@ import {
 import { SessionManager } from './session.js';
 import { NotebookStore } from './notebook-store.js';
 import { exportToHtml } from './export.js';
+import { generateSlice } from './slice-generator.js';
 
 // ── App setup ────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,48 @@ app.delete('/api/sessions/:id', async (req: Request, res: Response) => {
   try {
     await sessionManager.closeSession(id);
     res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ── REST: Slice generation ────────────────────────────────────────────────────
+
+/**
+ * POST /api/notebooks/:sessionId/generate-slice
+ * Generates slice sections from the session's notebook, updates the notebook's
+ * slice field, broadcasts the update to WebSocket listeners, and returns the
+ * generated sections.
+ */
+app.post('/api/notebooks/:sessionId/generate-slice', (_req: Request, res: Response) => {
+  const { sessionId } = _req.params as { sessionId: string };
+
+  const session = sessionManager.getSession(sessionId);
+  if (!session) {
+    res.status(404).json({ error: `Session "${sessionId}" not found.` });
+    return;
+  }
+
+  try {
+    const sections = generateSlice(session.notebook);
+
+    // Update the in-memory notebook's slice field
+    session.notebook = {
+      ...session.notebook,
+      slice: {
+        generated: true,
+        sections,
+        updated_at: new Date().toISOString(),
+      },
+    };
+
+    // Broadcast slice_update to all WebSocket listeners for this session
+    sessionManager.broadcastToSession(sessionId, {
+      type: 'slice_update',
+      sections,
+    });
+
+    res.json({ sections });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

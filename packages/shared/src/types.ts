@@ -266,6 +266,7 @@ export const WSServerMessageSchema = z.discriminatedUnion('type', [
   GitDiffMessageSchema,
   ExportCompleteSchema,
   ErrorMessageSchema,
+  SliceUpdateSchema,
 ]);
 
 // ─── Export Options ───

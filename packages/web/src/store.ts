@@ -7,6 +7,7 @@ import type {
   CellOutput,
   PromptCell,
   MarkdownCell,
+  SliceSection,
   WSServerMessage,
 } from '@notebook-ai/shared';
 
@@ -85,6 +86,7 @@ export interface NotebookStore {
   ws: WebSocket | null;
   wsStatus: 'disconnected' | 'connecting' | 'connected';
   sessionId: string | null;
+  sliceLoading: boolean;
 
   // Notebook actions
   setNotebook(nb: Notebook): void;
@@ -97,6 +99,10 @@ export interface NotebookStore {
   appendCellOutput(cellId: string, output: CellOutput): void;
   setCellGitDiff(cellId: string, diff: string): void;
 
+  // Slice actions
+  generateSlice(): Promise<void>;
+  updateSliceSections(sections: SliceSection[]): void;
+
   // UI actions
   setActiveTab(tab: 'notebook' | 'slice'): void;
 
@@ -105,6 +111,7 @@ export interface NotebookStore {
   disconnectWebSocket(): void;
   executeCell(cellId: string): void;
   saveNotebook(path?: string): void;
+  loadNotebook(path: string): void;
   exportHtml(): void;
 }
 
@@ -118,6 +125,7 @@ export const useStore = create<NotebookStore>((set, get) => ({
   ws: null,
   wsStatus: 'disconnected',
   sessionId: null,
+  sliceLoading: false,
 
   // ── Notebook actions ────────────────────────────────────────────────────
 
@@ -260,6 +268,66 @@ export const useStore = create<NotebookStore>((set, get) => ({
     });
   },
 
+  // ── Slice actions ───────────────────────────────────────────────────────
+
+  async generateSlice() {
+    const { sessionId } = get();
+    if (!sessionId) return;
+
+    set({ sliceLoading: true });
+    try {
+      const res = await fetch(
+        `http://localhost:3002/api/notebooks/${encodeURIComponent(sessionId)}/generate-slice`,
+        { method: 'POST' },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[store] generateSlice failed:', body);
+        return;
+      }
+      const { sections } = (await res.json()) as { sections: SliceSection[] };
+      set((state) => {
+        if (!state.notebook) return {};
+        return {
+          notebook: {
+            ...state.notebook,
+            slice: {
+              generated: true,
+              sections,
+              updated_at: new Date().toISOString(),
+            },
+          },
+        };
+      });
+    } catch (err) {
+      console.error('[store] generateSlice error:', err);
+    } finally {
+      set({ sliceLoading: false });
+    }
+  },
+
+  updateSliceSections(sections) {
+    set((state) => {
+      if (!state.notebook) return {};
+      return {
+        notebook: {
+          ...state.notebook,
+          slice: {
+            ...state.notebook.slice,
+            sections,
+            updated_at: new Date().toISOString(),
+          },
+        },
+      };
+    });
+
+    // Send update to server via WebSocket
+    const { ws } = get();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'slice_update', sections }));
+    }
+  },
+
   // ── UI actions ──────────────────────────────────────────────────────────
 
   setActiveTab(tab) {
@@ -311,16 +379,43 @@ export const useStore = create<NotebookStore>((set, get) => ({
           store.setCellGitDiff(parsed.cell_id, parsed.diff);
           break;
         case 'export_complete':
-          // Trigger file download
+          // Trigger file download with slugified title + date
           {
+            const title = store.notebook?.metadata.title ?? 'notebook';
+            const slug = title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '');
+            const date = new Date().toISOString().slice(0, 10);
+            const filename = `${slug || 'notebook'}-${date}.html`;
+
             const blob = new Blob([parsed.html], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'notebook.html';
+            a.download = filename;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
             URL.revokeObjectURL(url);
           }
+          break;
+        case 'slice_update':
+          // Incoming from server — update local state without re-sending via WS
+          set((state) => {
+            if (!state.notebook) return {};
+            return {
+              notebook: {
+                ...state.notebook,
+                slice: {
+                  ...state.notebook.slice,
+                  generated: true,
+                  sections: parsed.sections,
+                  updated_at: new Date().toISOString(),
+                },
+              },
+            };
+          });
           break;
         case 'error':
           if (parsed.cell_id) {
@@ -389,6 +484,13 @@ export const useStore = create<NotebookStore>((set, get) => ({
     const { ws } = get();
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'save_notebook', path }));
+    }
+  },
+
+  loadNotebook(path: string) {
+    const { ws } = get();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'load_notebook', path }));
     }
   },
 

@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Notebook } from './components/Notebook';
+import { SliceView } from './components/SliceView';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useStore } from './store';
 import './styles.css';
 
 // Generate a stable session ID per page load
@@ -17,6 +19,7 @@ function useSessionId(): string {
 
 export default function App() {
   const sessionId = useSessionId();
+  const activeTab = useStore((s) => s.activeTab);
 
   // Initiate WebSocket connection (with auto-reconnect)
   useWebSocket(sessionId);
@@ -25,7 +28,7 @@ export default function App() {
     <div className="app">
       <Toolbar />
       <main className="app-content">
-        <Notebook />
+        {activeTab === 'notebook' ? <Notebook /> : <SliceView />}
       </main>
     </div>
   );
