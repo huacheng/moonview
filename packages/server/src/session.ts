@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { TmuxSession } from './tmux.js';
 import { JsonlWatcher } from './jsonl-watcher.js';
 import { setupHooks, waitForStopMarker } from './hooks.js';
+import { GitManager } from './git.js';
 import {
   NotebookSchema,
   type Notebook,
@@ -48,6 +49,7 @@ interface NotebookSession {
   tmux: TmuxSession;
   watcher: JsonlWatcher | null;
   notebook: Notebook;
+  gitManager: GitManager;
   /** Callbacks registered by WebSocket clients for this session. */
   listeners: Set<(msg: WSServerMessage) => void>;
 }
@@ -77,6 +79,10 @@ export class SessionManager {
     const tmux = new TmuxSession(sessionName, cwd);
     await tmux.start();
 
+    // Initialise (or adopt) the git repo for this working directory.
+    const gitManager = new GitManager(cwd);
+    await gitManager.ensureRepo();
+
     // Register the stop hook so we can detect when Claude finishes.
     await setupHooks(sessionName);
 
@@ -96,7 +102,7 @@ export class SessionManager {
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
         cwd,
-        git_repo: false,
+        git_repo: true,
         tmux_session: sessionName,
       },
       cells: [],
@@ -110,6 +116,7 @@ export class SessionManager {
       tmux,
       watcher: null,
       notebook,
+      gitManager,
       listeners: new Set(),
     };
 
@@ -154,7 +161,7 @@ export class SessionManager {
 
     // Wait for the stop marker in the background; emit execution_complete when done.
     waitForStopMarker(session.id)
-      .then((completed) => {
+      .then(async (completed) => {
         const duration_ms = Date.now() - startMs;
 
         if (!completed) {
@@ -176,6 +183,32 @@ export class SessionManager {
           duration_ms,
         };
         this.broadcast(session, completeMsg);
+
+        // Attempt to commit any file changes produced during this cell execution.
+        try {
+          const gitResult = await session.gitManager.commitCellExecution(cellId, source);
+          if (gitResult) {
+            // Store the diff on the cell so it is persisted with the notebook.
+            session.notebook = updateCellGitDiff(session.notebook, cellId, gitResult.diff);
+
+            const gitDiffMsg: WSServerMessage = {
+              type: 'git_diff',
+              cell_id: cellId,
+              diff: gitResult.diff,
+              files_changed: gitResult.filesChanged,
+            };
+            this.broadcast(session, gitDiffMsg);
+            console.log(
+              `[session ${session.id}] Committed cell "${cellId}" – ${gitResult.filesChanged.length} file(s) changed.`,
+            );
+          }
+        } catch (gitErr: unknown) {
+          // Git errors are non-fatal; log but do not propagate.
+          console.warn(
+            `[session ${session.id}] Git commit failed for cell "${cellId}":`,
+            String(gitErr),
+          );
+        }
       })
       .catch((err: unknown) => {
         console.error(
@@ -374,6 +407,21 @@ function updateCellDuration(
     cells: notebook.cells.map((cell) =>
       cell.id === cellId && cell.type === 'prompt'
         ? { ...cell, duration_ms }
+        : cell,
+    ),
+  };
+}
+
+function updateCellGitDiff(
+  notebook: Notebook,
+  cellId: string,
+  git_diff: string,
+): Notebook {
+  return {
+    ...notebook,
+    cells: notebook.cells.map((cell) =>
+      cell.id === cellId && cell.type === 'prompt'
+        ? { ...cell, git_diff }
         : cell,
     ),
   };
