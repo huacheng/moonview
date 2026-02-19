@@ -10,6 +10,7 @@ import {
 } from '@notebook-ai/shared';
 import { SessionManager } from './session.js';
 import { NotebookStore } from './notebook-store.js';
+import { exportToHtml } from './export.js';
 
 // ── App setup ────────────────────────────────────────────────────────────────
 
@@ -265,11 +266,26 @@ wss.on('connection', (ws: WebSocket, req) => {
       }
 
       case 'export_html': {
-        // Placeholder – Step 7 will implement the real HTML export.
-        sendToClient(ws, {
-          type: 'export_complete',
-          html: '<!-- HTML export not yet implemented -->',
-        });
+        let notebook: Notebook | undefined;
+        if (sessionId) {
+          const session = sessionManager.getSession(sessionId);
+          if (session) {
+            notebook = session.notebook;
+          }
+        }
+        if (!notebook) {
+          sendToClient(ws, {
+            type: 'error',
+            message: 'No notebook found for this session.',
+          });
+          break;
+        }
+        try {
+          const html = await exportToHtml(notebook, { ...msg.options, minify: false });
+          sendToClient(ws, { type: 'export_complete', html });
+        } catch (err) {
+          sendToClient(ws, { type: 'error', message: String(err) });
+        }
         break;
       }
 
