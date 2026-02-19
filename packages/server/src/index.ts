@@ -30,7 +30,7 @@ app.use((_req, res, next) => {
 });
 
 // Handle pre-flight OPTIONS requests.
-app.options('*', (_req, res) => {
+app.options('/{*path}', (_req, res) => {
   res.sendStatus(204);
 });
 
