@@ -7,6 +7,7 @@ import { createReadStream } from 'fs';
 import { spawn } from 'child_process';
 import type { SessionManager } from '../session.js';
 import { listWorkspaceFiles, validateWorkspacePath } from '../workspace-files.js';
+import { ensureLibraryDir } from '../workspace.js';
 
 export function createFilesRouter(sessionManager: SessionManager): IRouter {
   const router = Router();
@@ -69,6 +70,11 @@ export function createFilesRouter(sessionManager: SessionManager): IRouter {
             session.cwd,
           );
           await copyFile(file.path, destPath);
+          // Also copy to shared library (non-fatal).
+          try {
+            const libraryDir = ensureLibraryDir();
+            await copyFile(file.path, path.join(libraryDir, path.basename(file.originalname)));
+          } catch {}
           await unlink(file.path).catch(() => {});
           results.push(path.basename(file.originalname));
         }

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { CellOutput as CellOutputItem } from '@notebook-ai/shared';
-import { MarkdownBody } from './MarkdownBody';
 
 // ── SVG sanitizer ────────────────────────────────────────────────────────────
 
@@ -18,7 +17,7 @@ function sanitizeSvg(svg: string): string {
 // ── Response renderers ───────────────────────────────────────────────────────
 
 function TextOutputView({ content }: { content: string }) {
-  return <MarkdownBody content={content} className="output-text" />;
+  return <pre className="output-text">{content}</pre>;
 }
 
 function ErrorOutputView({ message }: { message: string }) {
@@ -51,10 +50,24 @@ function ChartOutputView({ chart_type, svg }: { chart_type: string; svg?: string
 type ThinkingItem = Extract<CellOutputItem, { type: 'thinking' }>;
 
 function ThinkingPanel({ items }: { items: ThinkingItem[] }) {
+  const [open, setOpen] = useState(false);
   const combined = items.map((i) => i.content).join('\n\n---\n\n');
   return (
-    <div className="cell-panel-thinking">
-      <pre className="output-thinking-text">{combined}</pre>
+    <div className="output-thinking">
+      <button
+        className="output-collapsible-toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="collapsible-icon">{open ? '▼' : '▶'}</span>
+        Thinking
+        <span className="cell-panel-tab-count">{items.length}</span>
+      </button>
+      {open && (
+        <div className="output-thinking-content">
+          <pre className="output-thinking-text">{combined}</pre>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,11 +124,32 @@ function ToolRow({ item }: { item: ToolItem }) {
 }
 
 function ToolsPanel({ items }: { items: ToolItem[] }) {
+  const [open, setOpen] = useState(false);
+  const errorCount = items.filter((i) => i.is_error).length;
+  const doneCount  = items.filter((i) => i.result !== undefined && !i.is_error).length;
+
   return (
-    <div className="cell-panel-tools">
-      {items.map((item, i) => (
-        <ToolRow key={i} item={item} />
-      ))}
+    <div className="output-thinking">
+      <button
+        className="output-collapsible-toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="collapsible-icon">{open ? '▼' : '▶'}</span>
+        Tools
+        <span className="cell-panel-tab-count">{items.length}</span>
+        {doneCount  > 0 && <span className="tool-use-done"  style={{ marginLeft: 4 }}>✓{doneCount}</span>}
+        {errorCount > 0 && <span className="tool-use-fail"  style={{ marginLeft: 4 }}>✗{errorCount}</span>}
+      </button>
+      {open && (
+        <div className="output-thinking-content">
+          <div className="cell-panel-tools">
+            {items.map((item, i) => (
+              <ToolRow key={i} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -126,8 +160,6 @@ interface CellOutputProps {
   outputs: CellOutputItem[];
   isActiveCell?: boolean;
 }
-
-type PanelTab = 'thinking' | 'tools';
 
 export function CellOutput({ outputs }: CellOutputProps) {
   const thinkingItems = outputs.filter(
@@ -140,51 +172,18 @@ export function CellOutput({ outputs }: CellOutputProps) {
     (o) => o.type === 'text' || o.type === 'error' || o.type === 'chart',
   );
 
-  const hasTabs = thinkingItems.length > 0 || toolItems.length > 0;
-  const initialTab: PanelTab = thinkingItems.length > 0 ? 'thinking' : 'tools';
-  const [activeTab, setActiveTab] = useState<PanelTab>(initialTab);
-
   if (outputs.length === 0) return null;
 
   return (
     <div className="cell-output-area">
 
-      {/* ── Section 2/3: Thinking | Tools tab panel ── */}
-      {hasTabs && (
-        <div className="cell-panels">
-          <div className="cell-panel-tabs" role="tablist">
-            {thinkingItems.length > 0 && (
-              <button
-                role="tab"
-                aria-selected={activeTab === 'thinking'}
-                className={`cell-panel-tab${activeTab === 'thinking' ? ' active' : ''}`}
-                onClick={() => setActiveTab('thinking')}
-              >
-                Thinking
-                <span className="cell-panel-tab-count">{thinkingItems.length}</span>
-              </button>
-            )}
-            {toolItems.length > 0 && (
-              <button
-                role="tab"
-                aria-selected={activeTab === 'tools'}
-                className={`cell-panel-tab${activeTab === 'tools' ? ' active' : ''}`}
-                onClick={() => setActiveTab('tools')}
-              >
-                Tools
-                <span className="cell-panel-tab-count">{toolItems.length}</span>
-              </button>
-            )}
-          </div>
+      {/* ── Thinking (collapsible, default collapsed) ── */}
+      {thinkingItems.length > 0 && <ThinkingPanel items={thinkingItems} />}
 
-          <div className="cell-panel-content" role="tabpanel">
-            {activeTab === 'thinking' && <ThinkingPanel items={thinkingItems} />}
-            {activeTab === 'tools'    && <ToolsPanel    items={toolItems} />}
-          </div>
-        </div>
-      )}
+      {/* ── Tools (each row individually collapsible) ── */}
+      {toolItems.length > 0 && <ToolsPanel items={toolItems} />}
 
-      {/* ── Section 4: Response output ── */}
+      {/* ── Response output ── */}
       {responseItems.length > 0 && (
         <div className="cell-response">
           {responseItems.map((item, i) => {

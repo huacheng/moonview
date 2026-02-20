@@ -195,6 +195,12 @@ function NotebookInputBar() {
           value={text}
           onChange={(e) => { setText(e.target.value); resize(); }}
           onKeyDown={handleKeyDown}
+          onDrop={(e) => {
+            e.preventDefault();
+            const dropped = e.dataTransfer.getData('text/plain');
+            if (dropped) setText((prev) => prev ? `${prev}\n${dropped}` : dropped);
+          }}
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
           disabled={disabled}
           placeholder="Enter a prompt… (Ctrl+Enter to run)"
           rows={3}

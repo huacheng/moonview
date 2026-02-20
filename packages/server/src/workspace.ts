@@ -9,6 +9,22 @@ function getWorkspaceRoot(): string {
 }
 
 /**
+ * Returns the shared library directory path (shared across all notebooks).
+ */
+export function getLibraryDir(): string {
+  return path.join(getWorkspaceRoot(), '_library');
+}
+
+/**
+ * Creates the library directory if it doesn't exist and returns the path.
+ */
+export function ensureLibraryDir(): string {
+  const dir = getLibraryDir();
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/**
  * Converts a title string into a URL-safe slug.
  */
 export function titleToSlug(title: string): string {

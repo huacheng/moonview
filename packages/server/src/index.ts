@@ -11,6 +11,7 @@ import { NotebookDb } from './db.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createNotebooksRouter } from './routes/notebooks.js';
 import { createFilesRouter } from './routes/files.js';
+import { createLibraryRouter } from './routes/library.js';
 import { createSessionsRouter } from './routes/sessions.js';
 import { setupWebSocket } from './ws-handler.js';
 import { authMiddleware } from './auth.js';
@@ -75,6 +76,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/notebooks', createNotebooksRouter(db, sessionManager, notebookStore));
 app.use('/api/notebooks', createFilesRouter(sessionManager));
+app.use('/api/library', createLibraryRouter());
 app.use('/api/sessions', createSessionsRouter(sessionManager, db));
 
 // ── WebSocket ────────────────────────────────────────────────────────────────
