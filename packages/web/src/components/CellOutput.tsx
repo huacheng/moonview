@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CellOutput as CellOutputItem } from '@notebook-ai/shared';
 import { Annotations } from './Annotations';
+import { renderMd } from '../utils/markdown';
 
 // ── SVG sanitizer ────────────────────────────────────────────────────────────
 
@@ -18,7 +19,12 @@ function sanitizeSvg(svg: string): string {
 // ── Response renderers ───────────────────────────────────────────────────────
 
 function TextOutputView({ content }: { content: string }) {
-  return <pre className="output-text">{content}</pre>;
+  return (
+    <div
+      className="output-text markdown-body"
+      dangerouslySetInnerHTML={{ __html: renderMd(content) }}
+    />
+  );
 }
 
 function ErrorOutputView({ message }: { message: string }) {
