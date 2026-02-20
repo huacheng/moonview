@@ -198,6 +198,11 @@ interface PromptCellBodyProps {
   onUploadingChange(uploading: boolean): void;
 }
 
+type UploadStatus =
+  | { phase: 'uploading'; count: number }
+  | { phase: 'success'; names: string[] }
+  | { phase: 'error'; message: string };
+
 function PromptCellBody({ cell, onRegisterUploadTrigger, onUploadingChange }: PromptCellBodyProps) {
   const updateCellSource = useStore((s) => s.updateCellSource);
   const executeCell = useStore((s) => s.executeCell);
@@ -205,6 +210,8 @@ function PromptCellBody({ cell, onRegisterUploadTrigger, onUploadingChange }: Pr
 
   const { draft, setDraft, clearDraft } = useDraft(cell.id, cell.source);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Register the upload trigger so CellToolbar can invoke it.
   useEffect(() => {
@@ -212,11 +219,29 @@ function PromptCellBody({ cell, onRegisterUploadTrigger, onUploadingChange }: Pr
     return () => onRegisterUploadTrigger(null);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-dismiss success/error banners after 4 s.
+  useEffect(() => {
+    if (!uploadStatus || uploadStatus.phase === 'uploading') return;
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = setTimeout(() => setUploadStatus(null), 4000);
+    return () => {
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    };
+  }, [uploadStatus]);
+
   async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
-    if (!files || files.length === 0 || !sessionId) return;
+    if (!files || files.length === 0) return;
 
+    if (!sessionId) {
+      setUploadStatus({ phase: 'error', message: 'No active session — open a notebook first.' });
+      return;
+    }
+
+    const fileCount = files.length;
+    setUploadStatus({ phase: 'uploading', count: fileCount });
     onUploadingChange(true);
+
     try {
       const formData = new FormData();
       for (const file of Array.from(files)) {
@@ -226,15 +251,23 @@ function PromptCellBody({ cell, onRegisterUploadTrigger, onUploadingChange }: Pr
         method: 'POST',
         body: formData,
       });
-      if (res.ok) {
-        const data = (await res.json()) as { uploaded: string[] };
-        if (data.uploaded.length > 0) {
-          const refs = data.uploaded.map((name) => `[file: ${name}]`).join('\n');
-          setDraft((prev) => (prev ? `${prev}\n${refs}` : refs));
-        }
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Upload failed (${res.status})`);
       }
-    } catch {
-      // silently ignore upload errors
+
+      const data = (await res.json()) as { uploaded: string[] };
+      const names = data.uploaded;
+
+      if (names.length > 0) {
+        const refs = names.map((name) => `[file: ${name}]`).join('\n');
+        setDraft((prev) => (prev ? `${prev}\n${refs}` : refs));
+      }
+
+      setUploadStatus({ phase: 'success', names });
+    } catch (err) {
+      setUploadStatus({ phase: 'error', message: String(err instanceof Error ? err.message : err) });
     } finally {
       onUploadingChange(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -257,6 +290,26 @@ function PromptCellBody({ cell, onRegisterUploadTrigger, onUploadingChange }: Pr
         onChange={handleFilesChange}
         tabIndex={-1}
       />
+      {uploadStatus && (
+        <div className={`upload-status upload-status-${uploadStatus.phase}`}>
+          {uploadStatus.phase === 'uploading' && (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              Uploading {uploadStatus.count} file{uploadStatus.count > 1 ? 's' : ''}…
+            </>
+          )}
+          {uploadStatus.phase === 'success' && (
+            <>
+              ✓ Attached: {uploadStatus.names.join(', ')}
+            </>
+          )}
+          {uploadStatus.phase === 'error' && (
+            <>
+              ✗ {uploadStatus.message}
+            </>
+          )}
+        </div>
+      )}
       <CellInput
         draft={draft}
         setDraft={setDraft}

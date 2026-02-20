@@ -1034,6 +1034,32 @@ textarea.cell-input {
   color: var(--text-secondary);
 }
 
+/* Upload status banner */
+.upload-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  padding: 4px var(--space-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+
+.upload-status-uploading {
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+}
+
+.upload-status-success {
+  color: #166534;
+  background: #f0fdf4;
+}
+
+.upload-status-error {
+  color: var(--color-error);
+  background: rgba(239, 68, 68, 0.06);
+}
+
 /* ============================================================
    Markdown cell
    ============================================================ */
