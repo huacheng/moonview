@@ -4,15 +4,20 @@ interface GitDiffViewProps {
   diff: string;
 }
 
+// Count changed files from diff header lines
+function countFiles(diff: string): number {
+  return (diff.match(/^diff --git /gm) ?? []).length;
+}
+
 export function GitDiffView({ diff }: GitDiffViewProps) {
   const [open, setOpen] = useState(false);
 
   if (!diff) return null;
 
-  // Count added/removed lines for summary
   const lines = diff.split('\n');
-  const added = lines.filter((l) => l.startsWith('+')).length;
-  const removed = lines.filter((l) => l.startsWith('-')).length;
+  const added = lines.filter((l) => l.startsWith('+') && !l.startsWith('+++')).length;
+  const removed = lines.filter((l) => l.startsWith('-') && !l.startsWith('---')).length;
+  const files = countFiles(diff);
 
   return (
     <div className="git-diff-view">
@@ -27,6 +32,8 @@ export function GitDiffView({ diff }: GitDiffViewProps) {
           <span className="git-diff-added">+{added}</span>
           {' '}
           <span className="git-diff-removed">-{removed}</span>
+          {' '}
+          <span className="git-diff-files">{files} file{files !== 1 ? 's' : ''}</span>
         </span>
       </button>
 

@@ -291,11 +291,16 @@ export class SessionManager {
 
     // Defer git commit and auto-save to the next tick so the
     // execution_complete WebSocket message is flushed first.
+    // IMPORTANT: tryGitCommit must complete before autoSave so that git_diff
+    // is persisted to disk (otherwise a page reload would lose git diff info).
     setTimeout(() => {
-      this.tryGitCommit(session, cellId).catch(() => {});
-      this.autoSave(session).catch((err) => {
-        console.error(`[session ${session.id}] auto-save failed:`, err);
-      });
+      this.tryGitCommit(session, cellId)
+        .catch(() => {})
+        .finally(() => {
+          this.autoSave(session).catch((err) => {
+            console.error(`[session ${session.id}] auto-save failed:`, err);
+          });
+        });
     }, 0);
   }
 
@@ -312,8 +317,14 @@ export class SessionManager {
     const cell = session.notebook.cells.find((c) => c.id === cellId);
     const source = cell?.source ?? '';
     try {
+      // Write the notebook to disk BEFORE committing so the cell's execution
+      // state (outputs, status, duration_ms) is always included in the git
+      // commit — even when Claude didn't create any workspace files this turn.
+      await writeFile(session.notebookPath, JSON.stringify(session.notebook, null, 2), 'utf-8');
+
       const gitResult = await session.gitManager.commitCellExecution(cellId, source);
       if (gitResult) {
+        const diffLen = gitResult.diff.length;
         session.notebook = updateCellGitDiff(session.notebook, cellId, gitResult.diff);
         this.broadcast(session, {
           type: 'git_diff',
@@ -322,8 +333,10 @@ export class SessionManager {
           files_changed: gitResult.filesChanged,
         });
         console.log(
-          `[session ${session.id}] Committed cell "${cellId}" – ${gitResult.filesChanged.length} file(s) changed.`,
+          `[session ${session.id}] Committed cell "${cellId}" – ${gitResult.filesChanged.length} file(s) changed, diff ${diffLen} chars.`,
         );
+      } else {
+        console.log(`[session ${session.id}] No workspace changes for cell "${cellId}" – skipping git commit.`);
       }
     } catch (err: unknown) {
       console.warn(
