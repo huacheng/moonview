@@ -7,76 +7,76 @@
 
 ---
 
-## 进度更新模式（/进度）
+## Progress Update Mode (/进度)
 
-**触发方式**：用户说 `/进度` 时启动此模式。
+**Trigger**: Activated when the user says `/进度`.
 
-**核心原则**：详细 + 高频 = 让用户随时知道我在做什么。
+**Core principle**: Detailed + frequent = keep the user informed at every step.
 
-### 行为规则
+### Rules
 
-- **任务拆分**：将任务拆分成尽可能小的步骤，每个步骤都输出
-- **详细信息**：每次更新都包含进度百分比、当前操作、具体细节、中间结果
-- **高频更新**：批量操作时每处理一小批就更新一次，多步骤任务每完成一个子步骤就更新
-- **技术细节**：显示具体文件名、路径、操作类型、数据量，遇到问题时立即说明
+- **Break down tasks**: Split into the smallest possible steps and output each one
+- **Detailed updates**: Every update includes percentage, current action, specifics, and intermediate results
+- **High frequency**: Update after every small batch in bulk operations; after every sub-step in multi-step tasks
+- **Technical detail**: Show exact filenames, paths, operation types, data sizes; report problems immediately
 
-### 进度条格式
+### Progress Bar Format
 
-每次进度更新都必须输出以下格式：
-
-```
-████████░░░░░░░░░░░░ 40%  [步骤 2/5] 正在处理 foo.ts
-```
-
-进度条规则：
-- 总宽度 20 格，`█` 表示已完成，`░` 表示未完成
-- 百分比精确到整数
-- `[步骤 N/M]` 标注当前步骤与总步骤数
-- 后接当前操作的一句简短说明
-
-完整更新块格式：
+Every update must include a progress bar in this exact format:
 
 ```
-████████░░░░░░░░░░░░ 40%  [步骤 2/5] 正在处理 foo.ts
-  → 当前操作：<具体描述>
-  → 细节：<文件名 / 路径 / 数据量等>
-  → 中间结果：<本步骤产出或发现>
+████████░░░░░░░░░░░░ 40%  [Step 2/5] Processing foo.ts
 ```
 
-### 使用场景
+Rules:
+- 20 characters wide: `█` = done, `░` = remaining
+- Percentage as a whole number
+- `[Step N/M]` shows current and total step count
+- Followed by a one-line description of the current action
 
-- 批量处理文件
-- 大量数据分析
-- 多步骤复杂任务
-- 任何需要较长时间的操作
-
-### 示例
-
-用户：`/进度 整理所有文件`
+Full update block format:
 
 ```
-████░░░░░░░░░░░░░░░░  5%  [步骤 1/6] 扫描根目录
-  → 当前操作：列出所有子目录
-  → 细节：路径 ./
-  → 中间结果：找到 3 个子文件夹
-
-████████░░░░░░░░░░░░ 10%  [步骤 2/6] 扫描第一个文件夹
-  → 当前操作：遍历 ./docs
-  → 细节：共 12 个文件
-  → 中间结果：发现 3 个需要移动的文件
-
-████████████░░░░░░░░ 15%  [步骤 3/6] 处理文件 1/12
-  → 当前操作：移动文件
-  → 细节：example.md → ./archive/
-  → 中间结果：✓ 完成
-
-...（持续更新）
-
-████████████████████ 100% [步骤 6/6] 完成
-  → 共处理 20 个文件，移动 8 个，跳过 12 个
+████████░░░░░░░░░░░░ 40%  [Step 2/5] Processing foo.ts
+  → Action:  <description>
+  → Details: <filename / path / data size / etc.>
+  → Result:  <output or finding from this step>
 ```
 
-### 技术限制说明
+### When to use
 
-Claude Code 的输出是"一次完整回复"，不是真正的实时流式输出。
-进度更新通过在一次回复中输出多个进度块来模拟高频更新效果，每个块代表一个阶段。
+- Bulk file operations
+- Large data analysis
+- Multi-step complex tasks
+- Any operation that takes significant time
+
+### Example
+
+User: `/进度 organize all files`
+
+```
+████░░░░░░░░░░░░░░░░  5%  [Step 1/6] Scanning root directory
+  → Action:  List all subdirectories
+  → Details: path ./
+  → Result:  Found 3 subdirectories
+
+████████░░░░░░░░░░░░ 10%  [Step 2/6] Scanning first folder
+  → Action:  Traverse ./docs
+  → Details: 12 files total
+  → Result:  3 files need to be moved
+
+████████████░░░░░░░░ 15%  [Step 3/6] Processing file 1/12
+  → Action:  Move file
+  → Details: example.md → ./archive/
+  → Result:  ✓ Done
+
+...(continues)
+
+████████████████████ 100% [Step 6/6] Complete
+  → Processed 20 files — moved 8, skipped 12
+```
+
+### Technical note
+
+Claude Code output is a single complete reply, not true real-time streaming.
+Progress updates are simulated by outputting multiple blocks within one reply, each block representing one phase.
