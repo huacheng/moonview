@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { CellOutput as CellOutputItem } from '@notebook-ai/shared';
-import { Annotations } from './Annotations';
 import { renderMd } from '../utils/markdown';
 
 // ── SVG sanitizer ────────────────────────────────────────────────────────────
@@ -130,13 +129,12 @@ function ToolsPanel({ items }: { items: ToolItem[] }) {
 
 interface CellOutputProps {
   outputs: CellOutputItem[];
-  cellId?: string;
   isActiveCell?: boolean;
 }
 
 type PanelTab = 'thinking' | 'tools';
 
-export function CellOutput({ outputs, cellId }: CellOutputProps) {
+export function CellOutput({ outputs }: CellOutputProps) {
   const thinkingItems = outputs.filter(
     (o): o is ThinkingItem => o.type === 'thinking',
   );
@@ -151,7 +149,7 @@ export function CellOutput({ outputs, cellId }: CellOutputProps) {
   const initialTab: PanelTab = thinkingItems.length > 0 ? 'thinking' : 'tools';
   const [activeTab, setActiveTab] = useState<PanelTab>(initialTab);
 
-  if (outputs.length === 0 && !cellId) return null;
+  if (outputs.length === 0) return null;
 
   return (
     <div className="cell-output-area">
@@ -203,7 +201,6 @@ export function CellOutput({ outputs, cellId }: CellOutputProps) {
         </div>
       )}
 
-      {cellId && <Annotations cellId={cellId} outputs={outputs} />}
     </div>
   );
 }

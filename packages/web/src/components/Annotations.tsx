@@ -15,6 +15,8 @@ import { SelectionFloat } from './SelectionFloat';
 interface AnnotationsProps {
   cellId: string;
   outputs: CellOutputType[];
+  /** Wrapped content (prompt bubble + response area) inside the annotation zone. */
+  children?: import('react').ReactNode;
 }
 
 /**
@@ -123,7 +125,7 @@ function CommentModal({
   );
 }
 
-export function Annotations({ cellId, outputs }: AnnotationsProps) {
+export function Annotations({ cellId, outputs, children }: AnnotationsProps) {
   const addAnnotation = useStore((s) => s.addAnnotation);
   const removeAnnotation = useStore((s) => s.removeAnnotation);
   // Select the raw annotations array (stable reference across unrelated store
@@ -252,13 +254,12 @@ export function Annotations({ cellId, outputs }: AnnotationsProps) {
     (a): a is Exclude<Annotation, InsertAnnotation> => a.type !== 'insert',
   );
 
-  // Don't render anything when there are no annotations at all – avoids
-  // empty wrapper divs / InsertZone buttons cluttering the output area.
-  if (annotations.length === 0) return null;
-
   return (
     <div className="annotations-wrapper" ref={containerRef}>
-      {/* Selection float toolbar on output text */}
+      {/* Content wrapped by this zone (prompt bubble + response area) */}
+      {children}
+
+      {/* Selection float toolbar — always active inside this container */}
       <SelectionFloat
         containerRef={containerRef}
         cellId={cellId}
@@ -267,7 +268,7 @@ export function Annotations({ cellId, outputs }: AnnotationsProps) {
         onComment={handleCommentStart}
       />
 
-      {/* Insert annotations rendered at their positions */}
+      {/* Insert annotations rendered between outputs */}
       {insertAnnotations.length > 0 && outputs.length > 0 && (
         <>
           {outputs.map((_output, i) => {
