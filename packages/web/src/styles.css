@@ -820,51 +820,71 @@ textarea.cell-input {
 }
 
 /* ============================================================
-   Cell (chat-style, read-only)
+   Cell (chat bubble layout)
    ============================================================ */
 .cell {
-  background: var(--bg-cell);
-  border: 1px solid var(--border-default);
-  border-left-width: 3px;
-  border-left-color: var(--border-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-cell);
-  overflow: hidden;
-  padding: var(--space-md) var(--space-lg);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  padding: var(--space-sm) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
-/* Left accent color based on cell status */
-.cell-status-indicator-running  { border-left-color: var(--color-running); }
-.cell-status-indicator-completed { border-left-color: var(--color-completed); }
-.cell-status-indicator-error    { border-left-color: var(--color-error); }
-
-/* ── Prompt row: [n] + source ────────────────────────────── */
+/* ── Prompt row: right-aligned bubble ───────────────────── */
 .cell-prompt-row {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
 .cell-index {
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: 0.65rem;
   color: var(--text-secondary);
-  opacity: 0.65;
-  flex-shrink: 0;
-  padding-top: 3px;
+  opacity: 0.5;
   user-select: none;
+  padding-right: 2px;
 }
 
+/* Prompt bubble */
 .cell-prompt-source {
+  max-width: 82%;
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-ring);
+  border-radius: 14px 14px 4px 14px;
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* ── Divider between prompt and AI response ─────────────── */
+.cell-response-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0 var(--space-sm);
+}
+
+.cell-response-divider::before {
+  content: '';
+  flex: 0 0 48px;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
+  opacity: 0.35;
+}
+
+.cell-response-divider::after {
+  content: '';
   flex: 1;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.75;
-  margin: 0;
+  height: 1px;
+  background: var(--border-default);
+}
+
+/* ── AI response area: left-aligned ─────────────────────── */
+.cell-response-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 92%;
 }
 
 /* ── Status badge ────────────────────────────────────────── */
@@ -1095,76 +1115,7 @@ textarea.cell-input {
 }
 
 /* ============================================================
-   Markdown cell
-   ============================================================ */
-.markdown-input {
-  font-family: var(--font-sans) !important;
-  min-height: 80px;
-  resize: vertical;
-}
-
-.markdown-edit-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.markdown-preview-btn {
-  align-self: flex-end;
-  padding: 3px 12px;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-display);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  transition: background 0.2s ease;
-}
-
-.markdown-preview-btn:hover {
-  background: var(--color-primary-dark);
-}
-
-.markdown-preview {
-  cursor: text;
-  padding: var(--space-md);
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-md);
-  line-height: 1.75;
-  min-height: 40px;
-  transition: border-color 0.15s;
-}
-
-.markdown-preview:hover {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light);
-}
-
-.markdown-preview h1,
-.markdown-preview h2,
-.markdown-preview h3 {
-  margin-bottom: 0.5em;
-  margin-top: 0.5em;
-  font-weight: 600;
-}
-
-.markdown-preview h1 { font-size: 1.5rem; }
-.markdown-preview h2 { font-size: 1.25rem; }
-.markdown-preview h3 { font-size: 1.1rem; }
-
-.markdown-preview p {
-  margin-bottom: 0.5em;
-}
-
-.markdown-preview code {
-  background: #f1f5f9;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 0.875em;
-}
-
-/* ============================================================
-   Markdown body (shared by prompt source, text output, markdown cells)
+   Markdown body (prompt source, text output)
    ============================================================ */
 .markdown-body {
   line-height: 1.75;
@@ -1279,9 +1230,6 @@ textarea.cell-input {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  border-top: 1px solid var(--border-default);
-  padding-top: var(--space-md);
-  margin-top: var(--space-xs);
 }
 
 /* ── Tab panel container ─────────────────────────────────── */
