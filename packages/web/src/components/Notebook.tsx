@@ -1,26 +1,7 @@
-import type { CellType } from '@notebook-ai/shared';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { Cell } from './Cell';
 import { SliceView } from './SliceView';
-
-// ── Add cell buttons ────────────────────────────────────────────────────────
-
-interface AddCellButtonsProps {
-  onAdd(type: CellType): void;
-}
-
-function AddCellButtons({ onAdd }: AddCellButtonsProps) {
-  return (
-    <div className="add-cell-wrapper">
-      <button className="add-cell-btn" onClick={() => onAdd('prompt')}>
-        <span className="add-cell-option-icon">⚡</span> + Prompt
-      </button>
-      <button className="add-cell-btn" onClick={() => onAdd('markdown')}>
-        <span className="add-cell-option-icon">M↓</span> + Markdown
-      </button>
-    </div>
-  );
-}
 
 // ── Notebook status bar ─────────────────────────────────────────────────────
 
@@ -35,8 +16,6 @@ function NotebookStatusBar() {
   const wsStatus = useStore((s) => s.wsStatus);
   const connected = wsStatus === 'connected';
 
-  // Prefer the title from the sidebar list (always kept current by renameNotebook +
-  // fetchNotebookList) so the status bar stays in sync after any rename.
   const listTitle = notebookList.find((n) => n.id === activeNotebookId)?.title;
   const title = listTitle ?? notebook?.metadata.title ?? 'Untitled Notebook';
   const inSlice = activeTab === 'slice';
@@ -55,7 +34,6 @@ function NotebookStatusBar() {
   return (
     <div className="notebook-statusbar">
       <span className="notebook-statusbar-title" title={title}>{title}</span>
-
       <div className="notebook-statusbar-actions">
         <button
           className="notebook-statusbar-btn"
@@ -85,41 +63,186 @@ function NotebookStatusBar() {
   );
 }
 
+// ── Bottom input bar ────────────────────────────────────────────────────────
+
+type UploadStatus =
+  | { phase: 'uploading'; count: number }
+  | { phase: 'success'; names: string[] }
+  | { phase: 'error'; message: string };
+
+function NotebookInputBar() {
+  const submitPrompt = useStore((s) => s.submitPrompt);
+  const sessionId = useStore((s) => s.sessionId);
+  const notebook = useStore((s) => s.notebook);
+  const isRunning = notebook?.cells.some((c) => c.status === 'running') ?? false;
+
+  const [text, setText] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-resize textarea
+  const resize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, []);
+
+  useEffect(() => { resize(); }, [text, resize]);
+
+  // Auto-dismiss upload status banners
+  useEffect(() => {
+    if (!uploadStatus || uploadStatus.phase === 'uploading') return;
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = setTimeout(() => setUploadStatus(null), 4000);
+    return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
+  }, [uploadStatus]);
+
+  function handleRun() {
+    const source = text.trim();
+    if (!source || isRunning) return;
+    submitPrompt(source);
+    setText('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleRun();
+    }
+  }
+
+  async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (!sessionId) {
+      setUploadStatus({ phase: 'error', message: 'No active session — open a notebook first.' });
+      return;
+    }
+
+    const fileCount = files.length;
+    setUploadStatus({ phase: 'uploading', count: fileCount });
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      for (const file of Array.from(files)) formData.append('files', file);
+      const res = await fetch(`/api/notebooks/${sessionId}/files`, { method: 'POST', body: formData });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Upload failed (${res.status})`);
+      }
+
+      const data = (await res.json()) as { uploaded: string[] };
+      const names = data.uploaded;
+      if (names.length > 0) {
+        const refs = names.map((name) => `[file: ${name}]`).join('\n');
+        setText((prev) => (prev ? `${prev}\n${refs}` : refs));
+      }
+      setUploadStatus({ phase: 'success', names });
+    } catch (err) {
+      setUploadStatus({ phase: 'error', message: String(err instanceof Error ? err.message : err) });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  const disabled = isRunning || uploading;
+
+  return (
+    <div className="notebook-input-bar">
+      {uploadStatus && (
+        <div className={`upload-status upload-status-${uploadStatus.phase}`}>
+          {uploadStatus.phase === 'uploading' && (
+            <><span className="spinner" aria-hidden="true" /> Uploading {uploadStatus.count} file{uploadStatus.count > 1 ? 's' : ''}…</>
+          )}
+          {uploadStatus.phase === 'success' && <>✓ Attached: {uploadStatus.names.join(', ')}</>}
+          {uploadStatus.phase === 'error' && <>✗ {uploadStatus.message}</>}
+        </div>
+      )}
+      <div className="notebook-input-row">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={handleFilesChange}
+          tabIndex={-1}
+        />
+        <button
+          className="cell-btn cell-btn-upload nb-attach-btn"
+          title="Attach file to prompt"
+          disabled={disabled}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {uploading ? '…' : '+'}
+        </button>
+        <textarea
+          ref={textareaRef}
+          className="nb-input-textarea"
+          value={text}
+          onChange={(e) => { setText(e.target.value); resize(); }}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder="Enter a prompt… (Ctrl+Enter to run)"
+          rows={3}
+          spellCheck={false}
+        />
+        <button
+          className="nb-run-btn"
+          onClick={handleRun}
+          disabled={disabled || !text.trim()}
+          title="Run (Ctrl+Enter)"
+        >
+          {isRunning ? '■' : '▶'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Notebook component ─────────────────────────────────────────────────
 
 export function Notebook() {
   const notebook = useStore((s) => s.notebook);
   const activeTab = useStore((s) => s.activeTab);
-  const addCell = useStore((s) => s.addCell);
-
   const cells = notebook?.cells ?? [];
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom whenever a new cell is added
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [cells.length]);
 
   return (
     <div className="notebook-container">
       <NotebookStatusBar />
 
       {activeTab === 'notebook' && (
-        <div className="notebook-cells">
-          {cells.length === 0 && (
-            <div className="notebook-empty">
-              <p>This notebook is empty.</p>
-              <p>Add a cell below to get started.</p>
-            </div>
-          )}
-
-          {cells.map((cell, index) => (
-            <Cell
-              key={cell.id}
-              cell={cell}
-              index={index}
-              totalCells={cells.length}
-            />
-          ))}
-
-          <div className="notebook-add-cell-row">
-            <AddCellButtons onAdd={(type) => addCell(type)} />
+        <>
+          <div className="notebook-cells">
+            {cells.length === 0 && (
+              <div className="notebook-empty">
+                <p>Send a prompt below to get started.</p>
+              </div>
+            )}
+            {cells.map((cell, index) => (
+              <Cell key={cell.id} cell={cell} index={index} />
+            ))}
+            <div ref={bottomRef} />
           </div>
-        </div>
+
+          <NotebookInputBar />
+        </>
       )}
 
       {activeTab === 'slice' && <SliceView />}

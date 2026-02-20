@@ -2,9 +2,7 @@ import { useState } from 'react';
 import type { CellOutput as CellOutputItem } from '@notebook-ai/shared';
 import { Annotations } from './Annotations';
 
-// ── SVG sanitizer ───────────────────────────────────────────────────────────
-// Strips <script> elements and on* event handler attributes from SVG markup
-// to prevent XSS when rendering chart output from the Claude process.
+// ── SVG sanitizer ────────────────────────────────────────────────────────────
 
 const DANGEROUS_TAGS = /(<script[\s\S]*?<\/script>|<script[^>]*\/>)/gi;
 const DANGEROUS_ATTRS = /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
@@ -17,106 +15,10 @@ function sanitizeSvg(svg: string): string {
     .replace(JAVASCRIPT_HREF, '');
 }
 
-interface CellOutputProps {
-  outputs: CellOutputItem[];
-  cellId?: string;
-  /** True when the parent cell is currently executing — collapsible blocks auto-open. */
-  isActiveCell?: boolean;
-}
-
-// ── Individual output renderers ────────────────────────────────────────────
+// ── Response renderers ───────────────────────────────────────────────────────
 
 function TextOutputView({ content }: { content: string }) {
   return <pre className="output-text">{content}</pre>;
-}
-
-function ThinkingOutputView({ content, defaultOpen }: { content: string; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
-  const chars = content.length;
-  const summary = chars > 1024
-    ? `${(chars / 1024).toFixed(1)} KB`
-    : `${chars} 字符`;
-
-  return (
-    <div className="output-thinking">
-      <button
-        className="output-collapsible-toggle"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="collapsible-icon">{open ? '▼' : '▶'}</span>
-        <span>思考</span>
-        {!open && <span className="collapsible-summary">{summary}</span>}
-      </button>
-      {open && (
-        <div className="output-thinking-content">
-          <pre>{content}</pre>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ToolUseOutputView({
-  name,
-  input,
-  result,
-  is_error,
-  defaultOpen,
-}: {
-  name: string;
-  input: Record<string, unknown>;
-  result?: string;
-  is_error?: boolean;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
-
-  // Compact summary: first string value from input, or param count
-  const inputKeys = Object.keys(input);
-  const firstVal = inputKeys.length > 0 ? String(Object.values(input)[0]) : '';
-  const shortVal = firstVal.length > 40 ? firstVal.slice(0, 40) + '…' : firstVal;
-  const summary = shortVal || `${inputKeys.length} 参数`;
-
-  const hasResult = result !== undefined;
-  const isError = is_error ?? false;
-  const statusClass = hasResult ? (isError ? 'tool-result-error' : 'tool-result-ok') : '';
-
-  return (
-    <div className={`output-tool-use${statusClass ? ` ${statusClass}` : ''}`}>
-      <button
-        className="output-collapsible-toggle"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="collapsible-icon">{open ? '▼' : '▶'}</span>
-        <code className="tool-use-name">{name}</code>
-        {!open && <span className="collapsible-summary">{summary}</span>}
-        {hasResult && !open && (
-          <span className={isError ? 'tool-use-fail' : 'tool-use-done'}>
-            {isError ? '✗' : '✓'}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="tool-use-details">
-          <div className="tool-use-section">
-            <span className="tool-use-section-label">Input</span>
-            <pre className="tool-use-json">{JSON.stringify(input, null, 2)}</pre>
-          </div>
-          {hasResult && (
-            <div className={`tool-use-section${isError ? ' tool-use-section-error' : ''}`}>
-              <span className="tool-use-section-label">
-                {isError ? 'Error' : 'Result'}
-              </span>
-              <pre className="tool-use-result">{result}</pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function ErrorOutputView({ message }: { message: string }) {
@@ -144,56 +46,158 @@ function ChartOutputView({ chart_type, svg }: { chart_type: string; svg?: string
   );
 }
 
-// ── Dispatcher ─────────────────────────────────────────────────────────────
+// ── Panel: Thinking ──────────────────────────────────────────────────────────
 
-export function OutputItem({ item, defaultOpen }: { item: CellOutputItem; defaultOpen?: boolean }) {
-  switch (item.type) {
-    case 'text':
-      return <TextOutputView content={item.content} />;
-    case 'thinking':
-      return <ThinkingOutputView content={item.content} defaultOpen={defaultOpen} />;
-    case 'tool_use':
-      return (
-        <ToolUseOutputView
-          name={item.name}
-          input={item.input}
-          result={item.result}
-          is_error={item.is_error}
-          defaultOpen={defaultOpen}
-        />
-      );
-    case 'error':
-      return <ErrorOutputView message={item.message} />;
-    case 'chart':
-      return <ChartOutputView chart_type={item.chart_type} svg={item.svg} />;
-    default:
-      return null;
-  }
+type ThinkingItem = Extract<CellOutputItem, { type: 'thinking' }>;
+
+function ThinkingPanel({ items }: { items: ThinkingItem[] }) {
+  const combined = items.map((i) => i.content).join('\n\n---\n\n');
+  return (
+    <div className="cell-panel-thinking">
+      <pre className="output-thinking-text">{combined}</pre>
+    </div>
+  );
 }
 
-// ── Public component ────────────────────────────────────────────────────────
+// ── Panel: Tools ─────────────────────────────────────────────────────────────
 
-export function CellOutput({ outputs, cellId, isActiveCell }: CellOutputProps) {
+type ToolItem = Extract<CellOutputItem, { type: 'tool_use' }>;
+
+function ToolRow({ item }: { item: ToolItem }) {
+  const [open, setOpen] = useState(false);
+
+  const inputKeys = Object.keys(item.input);
+  const firstVal = inputKeys.length > 0 ? String(Object.values(item.input)[0]) : '';
+  const shortVal = firstVal.length > 50 ? firstVal.slice(0, 50) + '…' : firstVal;
+  const summary = shortVal || `${inputKeys.length} params`;
+
+  const hasResult = item.result !== undefined;
+  const isError = item.is_error ?? false;
+  const statusClass = hasResult ? (isError ? 'tool-result-error' : 'tool-result-ok') : '';
+
+  return (
+    <div className={`output-tool-use${statusClass ? ` ${statusClass}` : ''}`}>
+      <button
+        className="output-collapsible-toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="collapsible-icon">{open ? '▼' : '▶'}</span>
+        <code className="tool-use-name">{item.name}</code>
+        {!open && <span className="collapsible-summary">{summary}</span>}
+        {hasResult && !open && (
+          <span className={isError ? 'tool-use-fail' : 'tool-use-done'}>
+            {isError ? '✗' : '✓'}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="tool-use-details">
+          <div className="tool-use-section">
+            <span className="tool-use-section-label">Input</span>
+            <pre className="tool-use-json">{JSON.stringify(item.input, null, 2)}</pre>
+          </div>
+          {hasResult && (
+            <div className={`tool-use-section${isError ? ' tool-use-section-error' : ''}`}>
+              <span className="tool-use-section-label">{isError ? 'Error' : 'Result'}</span>
+              <pre className="tool-use-result">{item.result}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToolsPanel({ items }: { items: ToolItem[] }) {
+  return (
+    <div className="cell-panel-tools">
+      {items.map((item, i) => (
+        <ToolRow key={i} item={item} />
+      ))}
+    </div>
+  );
+}
+
+// ── Public component ─────────────────────────────────────────────────────────
+
+interface CellOutputProps {
+  outputs: CellOutputItem[];
+  cellId?: string;
+  isActiveCell?: boolean;
+}
+
+type PanelTab = 'thinking' | 'tools';
+
+export function CellOutput({ outputs, cellId }: CellOutputProps) {
+  const thinkingItems = outputs.filter(
+    (o): o is ThinkingItem => o.type === 'thinking',
+  );
+  const toolItems = outputs.filter(
+    (o): o is ToolItem => o.type === 'tool_use',
+  );
+  const responseItems = outputs.filter(
+    (o) => o.type === 'text' || o.type === 'error' || o.type === 'chart',
+  );
+
+  const hasTabs = thinkingItems.length > 0 || toolItems.length > 0;
+  const initialTab: PanelTab = thinkingItems.length > 0 ? 'thinking' : 'tools';
+  const [activeTab, setActiveTab] = useState<PanelTab>(initialTab);
+
   if (outputs.length === 0 && !cellId) return null;
 
   return (
     <div className="cell-output-area">
-      {outputs.map((item, i) => (
-        // Collapsible blocks (thinking/tool_use) auto-open only when the cell
-        // is actively executing. When loaded from disk they start collapsed.
-        <OutputItem
-          key={i}
-          item={item}
-          defaultOpen={
-            (item.type === 'thinking' || item.type === 'tool_use')
-              ? isActiveCell
-              : undefined
-          }
-        />
-      ))}
-      {cellId && (
-        <Annotations cellId={cellId} outputs={outputs} />
+
+      {/* ── Section 2/3: Thinking | Tools tab panel ── */}
+      {hasTabs && (
+        <div className="cell-panels">
+          <div className="cell-panel-tabs" role="tablist">
+            {thinkingItems.length > 0 && (
+              <button
+                role="tab"
+                aria-selected={activeTab === 'thinking'}
+                className={`cell-panel-tab${activeTab === 'thinking' ? ' active' : ''}`}
+                onClick={() => setActiveTab('thinking')}
+              >
+                Thinking
+                <span className="cell-panel-tab-count">{thinkingItems.length}</span>
+              </button>
+            )}
+            {toolItems.length > 0 && (
+              <button
+                role="tab"
+                aria-selected={activeTab === 'tools'}
+                className={`cell-panel-tab${activeTab === 'tools' ? ' active' : ''}`}
+                onClick={() => setActiveTab('tools')}
+              >
+                Tools
+                <span className="cell-panel-tab-count">{toolItems.length}</span>
+              </button>
+            )}
+          </div>
+
+          <div className="cell-panel-content" role="tabpanel">
+            {activeTab === 'thinking' && <ThinkingPanel items={thinkingItems} />}
+            {activeTab === 'tools'    && <ToolsPanel    items={toolItems} />}
+          </div>
+        </div>
       )}
+
+      {/* ── Section 4: Response output ── */}
+      {responseItems.length > 0 && (
+        <div className="cell-response">
+          {responseItems.map((item, i) => {
+            if (item.type === 'text')  return <TextOutputView  key={i} content={item.content} />;
+            if (item.type === 'error') return <ErrorOutputView key={i} message={item.message} />;
+            if (item.type === 'chart') return <ChartOutputView key={i} chart_type={item.chart_type} svg={item.svg} />;
+            return null;
+          })}
+        </div>
+      )}
+
+      {cellId && <Annotations cellId={cellId} outputs={outputs} />}
     </div>
   );
 }
