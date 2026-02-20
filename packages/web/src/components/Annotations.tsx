@@ -170,6 +170,13 @@ export function Annotations({ cellId, outputs, children }: AnnotationsProps) {
     [cellId, addAnnotation],
   );
 
+  /** Append text to the bottom prompt input bar. */
+  function forwardToPrompt(text: string) {
+    window.dispatchEvent(
+      new CustomEvent('nb:appendPrompt', { detail: { text } }),
+    );
+  }
+
   // ── Delete annotation ──────────────────────────────────────────────────
 
   const handleDelete = useCallback(
@@ -184,6 +191,7 @@ export function Annotations({ cellId, outputs, children }: AnnotationsProps) {
         timestamp: new Date().toISOString(),
       };
       addAnnotation(annotation);
+      forwardToPrompt(`Please delete the following from your response:\n\`\`\`\n${selectedText}\n\`\`\``);
     },
     [cellId, addAnnotation],
   );
@@ -212,6 +220,7 @@ export function Annotations({ cellId, outputs, children }: AnnotationsProps) {
       };
       addAnnotation(annotation);
       setReplaceModal(null);
+      forwardToPrompt(`Please replace the following:\n\`\`\`\n${replaceModal.text}\n\`\`\`\nWith:\n\`\`\`\n${replacement}\n\`\`\``);
     },
     [cellId, replaceModal, addAnnotation],
   );
@@ -240,6 +249,7 @@ export function Annotations({ cellId, outputs, children }: AnnotationsProps) {
       };
       addAnnotation(annotation);
       setCommentModal(null);
+      forwardToPrompt(`${comment}\n\n(Regarding: "${commentModal.text}")`);
     },
     [cellId, commentModal, addAnnotation],
   );

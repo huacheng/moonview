@@ -93,6 +93,17 @@ function NotebookInputBar() {
 
   useEffect(() => { resize(); }, [text, resize]);
 
+  // Listen for annotation-forwarded prompt text
+  useEffect(() => {
+    function onAppend(e: Event) {
+      const { text: appended } = (e as CustomEvent<{ text: string }>).detail;
+      setText((prev) => prev ? `${prev}\n\n${appended}` : appended);
+      textareaRef.current?.focus();
+    }
+    window.addEventListener('nb:appendPrompt', onAppend);
+    return () => window.removeEventListener('nb:appendPrompt', onAppend);
+  }, []);
+
   // Auto-dismiss upload status banners
   useEffect(() => {
     if (!uploadStatus || uploadStatus.phase === 'uploading') return;

@@ -3,7 +3,7 @@ import type { Cell as CellData } from '@notebook-ai/shared';
 import { CellOutput } from './CellOutput';
 import { GitDiffView } from './GitDiffView';
 import { Annotations } from './Annotations';
-import { renderMd } from '../utils/markdown';
+import { MarkdownBody } from './MarkdownBody';
 
 // ── Status indicator ────────────────────────────────────────────────────────
 
@@ -41,10 +41,7 @@ export function Cell({ cell, index }: CellProps) {
         {/* ── Section 1: User prompt — right aligned bubble ── */}
         <div className="cell-prompt-row">
           <span className="cell-index">[{execNum}]</span>
-          <div
-            className="cell-prompt-source markdown-body"
-            dangerouslySetInnerHTML={{ __html: renderMd(cell.source) }}
-          />
+          <MarkdownBody content={cell.source} className="cell-prompt-source" />
         </div>
 
         {/* ── Divider ── */}

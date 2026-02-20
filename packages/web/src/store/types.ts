@@ -64,6 +64,7 @@ export interface NotebookStore {
   setNotebook(nb: Notebook): void;
   updateTitle(title: string): void;
   addCell(type: CellType, index?: number): void;
+  submitPrompt(source: string): void;
   removeCell(cellId: string): void;
   moveCell(cellId: string, direction: 'up' | 'down'): void;
   updateCellSource(cellId: string, source: string): void;
