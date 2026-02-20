@@ -986,7 +986,8 @@ textarea.cell-input {
 .notebook-input-bar {
   position: sticky;
   bottom: 0;
-  background: var(--bg-app);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
   border-top: 1px solid var(--border-default);
   padding: var(--space-md) var(--space-lg);
   z-index: 20;
