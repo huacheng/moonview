@@ -995,18 +995,61 @@ textarea.cell-input {
 
 .notebook-input-row {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nb-input-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100px;
+  max-height: 200px;
+  padding: var(--space-sm) var(--space-md);
+  background: #ffffff;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.75;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+}
+
+.nb-input-textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
+}
+
+.nb-input-textarea::placeholder {
+  color: var(--color-idle);
+  font-style: italic;
+}
+
+.nb-input-textarea:disabled {
+  background: var(--bg-cell-hover);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+/* ── Action row: [+] [▶] at bottom-left ─────────────────── */
+.notebook-input-actions {
+  display: flex;
+  align-items: center;
   gap: var(--space-sm);
 }
 
 .nb-attach-btn {
   flex-shrink: 0;
-  height: 40px;
-  width: 40px;
+  height: 30px;
+  width: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: var(--text-secondary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -1026,50 +1069,14 @@ textarea.cell-input {
   cursor: not-allowed;
 }
 
-.nb-input-textarea {
-  flex: 1;
-  min-height: 100px;
-  max-height: 200px;
-  padding: var(--space-sm) var(--space-md);
-  background: #fafaf9;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  line-height: 1.75;
-  resize: none;
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-  overflow: hidden;
-}
-
-.nb-input-textarea:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-ring);
-  background: #fff;
-}
-
-.nb-input-textarea::placeholder {
-  color: var(--color-idle);
-  font-style: italic;
-}
-
-.nb-input-textarea:disabled {
-  background: var(--bg-cell-hover);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-}
-
 .nb-run-btn {
   flex-shrink: 0;
-  height: 40px;
-  min-width: 48px;
-  padding: 0 var(--space-md);
+  height: 30px;
+  padding: 0 var(--space-lg);
   background: var(--color-primary);
   color: #fff;
   border-radius: var(--radius-md);
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   transition: background 0.15s ease;
   display: flex;

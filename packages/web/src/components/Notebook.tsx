@@ -178,14 +178,6 @@ function NotebookInputBar() {
           onChange={handleFilesChange}
           tabIndex={-1}
         />
-        <button
-          className="cell-btn cell-btn-upload nb-attach-btn"
-          title="Attach file to prompt"
-          disabled={disabled}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {uploading ? '…' : '+'}
-        </button>
         <textarea
           ref={textareaRef}
           className="nb-input-textarea"
@@ -197,14 +189,24 @@ function NotebookInputBar() {
           rows={3}
           spellCheck={false}
         />
-        <button
-          className="nb-run-btn"
-          onClick={handleRun}
-          disabled={disabled || !text.trim()}
-          title="Run (Ctrl+Enter)"
-        >
-          {isRunning ? '■' : '▶'}
-        </button>
+        <div className="notebook-input-actions">
+          <button
+            className="nb-attach-btn"
+            title="Attach file to prompt"
+            disabled={disabled}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? '…' : '+'}
+          </button>
+          <button
+            className="nb-run-btn"
+            onClick={handleRun}
+            disabled={disabled || !text.trim()}
+            title="Run (Ctrl+Enter)"
+          >
+            {isRunning ? '■' : '▶'}
+          </button>
+        </div>
       </div>
     </div>
   );
