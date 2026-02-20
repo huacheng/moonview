@@ -7,9 +7,9 @@
 
 ---
 
-## Progress Update Mode (/进度)
+## Progress Update Mode (/progress)
 
-**Trigger**: Activated when the user says `/进度`.
+**Trigger**: Activated when the user says `/progress`.
 
 **Core principle**: Detailed + frequent = keep the user informed at every step.
 
