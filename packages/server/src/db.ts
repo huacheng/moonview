@@ -82,6 +82,15 @@ export class NotebookDb {
         ON sessions(notebook_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_status
         ON sessions(status);
+
+      CREATE TABLE IF NOT EXISTS file_annotations (
+        session_id  TEXT NOT NULL,
+        file_path   TEXT NOT NULL,
+        content     TEXT NOT NULL DEFAULT '{}',
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (session_id, file_path)
+      );
+      CREATE INDEX IF NOT EXISTS idx_fa_updated_at ON file_annotations(updated_at);
     `);
   }
 
@@ -160,6 +169,28 @@ export class NotebookDb {
     this.db.prepare(
       'UPDATE sessions SET status = ?, closed_at = ? WHERE id = ?'
     ).run('closed', new Date().toISOString(), id);
+  }
+
+  // ── File Annotations ─────────────────────────────────────────────────────
+
+  upsertFileAnnotations(sessionId: string, filePath: string, content: string, updatedAt: number): void {
+    this.db.prepare(`
+      INSERT INTO file_annotations (session_id, file_path, content, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(session_id, file_path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at
+    `).run(sessionId, filePath, content, updatedAt);
+  }
+
+  getFileAnnotations(sessionId: string, filePath: string): { content: string; updated_at: number } | null {
+    const row = this.db.prepare(
+      'SELECT content, updated_at FROM file_annotations WHERE session_id = ? AND file_path = ?'
+    ).get(sessionId, filePath) as { content: string; updated_at: number } | undefined;
+    return row ?? null;
+  }
+
+  cleanupOldFileAnnotations(maxAgeDays = 7): void {
+    const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+    this.db.prepare('DELETE FROM file_annotations WHERE updated_at < ?').run(cutoff);
   }
 
   // ── Utility ──────────────────────────────────────────────────────────────
