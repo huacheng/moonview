@@ -3403,6 +3403,8 @@ button:focus-visible {
   flex-direction: column;
   background: var(--bg-page);
   overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
 }
 .file-viewer--maximized {
   flex: 1;
@@ -3415,11 +3417,13 @@ button:focus-visible {
   gap: 8px;
   padding: 7px 12px;
   min-height: 40px;
-  background: var(--toolbar-bg);
-  color: var(--toolbar-text);
-  font-size: 13px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
   flex-shrink: 0;
-  border-bottom: 1px solid var(--toolbar-border);
+  border-bottom: 1px solid var(--border-default);
   box-sizing: border-box;
 }
 .fv-statusbar__name {
@@ -3427,36 +3431,47 @@ button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: var(--font-size-sm);
+  letter-spacing: -0.01em;
 }
 .fv-statusbar__format {
-  font-size: 11px;
-  opacity: 0.55;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
   padding: 1px 6px;
-  background: rgba(255,255,255,0.08);
+  background: var(--bg-cell-hover);
   border-radius: 3px;
+  border: 1px solid var(--border-default);
 }
 .fv-statusbar__actions {
   display: flex;
   gap: 4px;
 }
 .fv-statusbar__btn {
-  background: rgba(255,255,255,0.07);
-  border: none;
-  color: var(--toolbar-text);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
   padding: 3px 9px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .fv-statusbar__btn:hover {
-  background: rgba(255,255,255,0.15);
+  background: var(--bg-cell-hover);
+  color: var(--text-primary);
+  border-color: var(--color-primary);
 }
 .fv-statusbar__btn.active {
-  background: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 .fv-statusbar__close {
-  color: rgba(255,255,255,0.45);
+  color: var(--text-secondary);
 }
 
 /* ── FileViewerRender ────────────────────────────────────────────────── */
@@ -3469,13 +3484,14 @@ button:focus-visible {
 .fv-render__text {
   white-space: pre-wrap;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   line-height: 1.6;
   color: var(--text-primary);
 }
 .fv-render__markdown,
 .fv-render__html {
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
   line-height: 1.7;
   color: var(--text-primary);
 }
@@ -3557,14 +3573,15 @@ button:focus-visible {
   border: 1px solid var(--border-default);
   border-left-width: 3px;
   background: var(--bg-cell);
-  font-size: 13px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
 }
 .fv-ann-card--insert { border-left-color: var(--color-completed); }
 .fv-ann-card--delete { border-left-color: var(--color-error); }
 .fv-ann-card--replace { border-left-color: var(--color-primary); }
 .fv-ann-card--comment { border-left-color: var(--text-secondary); }
 .fv-ann-card__type {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   flex-shrink: 0;
@@ -3588,7 +3605,7 @@ button:focus-visible {
   width: 100%;
   resize: vertical;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 4px 6px;
@@ -3605,7 +3622,8 @@ button:focus-visible {
   cursor: pointer;
   padding: 2px 7px;
   border-radius: 4px;
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
 .fv-ann-card__btn:hover { background: var(--bg-cell-hover); color: var(--text-primary); }
@@ -3622,7 +3640,8 @@ button:focus-visible {
   padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
   font-weight: 500;
 }
 .fv-ann-dropdown__trigger:hover {
@@ -3650,7 +3669,8 @@ button:focus-visible {
   padding: 4px 12px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
 }
 .fv-ann-dropdown__list {
   max-height: 300px;
@@ -3662,7 +3682,8 @@ button:focus-visible {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
 }
 .fv-ann-dropdown__item:hover { background: var(--bg-cell-hover); }
 .fv-ann-dropdown__type { font-weight: 700; flex-shrink: 0; }
@@ -3683,7 +3704,8 @@ button:focus-visible {
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 3px;
-  font-size: 11px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   flex-shrink: 0;
 }
@@ -3710,7 +3732,8 @@ button:focus-visible {
   padding: 5px 16px;
   border-radius: 5px;
   cursor: pointer;
-  font-size: 13px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
 }
 .fv-editor__save:disabled { opacity: 0.5; cursor: not-allowed; }
 .fv-editor__save:hover:not(:disabled) { background: var(--color-primary-dark); }
@@ -3722,7 +3745,8 @@ button:focus-visible {
 .fv-editor__content .ProseMirror {
   outline: none;
   min-height: 200px;
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
   line-height: 1.7;
   color: var(--text-primary);
 }
