@@ -54,9 +54,10 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 20. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
 21. Write task-level `.summary.md` with condensed context: plan overview, key decisions, requirements summary, known constraints (integrate from directory summaries)
 22. Update `.index.json`: set `type` field (if not already set or if task nature changed), status → `planning` (from `draft`/`planning`/`blocked`) or `re-planning` (from `review`/`executing`/`re-planning`), update timestamp. If the **new** status is `re-planning`, set `phase: needs-check`. For all other **new** statuses, clear `phase` to `""`. Reset `completed_steps` to `0` (new/revised plan invalidates prior progress)
-23. **Git commit**: `ai-cli-task(<notebook>):plan generate implementation plan`
-24. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
-25. Report plan summary to user
+23. **CoT capture** (optional, encouraged): If this planning session involved complex or novel reasoning, write `.thinking/raw/<notebook>-plan-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND (no lock needed — filename is unique). Append one row to `raw/.index.md` on first creation (O_APPEND). See `library/SKILL.md` `.thinking/raw/` Entry Format and `library/references/quality-rubric.md` for format and H/M/L rubric
+24. **Git commit**: `ai-cli-task(<notebook>):plan generate implementation plan`
+25. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
+26. Report plan summary to user
 
 **Context management**: When `.summary.md` exists, read it as the primary context source instead of reading all files from `.analysis/`, `.bugfix/`, `.notes/`. Only read the latest (last by filename sort) file from each directory for detailed info on the most recent assessment/issue/note.
 

@@ -350,8 +350,8 @@ Three shared directories require locks before writing (all use the same lock pro
 
 | Directory | Lock File | Writers | Scope |
 |-----------|-----------|---------|-------|
-| `$NB_WORKSPACES_LIBRARY/.experiences/<type>/` | `$NB_WORKSPACES_LIBRARY/.experiences/.lock` | `report` | Create type dir, write `<notebook>.md`, update per-type and top-level `.summary.md`. For hybrid types (`A\|B`), covers all segments |
-| `$NB_WORKSPACES_LIBRARY/.references/` | `$NB_WORKSPACES_LIBRARY/.references/.lock` | `research`, `exec` | Write `<topic>.md`, update `.summary.md` |
+| `$NB_WORKSPACES_LIBRARY/.experiences/<type>/` | `$NB_WORKSPACES_LIBRARY/.experiences/.lock` | `report`, `exec`, `verify`, `check` | Create type dir, write `<notebook>-{complete\|impl\|verify\|eval}.md`, update per-type `.index.md`. For hybrid types (`A\|B`), covers all segments |
+| `$NB_WORKSPACES_LIBRARY/.references/` | `$NB_WORKSPACES_LIBRARY/.references/.lock` | `research`, `exec` | Write `<topic>.md`, update `.index.md` and `.summary.md` |
 | `$NB_WORKSPACES_LIBRARY/.type-profiles/` | `$NB_WORKSPACES_LIBRARY/.type-profiles/.lock` | `research`, `report` | Write `<type>.md` shared profiles |
 
 ### .index.json Safety
@@ -413,6 +413,7 @@ Status transitions can optionally trigger external notifications via `$NB_WORKSP
 | `list` | 查询任务状态与依赖 |
 | `annotate` | 处理 Plan 面板批注 |
 | `summarize` | 重建 .summary.md 上下文摘要 |
+| `library` | 知识库管理（search / list / status / maintain） |
 
 ### research — Intelligence Collection ★
 
@@ -476,4 +477,4 @@ Per-type seed methodology files are centralized in `skills/init/references/seed-
 
 **references/** contains large reference tables and domain-specific details that are only needed in specific situations. The main SKILL.md references these files with `See references/<file>.md` directives — Claude reads them on demand when the context requires it.
 
-13 sub-commands: `init`, `plan`, `research`, `check`, `verify`, `exec`, `merge`, `report`, `auto`, `cancel`, `list`, `annotate`, `summarize`. Each skill's SKILL.md frontmatter contains the authoritative description, arguments, model tier, and delegation flag. Read `skills/<name>/SKILL.md` for full details.
+14 sub-commands: `init`, `plan`, `research`, `check`, `verify`, `exec`, `merge`, `report`, `auto`, `cancel`, `list`, `annotate`, `summarize`, `library`. Each skill's SKILL.md frontmatter contains the authoritative description, arguments, model tier, and delegation flag. Read `skills/<name>/SKILL.md` for full details.

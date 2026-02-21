@@ -64,7 +64,8 @@ $NB_WORKSPACES_ROOT/
     │   ├── .lock                          # Directory write lock (gitignore)
     │   ├── .index.md                      # topic → file lookup table
     │   ├── .summary.md                    # References overview (prose, for sub-command context loading)
-    │   └── <topic>-v<N>-<date>.md         # Versioned external reference files
+    │   ├── <topic>.md                     # Initial reference file (unversioned, created by research/exec)
+    │   └── <topic>-v<N>-<date>.md         # Versioned file (created on staleness refresh when content changes)
     ├── .experiences/
     │   ├── .lock                          # Directory write lock (gitignore)
     │   ├── .index.md                      # type → sub-directory pointer table
@@ -156,17 +157,18 @@ Maintenance operations. `report` automatically triggers a lightweight compact-ch
 
 #### `--rebuild-index`
 
-Rebuild all `.index.md` files from actual filesystem state.
+Rebuild all `.index.md` files and `.master-index.md` from actual filesystem state.
 
 **Steps:**
 
 1. For each library sub-directory: glob all `.md` files, read their frontmatter
 2. Rebuild each `.index.md` from ground truth — file frontmatter wins over stale index entries
 3. Acquire directory-level `.lock` before writing each `.index.md`; release after
-4. **IOC scan**: extract all outbound URLs from `.references/` files; tally domain counts; write/overwrite `.ioc.md` if any domain appears in ≥ 3 documents; format: `| domain | doc_count | first_seen | last_seen | risk | note |`
-5. **Fix `effectiveness_mark` uniqueness violations**: if multiple files in same topic scope or same notebook-type scope share `effectiveness_mark: true`, keep the one with latest `last_verified_at`, clear others (acquire lock before clearing)
-6. Clear `.inconsistency.log` (all issues resolved by rebuild)
-7. Git commit: `ai-cli-task(library):maintain rebuild index`
+4. **Rebuild `.master-index.md`**: scan all files across `.experiences/`, `.references/`, `.type-profiles/`, and `.thinking/patterns/`; overwrite `.master-index.md` with complete flat index (topic, type, keywords, file path). This restores the cold-start fallback for the three-tier Changelog Consumption Protocol degradation path
+5. **IOC scan**: extract all outbound URLs from `.references/` files; tally domain counts; write/overwrite `.ioc.md` if any domain appears in ≥ 3 documents; format: `| domain | doc_count | first_seen | last_seen | risk | note |`
+6. **Fix `effectiveness_mark` uniqueness violations**: if multiple files in same topic scope or same notebook-type scope share `effectiveness_mark: true`, keep the one with latest `last_verified_at`, clear others (acquire lock before clearing)
+7. Clear `.inconsistency.log` (all issues resolved by rebuild)
+8. Git commit: `ai-cli-task(library):maintain rebuild index`
 
 #### `--compact`
 
@@ -224,9 +226,9 @@ Run `--rebuild-index` → `--compact` → `--check-staleness` in sequence. Also 
 **Changelog line format** (ASCII only — no multi-byte characters):
 
 ```
-2026-02-21T14:32Z | experience  | software      | auth-refactor-complete.md   | quality_status:verified
-2026-02-21T15:10Z | reference   | jwt-auth-v3.md | topic:jwt-auth              | staleness-refresh
-2026-02-21T16:00Z | referenced  | .references/jwt-auth-v3.md | caller:plan   | notebook:auth-refactor
+2026-02-21T14:32Z | experience  | .experiences/software/auth-refactor-complete.md | quality_status:verified
+2026-02-21T15:10Z | reference   | .references/jwt-auth-v3.md                      | topic:jwt-auth,staleness-refresh
+2026-02-21T16:00Z | referenced  | .references/jwt-auth-v3.md                      | caller:plan,notebook:auth-refactor
 ```
 
 Supported entry types: `experience`, `reference`, `type-profile`, `pattern`, `referenced`
@@ -237,6 +239,8 @@ Supported entry types: `experience`, `reference`, `type-profile`, `pattern`, `re
 |------|-----------|
 | Append (`---` separator + O_APPEND index) | `raw/<nb>-<step>-<date>.md`; `<nb>-impl.md`; `<nb>-verify.md`; `<nb>-eval.md` |
 | Overwrite (`.tmp → rename`) | `<nb>-complete.md`; `patterns/*.md`; `.type-profiles/*.md`; all `.summary.md`; all `.index.md` |
+
+**Note on `.summary.md` staleness**: `exec`, `verify`, and `check` update `.index.md` when writing partial experience files, but do NOT rebuild `.experiences/<type>/.summary.md` (prose index). That summary is rebuilt by `report` (step 13(f)-(g)). Until `report` runs, the prose summary may not reflect the latest partial entries. Use `library maintain --rebuild-index` to refresh all summaries on demand.
 
 > See `references/write-protocol.md` for per-directory lock table, hold duration, and stale-lock recovery procedure.
 

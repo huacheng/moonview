@@ -109,7 +109,8 @@ Callable independently for preparatory research before any phase, or to suppleme
 5. **Read** `.bugfix/` latest file if exists — understand what went wrong (for re-plan gap targeting)
 6. **Read** `.analysis/` latest file if exists — understand evaluation feedback (for re-plan gap targeting)
 7. **Read** `$NB_WORKSPACES_LIBRARY/.references/.summary.md` if exists — inventory of existing references
-8. **Type discovery & refinement** (see `plan/references/type-profiling.md`):
+8. **Load library context via Changelog Consumption Protocol** (see `library/SKILL.md`): read `.library-state.json` → seek `.changelog` to `changelog_offset` → score new lines → load matched files (type-profiles, experiences, references updated since last run) → update `.library-state.json` (atomic `.tmp → rename`). On missing file or parse error → `changelog_offset: 0` (cold start). On offset > file size (post-compact) → read `.master-index.md` full-text match first. This ensures type-profile and experience updates from concurrent tasks are visible before type discovery begins
+9. **Type discovery & refinement** (see `plan/references/type-profiling.md`):
    a. **Read** `$NB_WORKSPACES_LIBRARY/.type-registry.md` if exists — known types (seed + previously discovered). If missing, read `init/references/seed-types/.summary.md` as fallback
    b. **Read** `$NB_WORKSPACES_LIBRARY/.type-profiles/<type>.md` if exists — shared profile from prior tasks (check for each pipe segment of current type; apply directory-safe transform: `:` → `-` in type for filename). This provides a starting point, eliminating redundant web searches
    c. **If `--caller plan`** and `.type-profile.md` doesn't exist or confidence is `low`:
@@ -127,19 +128,19 @@ Callable independently for preparatory research before any phase, or to suppleme
      - If type classification changed (e.g., discovered secondary domain): update type in `.index.json` to `A|B` format, register new type if needed
      - Update `.type-profile.md` with findings, append to refinement log
      - **Sync to shared**: if profile was significantly updated → merge changes to `$NB_WORKSPACES_LIBRARY/.type-profiles/<primary-type>.md` (apply directory-safe transform for `:` in type, acquire `.type-profiles/.lock`, release after write)
-9. **Determine research direction**: Read `.type-profile.md` "Phase Intelligence" section first. If it has direction for the calling phase, use it. Otherwise fall back to per-type seed file `init/references/seed-types/<type>.md` for the calling phase's methodology. For types not in seed files, use `.type-profile.md` as sole direction source
-10. **Gap analysis**:
+10. **Determine research direction**: Read `.type-profile.md` "Phase Intelligence" section first. If it has direction for the calling phase, use it. Otherwise fall back to per-type seed file `init/references/seed-types/<type>.md` for the calling phase's methodology. For types not in seed files, use `.type-profile.md` as sole direction source
+11. **Gap analysis**:
     - Extract topic keywords from steps 2-6 (technologies, libraries, APIs, patterns, methodologies, domain concepts)
-    - Cross-reference with intelligence matrix from step 9 — ensure collection targets match the calling phase's needs
+    - Cross-reference with intelligence matrix from step 10 — ensure collection targets match the calling phase's needs
     - For hybrid types: include keywords from **both** primary and secondary domains
     - Compare against existing references from step 7
     - Produce a list of **uncovered topics** that need research
-    - If `--scope gap` and no uncovered topics → log `"references sufficient, skipping collection"` → skip to step 15
+    - If `--scope gap` and no uncovered topics → log `"references sufficient, skipping collection"` → skip to step 16
     - **Batch limit**: research at most **10 topics** per invocation. If more than 10 uncovered topics are identified, prioritize by relevance to the calling phase's immediate needs, collect the top 10, and note remaining topics in `.auto-signal` result (e.g., `"(collected, 3 deferred)"`). Subsequent `--scope gap` invocations will pick up deferred topics
-11. **Acquire** `$NB_WORKSPACES_LIBRARY/.references/.lock` (see Concurrency Protection in `commands/ai-cli-task.md`)
-12. **Active research** — for each uncovered topic:
+12. **Acquire** `$NB_WORKSPACES_LIBRARY/.references/.lock` (see Concurrency Protection in `commands/ai-cli-task.md`)
+13. **Active research** — for each uncovered topic:
     - Use shell commands to gather domain knowledge: `curl` official docs/APIs, `npm info` / `pip show` for package details, web search for best practices, GitHub issues for known pitfalls, `man` pages for CLI tools, read project `node_modules` or local source for API details
-    - **Phase-directed focus**: collection content must align with the calling phase's needs from step 9 (e.g., verify-phase calls should collect testing tools/frameworks/thresholds, not architecture patterns)
+    - **Phase-directed focus**: collection content must align with the calling phase's needs from step 10 (e.g., verify-phase calls should collect testing tools/frameworks/thresholds, not architecture patterns)
     - For hybrid types: collect from **both** primary and secondary domain sources
     - Write findings to `$NB_WORKSPACES_LIBRARY/.references/<topic>.md` (kebab-case filename, e.g., `express-middleware.md`, `ffmpeg-filters.md`)
     - Each file should be self-contained: what it is, key APIs/patterns, usage examples, gotchas, links to official docs
@@ -148,7 +149,7 @@ Callable independently for preparatory research before any phase, or to suppleme
     - **Changelog**: After writing each file (while still holding `.references/.lock`), acquire `.changelog.lock` → append one `reference` line (see Library Write Protocol in `library/SKILL.md`) → release `.changelog.lock`
     - **Append** to existing `<topic>.md` if the file already exists (add new section with date header), do not overwrite
     - **Doc-parse delegation**: When a research source is a non-text document (.pdf/.docx/.xlsx/.pptx), follow `auto/references/plugin-delegation.md` Doc-Parse Routing to delegate parsing to a matched plugin via Task subagent. If no parser plugin is available, skip and note `"Binary file <name> skipped — no parser plugin available"` in the reference file
-13. **Update** `.references/.index.md` (while still holding `.references/.lock`) — append row for each new file; overwrite matching row for updated files. Then overwrite `.references/.summary.md` with prose keyword index of all files:
+14. **Update** `.references/.index.md` (while still holding `.references/.lock`) — append row for each new file; overwrite matching row for updated files. Then overwrite `.references/.summary.md` with prose keyword index of all files:
     ```markdown
     # References Index
 
@@ -157,10 +158,10 @@ Callable independently for preparatory research before any phase, or to suppleme
     | express-middleware.md | Express middleware | routing, middleware, error handling | plan | 2024-01-15 |
     | jest-testing.md | Jest testing framework | unit test, coverage, mocking | verify | 2024-01-16 |
     ```
-14. **Flush** any pending plugin registry updates to `$NB_WORKSPACES_LIBRARY/.plugin-registry.md` (accumulated during step 12 doc-parse delegation — see `auto/references/plugin-delegation.md` Re-entrancy rule). This happens while still holding `.references/.lock`, avoiding a second lock acquisition
-15. **Release** `$NB_WORKSPACES_LIBRARY/.references/.lock`
-16. **Git commit**: `ai-cli-task(<notebook>):research collect references` (skip if no files written; include `.type-profile.md` and `$NB_WORKSPACES_LIBRARY/.type-profiles/` if updated)
-17. **Write** `.auto-signal`: `{ "step": "research", "result": "(collected)" or "(sufficient)", "next": "<caller>", "checkpoint": "post-research", "timestamp": "..." }` — `next` field routes back to the calling phase (default: `plan`; if `--caller verify` → `verify`; if `--caller check` → `check`; if `--caller exec` → `exec`)
+15. **Flush** any pending plugin registry updates to `$NB_WORKSPACES_LIBRARY/.plugin-registry.md` (accumulated during step 13 doc-parse delegation — see `auto/references/plugin-delegation.md` Re-entrancy rule). This happens while still holding `.references/.lock`, avoiding a second lock acquisition
+16. **Release** `$NB_WORKSPACES_LIBRARY/.references/.lock`
+17. **Git commit**: `ai-cli-task(<notebook>):research collect references` (skip if no files written; include `.type-profile.md` and `$NB_WORKSPACES_LIBRARY/.type-profiles/` if updated)
+18. **Write** `.auto-signal`: `{ "step": "research", "result": "(collected)" or "(sufficient)", "next": "<caller>", "checkpoint": "post-research", "timestamp": "..." }` — `next` field routes back to the calling phase (default: `plan`; if `--caller verify` → `verify`; if `--caller check` → `check`; if `--caller exec` → `exec`)
 
 ## --caller target: Target Deepening Steps
 

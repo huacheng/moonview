@@ -117,7 +117,7 @@ When writing to any history directory (`.analysis/`, `.bugfix/`, `.test/`), also
 3. **Validate dependencies**: read `depends_on` from `.index.json`, check each dependency module's `.index.json` status against its required level (simple string → `complete`, extended object → at-or-past `min_status`). If any dependency is not met, verdict is BLOCKED with dependency details
 4. **Read** `.type-profile.md` if exists — "Verification Standards", "Quality metrics", and "Audit Adaptation" sections are the **primary** source for evaluation criteria and domain-specific audit checkpoints. If check reveals the profile's standards are inadequate for this domain, update the relevant sections with findings
 5. **Read** all relevant files per checkpoint (use `.summary.md` as primary context, latest file only from each history directory)
-6. **Load library context via Changelog Consumption Protocol** (see `library/SKILL.md`): read `.library-state.json` → seek `.changelog` to `changelog_offset` → score new lines → load matched files (experiences, references) → update `.library-state.json` (atomic). On missing file or stale offset → fall through to full scan in step 7
+6. **Load library context via Changelog Consumption Protocol** (see `library/SKILL.md`): read `.library-state.json` → seek `.changelog` to `changelog_offset` → score new lines → load matched files (experiences, references) → update `.library-state.json` (atomic). On missing file or parse error → use offset 0 (cold start). On offset > file size (post-compact) → read `.master-index.md` full-text match first, then reset offset. Step 7 provides full context for cold-start
 7. **Scan** `$NB_WORKSPACES_LIBRARY/.references/.summary.md` if exists — find relevant external reference files to inform evaluation criteria and domain best practices
 8. **Gap check**: if `.type-profile.md` lacks evaluation criteria OR `.references/` lacks domain evaluation standards/benchmarks for the task `type`, trigger `research --scope gap --caller check` to collect missing references before proceeding
 9. **Incorporate verify results**: If fresh verification results exist in `.test/` (from a prior `verify` run, same day and matching checkpoint), read and incorporate them. Otherwise, run verification procedures inline as part of evaluation — inline scope is limited to the criteria in the latest `.test/` criteria file only (build + test + acceptance). For comprehensive domain-adapted verification, invoke `verify` explicitly before `check`
@@ -131,9 +131,10 @@ When writing to any history directory (`.analysis/`, `.bugfix/`, `.test/`), also
 13. **Update** each written directory's `.summary.md` — overwrite with condensed summary of ALL entries in that directory (`.analysis/.summary.md`, `.bugfix/.summary.md`, `.test/.summary.md` as applicable per checkpoint)
 14. **Write** task-level `.summary.md` with condensed context: task state, plan summary, evaluation outcome, progress (`completed_steps`), known issues, key decisions (integrate from directory summaries)
 15. **Update** `.index.json` status and timestamp per outcome
-16. **Git commit**: per outcome (see Git section below). All outcomes commit their output files and state updates, regardless of whether status changes
-17. **Write** `.auto-signal` with verdict, next action, and checkpoint (see .auto-signal section below)
-18. **Report** evaluation result with detailed reasoning
+16. **CoT capture** (optional, encouraged): If this evaluation involved complex reasoning or novel domain criteria, write `.thinking/raw/<notebook>-check-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND. See `library/SKILL.md` `.thinking/raw/` Entry Format and `library/references/quality-rubric.md`
+17. **Git commit**: per outcome (see Git section below). All outcomes commit their output files and state updates, regardless of whether status changes
+18. **Write** `.auto-signal` with verdict, next action, and checkpoint (see .auto-signal section below)
+19. **Report** evaluation result with detailed reasoning
 
 ## State Transitions
 
