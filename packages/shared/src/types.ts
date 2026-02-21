@@ -255,6 +255,38 @@ export const UpdateCellSourceSchema = z.object({
   source: z.string(),
 });
 
+// ── File Viewer messages ────────────────────────────────────────────────────
+
+export const FileOpenSchema = z.object({
+  type: z.literal('file-open'),
+  session_id: z.string(),
+  path: z.string(),
+  source: z.enum(['workspace', 'library']),
+});
+
+export const FileSaveSchema = z.object({
+  type: z.literal('file-save'),
+  session_id: z.string(),
+  path: z.string(),
+  source: z.enum(['workspace', 'library']),
+  content: z.string(),
+  format: z.enum(['text', 'html']),
+});
+
+export const AnnotationLoadSchema = z.object({
+  type: z.literal('annotation-load'),
+  session_id: z.string(),
+  path: z.string(),
+});
+
+export const AnnotationSyncSchema = z.object({
+  type: z.literal('annotation-sync'),
+  session_id: z.string(),
+  path: z.string(),
+  content: z.string(),
+  updated_at: z.number(),
+});
+
 export const WSClientMessageSchema = z.discriminatedUnion('type', [
   SubscribeSchema,
   UnsubscribeSchema,
@@ -265,6 +297,10 @@ export const WSClientMessageSchema = z.discriminatedUnion('type', [
   SliceUpdateSchema,
   PingSchema,
   UpdateCellSourceSchema,
+  FileOpenSchema,
+  FileSaveSchema,
+  AnnotationLoadSchema,
+  AnnotationSyncSchema,
 ]);
 
 // Server → Client: all session-scoped messages carry session_id
@@ -321,6 +357,60 @@ export const SessionAlreadyOpenSchema = z.object({
   session_id: z.string(),
 });
 
+export const FileOpenMetaSchema = z.object({
+  type: z.literal('file-open-meta'),
+  session_id: z.string(),
+  size: z.number(),
+  mtime: z.number(),
+  format: z.enum(['text', 'html', 'pdf-binary', 'unsupported']),
+});
+
+export const FileChunkSchema = z.object({
+  type: z.literal('file-chunk'),
+  session_id: z.string(),
+  data: z.string(),
+  encoding: z.enum(['utf8', 'base64']),
+});
+
+export const FileOpenEndSchema = z.object({
+  type: z.literal('file-open-end'),
+  session_id: z.string(),
+  mtime: z.number(),
+});
+
+export const FileOpenErrorSchema = z.object({
+  type: z.literal('file-open-error'),
+  session_id: z.string(),
+  error: z.string(),
+});
+
+export const FileSaveOkSchema = z.object({
+  type: z.literal('file-save-ok'),
+  session_id: z.string(),
+  mtime: z.number(),
+});
+
+export const FileSaveErrorSchema = z.object({
+  type: z.literal('file-save-error'),
+  session_id: z.string(),
+  error: z.string(),
+});
+
+export const AnnotationDataSchema = z.object({
+  type: z.literal('annotation-data'),
+  session_id: z.string(),
+  path: z.string(),
+  content: z.string(),
+  updated_at: z.number(),
+});
+
+export const AnnotationSyncOkSchema = z.object({
+  type: z.literal('annotation-sync-ok'),
+  session_id: z.string(),
+  path: z.string(),
+  updated_at: z.number(),
+});
+
 export const WSServerMessageSchema = z.discriminatedUnion('type', [
   CellOutputMessageSchema,
   ExecutionCompleteSchema,
@@ -331,6 +421,14 @@ export const WSServerMessageSchema = z.discriminatedUnion('type', [
   ToolResultMessageSchema,
   SessionAlreadyOpenSchema,
   PongSchema,
+  FileOpenMetaSchema,
+  FileChunkSchema,
+  FileOpenEndSchema,
+  FileOpenErrorSchema,
+  FileSaveOkSchema,
+  FileSaveErrorSchema,
+  AnnotationDataSchema,
+  AnnotationSyncOkSchema,
 ]);
 
 // ─── Notebook List / Workspace Types ───
@@ -412,6 +510,19 @@ export type ToolResultMessage = z.infer<typeof ToolResultMessageSchema>;
 export type WSClientMessage = z.infer<typeof WSClientMessageSchema>;
 export type WSServerMessage = z.infer<typeof WSServerMessageSchema>;
 export type ExportOptions = z.infer<typeof ExportOptionsSchema>;
+
+export type FileOpen = z.infer<typeof FileOpenSchema>;
+export type FileSave = z.infer<typeof FileSaveSchema>;
+export type AnnotationLoad = z.infer<typeof AnnotationLoadSchema>;
+export type AnnotationSync = z.infer<typeof AnnotationSyncSchema>;
+export type FileOpenMeta = z.infer<typeof FileOpenMetaSchema>;
+export type FileChunk = z.infer<typeof FileChunkSchema>;
+export type FileOpenEnd = z.infer<typeof FileOpenEndSchema>;
+export type FileOpenError = z.infer<typeof FileOpenErrorSchema>;
+export type FileSaveOk = z.infer<typeof FileSaveOkSchema>;
+export type FileSaveError = z.infer<typeof FileSaveErrorSchema>;
+export type AnnotationData = z.infer<typeof AnnotationDataSchema>;
+export type AnnotationSyncOk = z.infer<typeof AnnotationSyncOkSchema>;
 
 export type NotebookListItem = z.infer<typeof NotebookListItemSchema>;
 export type WorkspaceInfo = z.infer<typeof WorkspaceInfoSchema>;
