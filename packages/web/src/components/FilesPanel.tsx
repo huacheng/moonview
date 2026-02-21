@@ -166,6 +166,7 @@ interface FileSectionProps {
   dropLabel?: string;
   /** If provided, drag paths are computed relative to this directory (library mode). */
   workspaceDir?: string | null;
+  onFileClick?: (subPath: string, filename: string) => void;
 }
 
 function FileSection({
@@ -174,6 +175,7 @@ function FileSection({
   showDownloadAll = false,
   dropLabel = 'Drop to upload',
   workspaceDir,
+  onFileClick,
 }: FileSectionProps) {
   const [subPath, setSubPath] = useState('.');
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -435,6 +437,8 @@ function FileSection({
               className="fp-entry fp-entry-draggable"
               draggable
               onDragStart={(e) => startFileDrag(e, f.name)}
+              onClick={() => onFileClick?.(subPath, f.name)}
+              style={{ cursor: onFileClick ? 'pointer' : undefined }}
             >
               <IconFile />
               <span className="fp-name" title={f.name}>{f.name}</span>
@@ -474,6 +478,7 @@ export function FilesPanel() {
   const filesPanelOpen = useStore((s) => s.filesPanelOpen);
   const toggleFilesPanel = useStore((s) => s.toggleFilesPanel);
   const authToken = useStore((s) => s.authToken);
+  const setOpenFile = useStore((s) => s.setOpenFile);
 
   if (!filesPanelOpen) {
     return (
@@ -510,7 +515,17 @@ export function FilesPanel() {
             <span className="fp-section-name">Workspace</span>
           </div>
           {wsBase
-            ? <FileSection baseUrl={wsBase} authToken={authToken} showDownloadAll dropLabel="Drop to upload to workspace" />
+            ? <FileSection
+                baseUrl={wsBase}
+                authToken={authToken}
+                showDownloadAll
+                dropLabel="Drop to upload to workspace"
+                onFileClick={(subPath, name) => {
+                  if (!sessionId) return;
+                  const relPath = subPath === '.' ? name : `${subPath}/${name}`;
+                  setOpenFile({ path: relPath, source: 'workspace', sessionId });
+                }}
+              />
             : <div className="fp-section-body"><div className="fp-empty">No active session</div></div>
           }
         </div>
@@ -521,7 +536,18 @@ export function FilesPanel() {
             <span className="fp-section-name">Library</span>
             <span className="fp-section-sub">drag to prompt</span>
           </div>
-          <FileSection baseUrl="/api/library" authToken={authToken} showDownloadAll dropLabel="Drop to add to Library" workspaceDir={workspaceDir} />
+          <FileSection
+            baseUrl="/api/library"
+            authToken={authToken}
+            showDownloadAll
+            dropLabel="Drop to add to Library"
+            workspaceDir={workspaceDir}
+            onFileClick={(subPath, name) => {
+              if (!sessionId) return;
+              const relPath = subPath === '.' ? name : `${subPath}/${name}`;
+              setOpenFile({ path: relPath, source: 'library', sessionId });
+            }}
+          />
         </div>
       </div>
     </aside>
