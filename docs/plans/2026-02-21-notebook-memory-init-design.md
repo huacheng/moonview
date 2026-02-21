@@ -22,7 +22,7 @@ its purpose. Claude reads this file at session start via a short, fixed
    instruction — no content is inlined into the command-line argument.
 5. The system prompt instruction survives conversation compaction; Claude is
    asked to preserve library directory information in any summaries.
-6. All built-in Claude tools are explicitly enabled (`--tools default`).
+6. Session starts with `--append-system-prompt` pointing Claude to read `MEMORY.md`.
 
 ---
 
@@ -52,7 +52,7 @@ The relative path is computed dynamically with `path.relative(workspaceDir, libr
 | File | Change |
 |------|--------|
 | `packages/server/src/workspace.ts` | Add `initWorkspaceMemory(workspaceDir)` |
-| `packages/server/src/claude-process.ts` | Add `systemPrompt` param; add `--append-system-prompt` and `--tools default` flags |
+| `packages/server/src/claude-process.ts` | Add `systemPrompt` param; add `--append-system-prompt` flag |
 | `packages/server/src/session.ts` | Read `MEMORY.md` on session create; pass content hint as system prompt |
 | `packages/server/src/routes/notebooks.ts` | Call `initWorkspaceMemory` in `POST /api/notebooks/create` |
 
@@ -79,7 +79,6 @@ export async function initWorkspaceMemory(workspaceDir: string): Promise<void> {
 Spawn args addition:
 
 ```ts
-'--tools', 'default',
 ...(systemPrompt ? ['--append-system-prompt', systemPrompt] : []),
 ```
 
@@ -120,7 +119,7 @@ POST /api/notebooks/create
   └─ initWorkspaceMemory(dir)       → writes MEMORY.md  ← NEW
   └─ sessionManager.createSession(...)
        └─ new ClaudeProcess(cwd, SYSTEM_PROMPT)
-            └─ spawn claude -p ... --tools default --append-system-prompt "..."
+            └─ spawn claude -p ... --append-system-prompt "..."
 ```
 
 ---

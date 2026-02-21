@@ -142,7 +142,7 @@ git commit -m "feat: add initWorkspaceMemory to write MEMORY.md in notebook work
 
 ---
 
-### Task 2: Add `--tools default` and `--append-system-prompt` to `ClaudeProcess`
+### Task 2: Add `--append-system-prompt` to `ClaudeProcess`
 
 **Files:**
 - Modify: `packages/server/src/claude-process.ts`
@@ -203,7 +203,6 @@ this.proc = spawn(
     '--output-format', 'stream-json',
     '--verbose',
     '--dangerously-skip-permissions',
-    '--tools', 'default',
     ...(this.systemPrompt ? ['--append-system-prompt', this.systemPrompt] : []),
   ],
   { ... },
@@ -222,7 +221,7 @@ Expected: no errors.
 
 ```bash
 git add packages/server/src/claude-process.ts
-git commit -m "feat: add --tools default and --append-system-prompt support to ClaudeProcess"
+git commit -m "feat: add --append-system-prompt support to ClaudeProcess"
 ```
 
 ---
