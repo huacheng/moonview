@@ -150,8 +150,8 @@ Writers should keep `.summary.md` under ~200 lines. It is a context window optim
   "updated": "2024-01-01T00:00:00Z",
   "depends_on": [],
   "tags": [],
-  "branch": "task/module-name",
-  "worktree": ".worktrees/task-module-name"
+  "branch": "task/notebook-name",
+  "worktree": ".worktrees/task-notebook-name"
 }
 ```
 
@@ -220,14 +220,14 @@ Simple string `"module"` → requires `complete`. Extended object `{ "module", "
 
 ### Git Integration
 
-Every task module has a dedicated git branch. Worktrees are optional for parallel execution.
+Every task notebook has a dedicated git branch. Worktrees are optional for parallel execution.
 
 #### Branch Convention
 
 | Item | Format | Example |
 |------|--------|---------|
-| Branch name | `task/<module-name>` | `task/auth-refactor` |
-| Worktree path | `.worktrees/task-<module-name>` | `.worktrees/task-auth-refactor` |
+| Branch name | `task/<notebook-name>` | `task/notebook-1` |
+| Worktree path | `.worktrees/task-<notebook-name>` | `.worktrees/task-notebook-1` |
 
 #### Commit Message Convention
 
@@ -301,12 +301,12 @@ _library/.type-profiles/.lock
 
 ## Input Validation
 
-All sub-commands that accept `<task_module>` MUST validate the path before processing:
+All sub-commands that accept `<notebook>` MUST validate the path before processing:
 
 | Check | Rule | Example |
 |-------|------|---------|
 | **Path containment** | Resolved path must be under `$NB_WORKSPACES_ROOT/` directory (no `..` traversal) | `$NB_WORKSPACES_ROOT/../etc/passwd` → REJECT |
-| **Module name** | Must match `[a-zA-Z0-9_-]+` (ASCII letters/digits/hyphens/underscores only) | `auth-refactor` ✓, `../../foo` ✗ |
+| **Notebook name** | Must match `[a-zA-Z0-9_-]+` (ASCII letters/digits/hyphens/underscores only) | `notebook-1` ✓, `../../foo` ✗ |
 | **No symlinks** | Task module directory must not be a symlink (prevent symlink-based escape) | REJECT if `lstat` ≠ `stat` |
 | **Existence** | Directory must exist (except for `init` which creates it) | REJECT if missing |
 | **User text sanitization** | All user-provided text written to `.index.json` or `.md` files (e.g., `--title`, `--reason`, `--tags`) must be sanitized: strip HTML comments (`<!-- ... -->`), ANSI escape sequences, and control characters (except `\n`). This prevents hidden content injection when values appear in `.summary.md` or other markdown files | Sanitize before write |
