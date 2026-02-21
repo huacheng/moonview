@@ -3,6 +3,7 @@ import { Toolbar } from './components/Toolbar';
 import { Notebook } from './components/Notebook';
 import { Sidebar } from './components/Sidebar';
 import { FilesPanel } from './components/FilesPanel';
+import { FileViewer } from './components/FileViewer';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { NotebookCreationPanel } from './components/NotebookCreationPanel';
 import { LoginPage } from './components/LoginPage';
@@ -92,6 +93,8 @@ function AuthenticatedApp() {
   const creatingNotebook = useStore((s) => s.creatingNotebook);
   const restoreNotebook = useStore((s) => s.restoreNotebook);
   const filesPanelOpen = useStore((s) => s.filesPanelOpen);
+  const openFile = useStore((s) => s.openFile);
+  const fileViewerMaximized = useStore((s) => s.fileViewerMaximized);
   const wsStatus = useStore((s) => s.wsStatus);
   const wsReconnectExhausted = useStore((s) => s.wsReconnectExhausted);
 
@@ -138,18 +141,27 @@ function AuthenticatedApp() {
           </button>
         </div>
       )}
-      <div className={`app-body${filesPanelOpen ? ' app-body--files-open' : ''}`}>
+      <div className={[
+        'app-body',
+        filesPanelOpen ? 'app-body--files-open' : '',
+        openFile ? 'app-body--viewer-open' : '',
+      ].filter(Boolean).join(' ')}>
         <Sidebar />
         <main ref={contentRef} className="app-content">
-          {notebookLoading ? (
-            <NotebookLoadingScreen />
-          ) : creatingNotebook ? (
-            <NotebookCreationPanel />
-          ) : hasNotebook ? (
-            <Notebook />
-          ) : (
-            <WelcomeScreen />
-          )}
+          <div className={`content-split${openFile ? ' content-split--active' : ''}`}>
+            <div className={`notebook-area${fileViewerMaximized && openFile ? ' notebook-area--hidden' : ''}`}>
+              {notebookLoading ? (
+                <NotebookLoadingScreen />
+              ) : creatingNotebook ? (
+                <NotebookCreationPanel />
+              ) : hasNotebook ? (
+                <Notebook />
+              ) : (
+                <WelcomeScreen />
+              )}
+            </div>
+            {openFile && <FileViewer />}
+          </div>
         </main>
         <FilesPanel />
       </div>
