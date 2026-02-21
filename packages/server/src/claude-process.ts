@@ -22,9 +22,9 @@ export class ClaudeProcess {
   private rl: readline.Interface | null = null;
 
   constructor(
-  private readonly cwd: string,
-  private readonly systemPrompt?: string,
-) {}
+    private readonly cwd: string,
+    private readonly systemPrompt?: string,
+  ) {}
 
   /**
    * Spawns the Claude process, sets up the stdout message handler, and waits

@@ -52,4 +52,12 @@ describe('initWorkspaceMemory', () => {
     const content = await readFile(path.join(workspaceDir, 'MEMORY.md'), 'utf-8');
     expect(content).toContain('# MEMORY');
   });
+
+  it('creates workspaceDir if it does not exist', async () => {
+    const { initWorkspaceMemory } = await import('../workspace.js');
+    const nonExistentDir = path.join(tmpRoot, 'does-not-exist');
+    await initWorkspaceMemory(nonExistentDir);
+    const content = await readFile(path.join(nonExistentDir, 'MEMORY.md'), 'utf-8');
+    expect(content).toContain('# MEMORY');
+  });
 });
