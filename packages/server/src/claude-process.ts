@@ -21,7 +21,10 @@ export class ClaudeProcess {
   private proc: ChildProcess | null = null;
   private rl: readline.Interface | null = null;
 
-  constructor(private readonly cwd: string) {}
+  constructor(
+  private readonly cwd: string,
+  private readonly systemPrompt?: string,
+) {}
 
   /**
    * Spawns the Claude process, sets up the stdout message handler, and waits
@@ -47,6 +50,7 @@ export class ClaudeProcess {
         '--output-format', 'stream-json',
         '--verbose',
         '--dangerously-skip-permissions',
+        ...(this.systemPrompt ? ['--append-system-prompt', this.systemPrompt] : []),
       ],
       {
         cwd: this.cwd,
