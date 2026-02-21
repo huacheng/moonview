@@ -19,6 +19,7 @@ import {
   uniqueSlug,
   ensureWorkspaceDir,
   getNotebookFilePath,
+  initWorkspaceMemory,
 } from '../workspace.js';
 import { exportToFolder } from '../export.js';
 import { generateSlice } from '../slice-generator.js';
@@ -156,6 +157,7 @@ export function createNotebooksRouter(
 
       const notebook = notebookStore.createNew(title.trim(), workspaceDir);
       await notebookStore.save(notebookPath, notebook);
+      await initWorkspaceMemory(workspaceDir);
 
       const session = await sessionManager.createSession(notebookPath, workspaceDir);
       session.notebook = notebook;
