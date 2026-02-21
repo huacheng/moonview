@@ -3181,7 +3181,7 @@ button:focus-visible {
   flex: 1;
   min-width: 0;
   font-size: 14px;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
