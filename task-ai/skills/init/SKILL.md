@@ -34,10 +34,11 @@ Create a new notebook directory under `$NB_WORKSPACES_ROOT` with the standard sy
 $NB_WORKSPACES_ROOT/
 ├── .index.json                        # 全局任务列表（首次创建时初始化为 []）
 │
-├── _library/                          # $NB_WORKSPACES_LIBRARY（首次创建时初始化）
-│   ├── .type-registry.md              # 任务类型注册表（从 seed-types 初始化）
-│   ├── .index/                        # 图书馆索引目录（空目录占位）
-│   └── .thinking/                     # 跨任务推理框架占位目录（空目录）
+├── .library/                          # $NB_WORKSPACES_LIBRARY（首次创建时初始化）
+│   ├── .changelog                     # 追加日志（空文件，gitignore）
+│   ├── .changelog-archive/            # 月度归档目录（首次创建时初始化空目录）
+│   ├── .master-index.md               # 扁平总索引（空表头，git 追踪）
+│   └── .type-registry.md             # 任务类型注册表（从 seed-types 初始化）
 │
 └── <notebook_name>/
     └── .working/
@@ -124,7 +125,7 @@ Created automatically by `init` if `$NB_WORKSPACES_ROOT/.index.json` does not ex
 ## Execution Steps
 
 1. **Validate** notebook_name: ASCII letters, digits, hyphens, underscores (`[a-zA-Z0-9_-]+`), no whitespace, no leading dot, no path separators
-2. **Check** `$NB_WORKSPACES_ROOT/` directory exists; create with root `.index.json` if missing (initialized as `[]`). Check `$NB_WORKSPACES_LIBRARY/` exists; if missing, create it with: `.type-registry.md` (initialized from seed types — read `references/seed-types/.summary.md`; see `plan/references/type-profiling.md` for registry format), `.index/` (empty directory), `.thinking/` (empty directory). **First-time setup**: if `$NB_WORKSPACES_ROOT/` was just created, append gitignore entries to project `.gitignore` (create if missing): `.worktrees/`, `**/.working/.tmp-annotations.json`, `**/.working/.auto-signal`, `**/.working/.auto-signal.tmp`, `**/.working/.auto-stop`, `**/.working/.lock`, `_library/.experiences/.lock`, `_library/.references/.lock`, `_library/.type-profiles/.lock`
+2. **Check** `$NB_WORKSPACES_ROOT/` directory exists; create with root `.index.json` if missing (initialized as `[]`). Check `$NB_WORKSPACES_LIBRARY/` (= `$NB_WORKSPACES_ROOT/.library/`) exists; if missing, create the library skeleton: `.changelog` (empty file), `.changelog-archive/` (empty directory — git won't track it until `maintain --compact` writes the first archive file), `.master-index.md` (empty table header), `.type-registry.md` (initialized from seed types — read `references/seed-types/.summary.md`; see `plan/references/type-profiling.md` for registry format). Sub-directories (`.references/`, `.experiences/`, `.type-profiles/`, `.thinking/`) are created lazily by each sub-command on first write. `.plugin-registry.md` is created lazily by the `auto` sub-command on first successful plugin delegation. **First-time setup**: if `$NB_WORKSPACES_ROOT/` was just created, append gitignore entries to project `.gitignore` (create if missing): `.worktrees/`, `**/.working/.tmp-annotations.json`, `**/.working/.auto-signal`, `**/.working/.auto-signal.tmp`, `**/.working/.auto-stop`, `**/.working/.lock`, `**/.working/.library-state.json`, `.library/.changelog`, `.library/.changelog-archive/.lock`, `.library/.thinking/raw/`, `.library/.thinking/patterns/.lock`, `.library/.inconsistency.log`, `.library/.ioc.md`, `**/.lock`, `**/.lock.stale.*`
 3. **Check** `$NB_WORKSPACES_ROOT/<notebook_name>/` does not already exist; abort with error if it does
 4. **Check branch collision**: verify `task/<notebook_name>` branch does not already exist (`git branch --list task/<notebook_name>`). If exists, abort with error suggesting `--cleanup` the old task or choose a different name
 5. **Check working tree clean**: verify no uncommitted changes to tracked files (`git status --porcelain` then filter out `??` untracked entries). Untracked and gitignored files (e.g., stale `.auto-signal`, `$NB_WORKSPACES_ROOT/` ephemeral files) do NOT block init. If tracked files have modifications, abort with error — branch should be created from a clean state to avoid mixing unrelated changes. User should commit or stash first

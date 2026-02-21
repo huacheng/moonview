@@ -41,10 +41,11 @@ Execute the implementation plan for a task module that has passed evaluation.
 6. **Read** `.analysis/` latest file only for evaluation notes and approved approach
 7. **Read** `.bugfix/` latest file only if exists for most recent issue and fix guidance
 8. **Read** `.notes/` latest file only if exists for most recent research findings
-9. **Scan** `$NB_WORKSPACES_LIBRARY/.references/.summary.md` if exists — find relevant external reference files by keyword matching. Read matched `.references/<topic>.md` files for domain-specific implementation guidance
-10. **Gap check**: if `.type-profile.md` lacks implementation guidance OR `.references/` lacks knowledge for the current step's technologies/APIs, trigger `research --scope gap --caller exec` to collect missing references before proceeding
-11. **Extract** implementation steps from `.plan.md` (ordered by heading structure)
-12. **Build** execution order respecting any noted dependencies
+9. **Load library context via Changelog Consumption Protocol** (see `library/SKILL.md`): read `.library-state.json` → seek `.changelog` to `changelog_offset` → score new lines → load matched files (experiences, references, patterns) → update `.library-state.json` (atomic). On missing file or stale offset → fall through to full scan in step 10
+10. **Scan** `$NB_WORKSPACES_LIBRARY/.references/.summary.md` if exists — find relevant external reference files by keyword matching. Read matched `.references/<topic>.md` files for domain-specific implementation guidance
+11. **Gap check**: if `.type-profile.md` lacks implementation guidance OR `.references/` lacks knowledge for the current step's technologies/APIs, trigger `research --scope gap --caller exec` to collect missing references before proceeding
+12. **Extract** implementation steps from `.plan.md` (ordered by heading structure)
+13. **Build** execution order respecting any noted dependencies
 
 **Context management**: When `.summary.md` exists, read it as the primary context source instead of reading all files from `.analysis/`, `.bugfix/`, `.notes/`. Only read the latest (last by filename sort) file from each directory for detailed info on the most recent assessment/issue/note.
 
@@ -89,6 +90,7 @@ For each implementation step:
 9. **After all steps** (or on failure):
    - Update `.index.json` timestamp
    - Write task-level `.summary.md` with condensed context: current progress, steps completed, key decisions, issues encountered, remaining work (integrate from directory summaries)
+   - If all steps complete: write `$NB_WORKSPACES_LIBRARY/.experiences/<type>/<notebook>-impl.md` with implementation decisions, tool patterns, and workarounds discovered — `quality_status: provisional`. Follow six-step Library Write Protocol (see `library/SKILL.md`): acquire `.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.experiences/<type>/.index.md` row → release lock
    - If all steps complete: signal `{ "step": "exec", "result": "(done)", "next": "verify", "checkpoint": "post-exec", "timestamp": "..." }`
    - If significant issue: signal `{ "step": "exec", "result": "(mid-exec)", "next": "verify", "checkpoint": "mid-exec", "timestamp": "..." }`
    - If `--step N` single step complete (manual invocation only — auto mode does not use `--step`): signal `{ "step": "exec", "result": "(step-N)", "next": "verify", "checkpoint": "mid-exec", "timestamp": "..." }`
@@ -142,6 +144,6 @@ For long-running executions, intermediate progress can be observed by:
 - Per-step verification against `.test/` criteria is done during execution; full test suite / acceptance testing is part of the post-exec evaluation by `check`
 - **Evidence-based decisions**: When uncertain about APIs, library usage, or compatibility, use shell commands to verify (curl official docs, check installed versions, read node_modules source, etc.) before implementing
 - **Concurrency**: Exec acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
-- **Reference collection**: Primary reference collection is handled by the `research` sub-command before planning. During execution, if you discover valuable implementation details via web searches, you may still save findings to `$NB_WORKSPACES_LIBRARY/.references/<topic>.md` and update `.summary.md` — acquire `$NB_WORKSPACES_LIBRARY/.references/.lock` before writing (see `.references/ Write Protection` in `commands/ai-cli-task.md`)
+- **Reference collection**: Primary reference collection is handled by the `research` sub-command before planning. During execution, if you discover valuable implementation details via web searches, you may still save findings to `$NB_WORKSPACES_LIBRARY/.references/` — follow the full six-step Library Write Protocol (see `library/SKILL.md`): acquire `.references/.lock` → sanitize content (nine categories, `references/injection-rules.md`) → apply source classification (`references/blocked-sources.md`) → write atomically → append `reference` changelog line → update `.references/.index.md` → release lock
 - **verify integration**: Per-step verification can optionally invoke `verify --checkpoint step-N` for domain-specific testing. For lightweight checks (build + lint), inline verification is sufficient
 - **Auto-mode safety boundaries**: When exec runs within `auto` mode (unattended), the following operations are PROHIBITED unless the plan explicitly calls for them: modifying `.env` or credential files, running destructive commands (`rm -rf`, `git push --force`, `DROP TABLE`), installing system-level packages (`apt install`, `brew install`), sending external requests (email, webhook, API calls to production). Violation → stop execution and signal `(mid-exec)` for human review

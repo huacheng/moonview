@@ -1,8 +1,8 @@
 ---
-description: "Structured task lifecycle management with 13 skills for AI-driven development. Use when tasks need structured planning, domain-aware verification, and tracked execution through $NB_WORKSPACES_ROOT/ directory workflow. Sub-commands: init, plan, research, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize."
+description: "Structured task lifecycle management with 14 skills for AI-driven development. Use when tasks need structured planning, domain-aware verification, and tracked execution through $NB_WORKSPACES_ROOT/ directory workflow. Sub-commands: init, plan, research, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library."
 arguments:
   - name: subcommand
-    description: "Sub-command: init, plan, research, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize"
+    description: "Sub-command: init, plan, research, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library"
     required: true
   - name: args
     description: "Sub-command arguments (varies by sub-command)"
@@ -25,7 +25,7 @@ init → research(target) → plan → research(test) → verify → check → e
             └──────────────── research 可在任意阶段独立调用 ─────────────────────┘
 ```
 
-辅助命令（随时可用）: `auto` · `cancel` · `list` · `annotate` · `summarize`
+辅助命令（随时可用）: `auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
 
 > **research** acts as the **intelligence officer** — the only sub-command callable at every phase independently. See [research standalone invocation examples](#research--intelligence-collection-) below.
 
@@ -38,7 +38,7 @@ init → research(target) → plan → research(test) → verify → check → e
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `NB_WORKSPACES_ROOT` | `/home/user/nb-workspaces` | 工作区根目录，存放所有 notebook 和全局索引 |
-| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/_library` | 共享图书馆目录，存放跨任务知识资产 |
+| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` | 共享图书馆目录，存放跨任务知识资产 |
 
 所有子命令在解析路径时，优先读取这两个环境变量。若未设置，使用默认值。
 
@@ -48,22 +48,36 @@ init → research(target) → plan → research(test) → verify → check → e
 $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 ├── .index.json                        # 全局任务列表（JSON array）
 │
-├── _library/                          # 环境变量: NB_WORKSPACES_LIBRARY
+├── .library/                          # 环境变量: NB_WORKSPACES_LIBRARY
+│   ├── .changelog                     # 追加日志（所有库写入，gitignore）
+│   ├── .changelog-archive/            # 归档（月度快照，git 追踪）
+│   ├── .master-index.md               # 所有库文件扁平索引（冷启动用，git 追踪）
 │   ├── .type-registry.md              # 任务类型注册表（seed + 自动扩展）
 │   ├── .plugin-registry.md            # 插件能力缓存
-│   ├── .index/                        # 图书馆资料索引（快速检索用）
+│   ├── .ioc.md                        # 跨文档域名聚合 IOC 记录（gitignore）
+│   ├── .inconsistency.log             # 索引不一致记录（gitignore）
 │   ├── .type-profiles/                # 共享任务类型方法论
-│   │   └── <type>.md                  # 跨任务域方法论（methodology, verification, patterns, phase intelligence）
+│   │   ├── .index.md                  # type → 文件指针表
+│   │   └── <type>.md                  # 跨任务域方法论
 │   ├── .experiences/                  # 跨任务经验库（按 type 分类）
-│   │   ├── .summary.md                # 所有类型目录的顶层索引（每次新增时覆写）
+│   │   ├── .index.md                  # type → 子目录指针表
+│   │   ├── .summary.md                # 经验库概览
 │   │   └── <type>/
-│   │       ├── .summary.md            # 该类型所有经验的摘要（覆写）
-│   │       └── <notebook>.md          # 单个 notebook 的经验文件
-│   ├── .references/                   # 外部参考资料（research 写入）
-│   │   ├── .summary.md                # 所有参考文件的关键词索引（覆写）
-│   │   └── <topic>.md                 # 按主题存放，kebab-case 命名
-│   ├── .thinking/                     # 占位：跨任务推理框架（待设计）
-│   └── [用户上传的资料文件/文件夹]
+│   │       ├── .index.md              # notebook → 文件查找表
+│   │       ├── .summary.md            # 该类型经验概览
+│   │       └── <notebook>-<source>.md # source: complete|impl|verify|eval
+│   ├── .references/                   # 外部参考资料（versioned）
+│   │   ├── .index.md                  # topic → 文件查找表（含版本、时效）
+│   │   ├── .summary.md                # 参考库概览
+│   │   └── <topic>-v<N>-<date>.md     # 版本化外部参考文件
+│   └── .thinking/                     # Thinking CoT 原始记录 + 蒸馏模式
+│       ├── .index.md                  # raw vs patterns 导航
+│       ├── raw/                       # L0 原始 CoT（gitignore）
+│       │   ├── .index.md              # 追加日志索引（O_APPEND，无锁）
+│       │   └── <notebook>-<step>-<date>.md
+│       └── patterns/                  # L1 蒸馏推理模式（git 追踪）
+│           ├── .index.md
+│           └── <problem-type>.md
 │
 ├── notebook-1/
 │   ├── [deliverables-dir]/            # 用户自定义名称，存放交付成果
@@ -78,6 +92,7 @@ $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 │       ├── .auto-signal               # 自动循环进度信号（临时）
 │       ├── .auto-stop                 # 停止信号（临时）
 │       ├── .auto-timeline.md          # 执行时间线
+│       ├── .library-state.json        # 库读取游标（last_library_read + changelog_offset，gitignore）
 │       ├── .tmp-annotations.json      # Plan 面板批注传输（临时）
 │       ├── .analysis/                 # check 评估历史
 │       │   └── .summary.md
@@ -288,9 +303,15 @@ Add to project `.gitignore`:
 **/.working/.auto-signal.tmp
 **/.working/.auto-stop
 **/.working/.lock
-_library/.experiences/.lock
-_library/.references/.lock
-_library/.type-profiles/.lock
+.library/.changelog
+.library/.changelog-archive/.lock
+.library/.thinking/raw/
+.library/.thinking/patterns/.lock
+.library/.inconsistency.log
+.library/.ioc.md
+**/.library-state.json
+**/.lock
+**/.lock.stale.*
 ```
 
 ### Computation Rule

@@ -38,19 +38,21 @@ Run domain-adapted tests and verification procedures for a task module, producin
 3. **Read** `.test/` latest criteria file — determine what to verify
 4. **Read** `.target.md` — extract acceptance criteria
 5. **Read** `.summary.md` if exists — condensed context for understanding verification scope
-6. **Read** `$NB_WORKSPACES_LIBRARY/.references/.summary.md` if exists — keyword match against task domain → read matched `.references/<topic>.md` files for domain verification guidance (testing frameworks, tools, best practices)
-7. **Gap check**: if `.type-profile.md` lacks verification standards OR `.references/` lacks testing/verification knowledge for the task `type`, trigger `research --scope gap --caller verify` to collect missing references before proceeding
-8. **Determine** verification strategy: use `.type-profile.md` "Verification Standards" first, supplement with per-type seed file `init/references/seed-types/<type>.md` (verify section), combine with `.references/` domain knowledge. If verification reveals that `.type-profile.md` standards are inadequate, update its "Verification Standards" section with findings. For hybrid types (`A|B`), read seed files and experience for all segments
-9. **Execute** verification procedures per checkpoint scope:
-   - **Optional delegation — tdd** (`full` or `step-N` checkpoint, `type` contains `software`): Follow `auto/references/plugin-delegation.md` to attempt matching the `tdd` capability slot. If matched, invoke via Task subagent — delegate test generation/execution, merge results into standard verification output. No match or failure → continue standard verification flow
-   - `quick`: build, lint, type check — fast feedback loop
-   - `full`: all `.test/` criteria, acceptance tests from `.target.md`, regression tests
-   - `step-N`: only criteria associated with step N from `.test/` criteria file
-10. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics)
-11. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
-12. **Git commit**: `ai-cli-task(<notebook>):verify <checkpoint> verification`
-13. **Write** `.auto-signal`: `{ "step": "verify", "result": "(pass|fail|partial)", "next": "check", "checkpoint": "<checkpoint>", "timestamp": "..." }`
-14. **Report** results summary to user
+6. **Load library context via Changelog Consumption Protocol** (see `library/SKILL.md`): read `.library-state.json` → seek `.changelog` to `changelog_offset` → score new lines → load matched files → update `.library-state.json` (atomic). On missing file or stale offset → fall through to full scan in step 7
+7. **Read** `$NB_WORKSPACES_LIBRARY/.references/.summary.md` if exists — keyword match against task domain → read matched `.references/<topic>.md` files for domain verification guidance (testing frameworks, tools, best practices)
+8. **Gap check**: if `.type-profile.md` lacks verification standards OR `.references/` lacks testing/verification knowledge for the task `type`, trigger `research --scope gap --caller verify` to collect missing references before proceeding
+9. **Determine** verification strategy: use `.type-profile.md` "Verification Standards" first, supplement with per-type seed file `init/references/seed-types/<type>.md` (verify section), combine with `.references/` domain knowledge. If verification reveals that `.type-profile.md` standards are inadequate, update its "Verification Standards" section with findings. For hybrid types (`A|B`), read seed files and experience for all segments
+10. **Execute** verification procedures per checkpoint scope:
+    - **Optional delegation — tdd** (`full` or `step-N` checkpoint, `type` contains `software`): Follow `auto/references/plugin-delegation.md` to attempt matching the `tdd` capability slot. If matched, invoke via Task subagent — delegate test generation/execution, merge results into standard verification output. No match or failure → continue standard verification flow
+    - `quick`: build, lint, type check — fast feedback loop
+    - `full`: all `.test/` criteria, acceptance tests from `.target.md`, regression tests
+    - `step-N`: only criteria associated with step N from `.test/` criteria file
+11. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics)
+12. **Write** `$NB_WORKSPACES_LIBRARY/.experiences/<type>/<notebook>-verify.md` with test outcomes, domain verification patterns, and threshold findings — `quality_status: provisional`. Follow six-step Library Write Protocol (see `library/SKILL.md`): acquire `.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.experiences/<type>/.index.md` row → release lock. Skip if `--checkpoint quick` (insufficient evidence for experience)
+13. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
+14. **Git commit**: `ai-cli-task(<notebook>):verify <checkpoint> verification`
+15. **Write** `.auto-signal`: `{ "step": "verify", "result": "(pass|fail|partial)", "next": "check", "checkpoint": "<checkpoint>", "timestamp": "..." }`
+16. **Report** results summary to user
 
 ## Result Values
 
