@@ -448,7 +448,9 @@ function FileSection({
                 ) : (
                   <>
                     <button className="fp-action" onClick={() => downloadFile(f.name)} title="Download">↓</button>
-                    <button className="fp-action" onClick={() => deleteEntry(f.name)} title="Delete">✕</button>
+                    {f.name !== 'MEMORY.md' && (
+                      <button className="fp-action" onClick={() => deleteEntry(f.name)} title="Delete">✕</button>
+                    )}
                   </>
                 )}
               </div>

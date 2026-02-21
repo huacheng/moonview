@@ -15,7 +15,7 @@ export function WelcomeScreen() {
       )}
       <h1 className="welcome-title">NoteBook AI</h1>
       <p className="welcome-subtitle">
-        An interactive notebook for AI-Cli
+        An interactive notebook for AI-CLI
       </p>
       <button
         className="welcome-create-btn"
