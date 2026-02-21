@@ -2,7 +2,6 @@ import { memo } from 'react';
 import type { Cell as CellData } from '@notebook-ai/shared';
 import { CellOutput } from './CellOutput';
 import { GitDiffView } from './GitDiffView';
-import { Annotations } from './Annotations';
 import { MarkdownBody } from './MarkdownBody';
 
 // ── Status indicator ────────────────────────────────────────────────────────
@@ -32,35 +31,27 @@ export function Cell({ cell, index }: CellProps) {
 
   return (
     <div className="cell" data-cell-id={cell.id}>
-      {/*
-        Annotations wraps both the prompt bubble and the response area.
-        SelectionFloat is active for any text selected inside this zone.
-      */}
-      <Annotations cellId={cell.id} outputs={cell.outputs}>
+      {/* ── Section 1: User prompt — right aligned bubble ── */}
+      <div className="cell-prompt-row">
+        <span className="cell-index">[{execNum}]</span>
+        <MarkdownBody content={cell.source} className="cell-prompt-source" />
+      </div>
 
-        {/* ── Section 1: User prompt — right aligned bubble ── */}
-        <div className="cell-prompt-row">
-          <span className="cell-index">[{execNum}]</span>
-          <MarkdownBody content={cell.source} className="cell-prompt-source" />
+      {/* ── Divider ── */}
+      {hasResponse && <div className="cell-response-divider" />}
+
+      {/* ── Sections 2/3/4: AI response — left aligned ── */}
+      {hasResponse && (
+        <div className="cell-response-area">
+          <StatusIndicator status={cell.status} />
+          {cell.outputs.length > 0 && (
+            <CellOutput
+              outputs={cell.outputs}
+              isActiveCell={cell.status === 'running'}
+            />
+          )}
         </div>
-
-        {/* ── Divider ── */}
-        {hasResponse && <div className="cell-response-divider" />}
-
-        {/* ── Sections 2/3/4: AI response — left aligned ── */}
-        {hasResponse && (
-          <div className="cell-response-area">
-            <StatusIndicator status={cell.status} />
-            {cell.outputs.length > 0 && (
-              <CellOutput
-                outputs={cell.outputs}
-                isActiveCell={cell.status === 'running'}
-              />
-            )}
-          </div>
-        )}
-
-      </Annotations>
+      )}
 
       {cell.git_diff && <GitDiffView diff={cell.git_diff} />}
     </div>

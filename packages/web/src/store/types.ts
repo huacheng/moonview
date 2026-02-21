@@ -4,7 +4,6 @@ import type {
   CellStatus,
   CellOutput,
   SliceSection,
-  Annotation,
   NotebookListItem,
 } from '@notebook-ai/shared';
 
@@ -74,10 +73,6 @@ export interface NotebookStore {
   appendCellOutput(cellId: string, output: CellOutput): void;
   updateToolResult(cellId: string, toolUseId: string, content: string, isError?: boolean): void;
   setCellGitDiff(cellId: string, diff: string): void;
-
-  // ── Annotation actions ─────────────────────────────────────────────────
-  addAnnotation(annotation: Annotation): void;
-  removeAnnotation(annotationId: string): void;
 
   // ── Slice actions ──────────────────────────────────────────────────────
   generateSlice(): Promise<void>;

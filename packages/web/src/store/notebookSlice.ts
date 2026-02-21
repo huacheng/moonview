@@ -6,7 +6,6 @@ import type {
   PromptCell,
   MarkdownCell,
   SliceSection,
-  Annotation,
 } from '@notebook-ai/shared';
 import type { NotebookStore } from './types';
 
@@ -60,7 +59,7 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
   | 'notebook' | 'sliceLoading' | 'notebookLoading'
   | 'setNotebook' | 'updateTitle' | 'addCell' | 'submitPrompt' | 'removeCell' | 'moveCell'
   | 'updateCellSource' | 'setCellStatus' | 'appendCellOutput' | 'updateToolResult'
-  | 'setCellGitDiff' | 'addAnnotation' | 'removeAnnotation'
+  | 'setCellGitDiff'
   | 'generateSlice' | 'updateSliceSections'
 >> = (set, get) => ({
   notebook: null,
@@ -262,40 +261,6 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
             if (c.id !== cellId || c.type !== 'prompt') return c;
             return { ...c, git_diff: diff };
           }),
-        },
-      };
-    });
-  },
-
-  addAnnotation(annotation: Annotation) {
-    set((state) => {
-      if (!state.notebook) return {};
-      return {
-        notebook: {
-          ...state.notebook,
-          annotations: [...state.notebook.annotations, annotation],
-          metadata: {
-            ...state.notebook.metadata,
-            updated: new Date().toISOString(),
-          },
-        },
-      };
-    });
-  },
-
-  removeAnnotation(annotationId: string) {
-    set((state) => {
-      if (!state.notebook) return {};
-      return {
-        notebook: {
-          ...state.notebook,
-          annotations: state.notebook.annotations.filter(
-            (a) => a.id !== annotationId,
-          ),
-          metadata: {
-            ...state.notebook.metadata,
-            updated: new Date().toISOString(),
-          },
         },
       };
     });
