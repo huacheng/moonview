@@ -38,6 +38,8 @@ export interface NotebookStore {
   creatingNotebook: boolean;
   filesPanelOpen: boolean;
   wsReconnectExhausted: boolean;
+  openFile: { path: string; source: 'workspace' | 'library'; sessionId: string } | null;
+  fileViewerMaximized: boolean;
 
   // ── WebSocket state ────────────────────────────────────────────────────
   ws: WebSocket | null;
@@ -87,6 +89,8 @@ export interface NotebookStore {
   setLatency(ms: number | null): void;
   setWsReconnectExhausted(v: boolean): void;
   toggleFilesPanel(): void;
+  setOpenFile(file: { path: string; source: 'workspace' | 'library'; sessionId: string } | null): void;
+  toggleFileViewerMaximized(): void;
 
   // ── WebSocket actions ──────────────────────────────────────────────────
   connectWebSocket(): void;

@@ -6,6 +6,8 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   | 'filesPanelOpen' | 'wsReconnectExhausted'
   | 'setActiveTab' | 'clearSessionNotice' | 'setLatency'
   | 'setWsReconnectExhausted' | 'toggleFilesPanel'
+  | 'openFile' | 'fileViewerMaximized'
+  | 'setOpenFile' | 'toggleFileViewerMaximized'
 >> = (set) => ({
   activeTab: 'notebook',
   sessionNotice: null,
@@ -13,6 +15,8 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   creatingNotebook: false,
   filesPanelOpen: false,
   wsReconnectExhausted: false,
+  openFile: null,
+  fileViewerMaximized: false,
 
   setActiveTab(tab) {
     set({ activeTab: tab });
@@ -32,5 +36,13 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
 
   toggleFilesPanel() {
     set((state) => ({ filesPanelOpen: !state.filesPanelOpen }));
+  },
+
+  setOpenFile(file) {
+    set({ openFile: file });
+  },
+
+  toggleFileViewerMaximized() {
+    set((s) => ({ fileViewerMaximized: !s.fileViewerMaximized }));
   },
 });
