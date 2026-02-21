@@ -3382,21 +3382,30 @@ button:focus-visible {
   display: none;
 }
 
+/* ── Split Divider ───────────────────────────────────────────────────── */
+.split-divider {
+  flex: 0 0 3px;
+  cursor: col-resize;
+  background: var(--border-default);
+  transition: background 0.15s;
+  align-self: stretch;
+}
+.split-divider:hover,
+.split-divider:active {
+  background: var(--color-primary);
+}
+
 /* ── FileViewer Container ────────────────────────────────────────────── */
 .file-viewer {
-  width: 45%;
-  min-width: 320px;
-  max-width: 900px;
+  flex: 1;
+  min-width: 200px;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border-default);
   background: var(--bg-page);
   overflow: hidden;
-  flex-shrink: 0;
 }
 .file-viewer--maximized {
-  width: 100%;
-  max-width: 100%;
+  flex: 1;
 }
 
 /* ── FileViewerStatusBar ─────────────────────────────────────────────── */
@@ -3404,12 +3413,14 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 7px 12px;
+  min-height: 40px;
   background: var(--toolbar-bg);
   color: var(--toolbar-text);
   font-size: 13px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--toolbar-border);
+  box-sizing: border-box;
 }
 .fv-statusbar__name {
   flex: 1;

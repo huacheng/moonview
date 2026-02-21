@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Notebook } from './components/Notebook';
 import { Sidebar } from './components/Sidebar';
@@ -99,6 +99,44 @@ function AuthenticatedApp() {
   const wsReconnectExhausted = useStore((s) => s.wsReconnectExhausted);
 
   const contentRef = useRef<HTMLElement | null>(null);
+  const contentSplitRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingRef = useRef(false);
+
+  const SPLIT_KEY = 'fv-split-ratio';
+  const [splitRatio, setSplitRatio] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(SPLIT_KEY);
+      if (saved) return Math.min(0.85, Math.max(0.15, parseFloat(saved)));
+    } catch { /* ignore */ }
+    return 0.55;
+  });
+
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMouseMove(ev: MouseEvent) {
+      if (!isDraggingRef.current || !contentSplitRef.current) return;
+      const rect = contentSplitRef.current.getBoundingClientRect();
+      const ratio = (ev.clientX - rect.left) / rect.width;
+      const clamped = Math.min(0.85, Math.max(0.15, ratio));
+      setSplitRatio(clamped);
+      try { localStorage.setItem(SPLIT_KEY, String(clamped)); } catch { /* ignore */ }
+    }
+
+    function onMouseUp() {
+      isDraggingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
 
   // Initiate WebSocket connection only when we have a sessionId.
   useWebSocket(sessionId);
@@ -148,8 +186,14 @@ function AuthenticatedApp() {
       ].filter(Boolean).join(' ')}>
         <Sidebar />
         <main ref={contentRef} className="app-content">
-          <div className={`content-split${openFile ? ' content-split--active' : ''}`}>
-            <div className={`notebook-area${fileViewerMaximized && openFile ? ' notebook-area--hidden' : ''}`}>
+          <div
+            ref={contentSplitRef}
+            className={`content-split${openFile ? ' content-split--active' : ''}`}
+          >
+            <div
+              className={`notebook-area${fileViewerMaximized && openFile ? ' notebook-area--hidden' : ''}`}
+              style={openFile && !fileViewerMaximized ? { flex: `0 0 ${splitRatio * 100}%` } : undefined}
+            >
               {notebookLoading ? (
                 <NotebookLoadingScreen />
               ) : creatingNotebook ? (
@@ -160,6 +204,9 @@ function AuthenticatedApp() {
                 <WelcomeScreen />
               )}
             </div>
+            {openFile && !fileViewerMaximized && (
+              <div className="split-divider" onMouseDown={handleDividerMouseDown} />
+            )}
             {openFile && <FileViewer />}
           </div>
         </main>
