@@ -1,6 +1,7 @@
 import path from 'path';
 import os from 'os';
 import { mkdirSync, existsSync } from 'fs';
+import { writeFile } from 'fs/promises';
 
 const DEFAULT_WORKSPACE_ROOT = path.join(os.homedir(), 'nb-workspaces');
 
@@ -74,4 +75,23 @@ export function uniqueSlug(baseSlug: string, userId?: string | null): string {
     slug = `${baseSlug}-${counter}`;
   }
   return slug;
+}
+
+/**
+ * Writes a MEMORY.md file into the workspace directory, recording the
+ * shared library directory path relative to the workspace.
+ * Safe to call multiple times — overwrites any existing MEMORY.md.
+ */
+export async function initWorkspaceMemory(workspaceDir: string): Promise<void> {
+  const libraryDir = getLibraryDir();
+  const relPath = path.relative(workspaceDir, libraryDir);
+  const content =
+    `# MEMORY\n\n` +
+    `## Shared Library Directory\n\n` +
+    `Path (relative to this workspace): \`${relPath}\`\n\n` +
+    `This is the shared library directory accessible to all notebooks.\n` +
+    `You can both read from and write to this directory.\n` +
+    `Use it to store datasets, scripts, configuration files, and other\n` +
+    `resources that should be shared across notebooks.\n`;
+  await writeFile(path.join(workspaceDir, 'MEMORY.md'), content, 'utf-8');
 }
