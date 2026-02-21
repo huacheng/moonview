@@ -108,7 +108,7 @@ function AuthenticatedApp() {
       const saved = localStorage.getItem(SPLIT_KEY);
       if (saved) return Math.min(0.85, Math.max(0.15, parseFloat(saved)));
     } catch { /* ignore */ }
-    return 0.55;
+    return 0.5;
   });
 
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
