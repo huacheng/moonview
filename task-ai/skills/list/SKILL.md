@@ -64,7 +64,7 @@ graph LR
 
 Nodes colored by status: green (complete), blue (executing/review), yellow (planning/re-planning), red (blocked), gray (draft/cancelled).
 
-### 4. Status Timeline (`--timeline <task_module>`)
+### 4. Status Timeline (`--timeline <notebook_name>`)
 
 Extract status transition history from git log:
 

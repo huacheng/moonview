@@ -35,7 +35,7 @@ Cancel a task module, stopping any active auto loop and optionally cleaning up t
 
 1. **Read** `.index.json` — get current status
 2. **Stop auto** if running:
-   - Call `GET /api/task-auto/lookup?taskDir=<task_module_path>` to find the session running this task's auto loop
+   - Call `GET /api/task-auto/lookup?taskDir=<notebook_working_dir>` to find the session running this task's auto loop
    - If found (200): call `DELETE /api/sessions/<session_name>/task-auto`
    - If not found (404): no auto loop running, skip
    - Delete `.auto-signal` file if exists
