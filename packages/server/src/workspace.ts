@@ -83,6 +83,7 @@ export function uniqueSlug(baseSlug: string, userId?: string | null): string {
  * Safe to call multiple times — overwrites any existing MEMORY.md.
  */
 export async function initWorkspaceMemory(workspaceDir: string): Promise<void> {
+  mkdirSync(workspaceDir, { recursive: true });
   const libraryDir = getLibraryDir();
   const relPath = path.relative(workspaceDir, libraryDir);
   const content =

@@ -32,8 +32,9 @@ describe('initWorkspaceMemory', () => {
     const { initWorkspaceMemory } = await import('../workspace.js');
     await initWorkspaceMemory(workspaceDir);
 
+    const expectedRel = path.relative(workspaceDir, path.join(tmpRoot, '_library'));
     const content = await readFile(path.join(workspaceDir, 'MEMORY.md'), 'utf-8');
-    expect(content).toContain('../_library');
+    expect(content).toContain(expectedRel);
   });
 
   it('content mentions read and write access', async () => {
@@ -42,5 +43,13 @@ describe('initWorkspaceMemory', () => {
 
     const content = await readFile(path.join(workspaceDir, 'MEMORY.md'), 'utf-8');
     expect(content).toMatch(/read.*write|write.*read/i);
+  });
+
+  it('overwrites an existing MEMORY.md without throwing', async () => {
+    const { initWorkspaceMemory } = await import('../workspace.js');
+    await initWorkspaceMemory(workspaceDir);
+    await initWorkspaceMemory(workspaceDir); // second call must not throw
+    const content = await readFile(path.join(workspaceDir, 'MEMORY.md'), 'utf-8');
+    expect(content).toContain('# MEMORY');
   });
 });
