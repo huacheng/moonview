@@ -17,7 +17,7 @@ export class GitManager {
     }
   }
 
-  /** Initialize a git repo if not already one */
+  /** Initialize a git repo if not already one, and make an initial commit. */
   async ensureRepo(): Promise<void> {
     const already = await this.isRepo();
     if (!already) {
@@ -27,6 +27,15 @@ export class GitManager {
       await this.git.addConfig('user.email', 'notebook-ai@localhost');
       await this.git.addConfig('user.name', 'Notebook AI');
       console.log('[git] Initialized new git repository.');
+
+      // Stage all workspace files created during notebook setup and make the
+      // initial commit so the repo has a clean baseline from the start.
+      const status = await this.git.status();
+      if (status.files.length > 0) {
+        await this.git.add('-A');
+        await this.git.commit('chore: init notebook workspace');
+        console.log('[git] Created initial commit.');
+      }
     }
   }
 
