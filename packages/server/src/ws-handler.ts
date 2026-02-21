@@ -1,5 +1,9 @@
 import { type WebSocketServer, type WebSocket } from 'ws';
 import crypto from 'crypto';
+import fs from 'fs/promises';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
 import {
   WSClientMessageSchema,
   type Notebook,
@@ -10,6 +14,9 @@ import { NotebookStore } from './notebook-store.js';
 import { authEnabled } from './auth.js';
 import { validateWorkspacePath } from './workspace-files.js';
 import { exportToHtml } from './export.js';
+import { getLibraryDir } from './workspace.js';
+
+const execAsync = promisify(exec);
 
 function sendToClient(ws: WebSocket, msg: object): void {
   if (ws.readyState === ws.OPEN) {
@@ -23,6 +30,9 @@ export function setupWebSocket(
   sessionManager: SessionManager,
   notebookStore: NotebookStore,
 ): void {
+  // Purge stale file annotations on startup
+  db.cleanupOldFileAnnotations(7);
+
   // Global: session_id → the one WS connection allowed to subscribe to it.
   const sessionOwners = new Map<string, WebSocket>();
 
@@ -217,6 +227,118 @@ export function setupWebSocket(
               ),
             };
           }
+          break;
+        }
+
+        case 'file-open': {
+          const { session_id, path: filePath, source } = msg;
+          const session = sessionManager.getSession(session_id);
+          if (!session) {
+            sendToClient(ws, { type: 'file-open-error', session_id, error: 'Session not found' });
+            break;
+          }
+          try {
+            const basedir = source === 'workspace' ? session.cwd : getLibraryDir();
+            const safePath = await validateWorkspacePath(filePath, basedir);
+            const stat = await fs.stat(safePath);
+            const ext = safePath.split('.').pop()?.toLowerCase() ?? '';
+
+            const TEXT_EXTS = new Set(['md', 'txt', 'json', 'yaml', 'yml', 'sh', 'py', 'js', 'ts',
+              'tsx', 'jsx', 'css', 'htm', 'html', 'csv', 'xml', 'toml', 'ini', 'env', 'log']);
+
+            let format: 'text' | 'html' | 'pdf-binary' | 'unsupported';
+            let contentPath = safePath;
+
+            if (TEXT_EXTS.has(ext)) {
+              format = 'text';
+            } else if (ext === 'pdf') {
+              format = 'pdf-binary';
+            } else if (ext === 'docx' || ext === 'pptx') {
+              const outDir = `/tmp/nb-render-${session_id}`;
+              await fs.mkdir(outDir, { recursive: true });
+              await execAsync(`libreoffice --headless --convert-to html --outdir "${outDir}" "${safePath}"`);
+              const basename = path.basename(safePath).replace(/\.[^.]+$/, '.html');
+              contentPath = path.join(outDir, basename);
+              format = 'html';
+            } else {
+              format = 'unsupported';
+            }
+
+            sendToClient(ws, { type: 'file-open-meta', session_id, size: stat.size, mtime: stat.mtimeMs, format });
+
+            if (format === 'unsupported') {
+              sendToClient(ws, { type: 'file-open-end', session_id, mtime: stat.mtimeMs });
+              break;
+            }
+
+            const fileContent = await fs.readFile(contentPath);
+            const CHUNK_SIZE = 16384;
+
+            if (format === 'pdf-binary') {
+              const b64 = fileContent.toString('base64');
+              for (let i = 0; i < b64.length; i += CHUNK_SIZE) {
+                sendToClient(ws, { type: 'file-chunk', session_id, data: b64.slice(i, i + CHUNK_SIZE), encoding: 'base64' });
+              }
+            } else {
+              const text = fileContent.toString('utf-8');
+              for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+                sendToClient(ws, { type: 'file-chunk', session_id, data: text.slice(i, i + CHUNK_SIZE), encoding: 'utf8' });
+              }
+            }
+
+            sendToClient(ws, { type: 'file-open-end', session_id, mtime: stat.mtimeMs });
+          } catch (err) {
+            sendToClient(ws, { type: 'file-open-error', session_id, error: String(err) });
+          }
+          break;
+        }
+
+        case 'file-save': {
+          const { session_id, path: filePath, source, content, format } = msg;
+          const session = sessionManager.getSession(session_id);
+          if (!session) {
+            sendToClient(ws, { type: 'file-save-error', session_id, error: 'Session not found' });
+            break;
+          }
+          try {
+            const basedir = source === 'workspace' ? session.cwd : getLibraryDir();
+            const safePath = await validateWorkspacePath(filePath, basedir);
+            const ext = safePath.split('.').pop()?.toLowerCase() ?? '';
+
+            if ((ext === 'docx' || ext === 'pptx') && format === 'html') {
+              const tmpHtml = `/tmp/nb-save-${session_id}-${Date.now()}.html`;
+              await fs.writeFile(tmpHtml, content, 'utf-8');
+              await execAsync(`libreoffice --headless --convert-to ${ext} --outdir "${path.dirname(safePath)}" "${tmpHtml}"`);
+              await fs.unlink(tmpHtml).catch(() => {});
+            } else {
+              await fs.writeFile(safePath, content, 'utf-8');
+            }
+
+            const stat = await fs.stat(safePath);
+            sendToClient(ws, { type: 'file-save-ok', session_id, mtime: stat.mtimeMs });
+          } catch (err) {
+            sendToClient(ws, { type: 'file-save-error', session_id, error: String(err) });
+          }
+          break;
+        }
+
+        case 'annotation-load': {
+          const { session_id, path: filePath } = msg;
+          const row = db.getFileAnnotations(session_id, filePath);
+          sendToClient(ws, {
+            type: 'annotation-data',
+            session_id,
+            path: filePath,
+            content: row?.content ?? '{"items":[],"updatedAt":0}',
+            updated_at: row?.updated_at ?? 0,
+          });
+          break;
+        }
+
+        case 'annotation-sync': {
+          const { session_id, path: filePath, content, updated_at } = msg;
+          db.upsertFileAnnotations(session_id, filePath, content, updated_at);
+          sendToClient(ws, { type: 'annotation-sync-ok', session_id, path: filePath, updated_at });
           break;
         }
 
