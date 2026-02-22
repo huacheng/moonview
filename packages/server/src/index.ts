@@ -13,6 +13,7 @@ import { createNotebooksRouter } from './routes/notebooks.js';
 import { createFilesRouter } from './routes/files.js';
 import { createLibraryRouter } from './routes/library.js';
 import { createSessionsRouter } from './routes/sessions.js';
+import { createProjectsRouter } from './routes/projects.js';
 import { setupWebSocket } from './ws-handler.js';
 import { authMiddleware } from './auth.js';
 
@@ -57,6 +58,7 @@ app.use(authMiddleware);
 const sessionManager = new SessionManager();
 const notebookStore = new NotebookStore();
 const db = new NotebookDb();
+const workspaceRoot = process.env['NB_WORKSPACE_DIR'] ?? path.join(os.homedir(), 'nb-workspaces');
 
 // Wire auto-save: when a cell completes, sync cell_count + updated_at to DB.
 sessionManager.onAutoSave = (notebookDbId, cellCount) => {
@@ -78,6 +80,7 @@ app.use('/api/notebooks', createNotebooksRouter(db, sessionManager, notebookStor
 app.use('/api/notebooks', createFilesRouter(sessionManager));
 app.use('/api/library', createLibraryRouter());
 app.use('/api/sessions', createSessionsRouter(sessionManager, db));
+app.use('/api/projects', createProjectsRouter(db, sessionManager, notebookStore, workspaceRoot));
 
 // ── WebSocket ────────────────────────────────────────────────────────────────
 
@@ -86,8 +89,6 @@ setupWebSocket(wss, db, sessionManager, notebookStore);
 // ── Startup: import notebooks from disk that have no DB record ────────────────
 
 async function importExistingNotebooks(): Promise<void> {
-  const workspaceRoot = process.env['NB_WORKSPACE_DIR'] ?? path.join(os.homedir(), 'nb-workspaces');
-
   let slugs: string[];
   try {
     slugs = await readdir(workspaceRoot);
