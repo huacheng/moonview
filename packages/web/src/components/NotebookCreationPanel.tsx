@@ -8,13 +8,19 @@ export function NotebookCreationPanel() {
   const sessionNotice = useStore((s) => s.sessionNotice);
   const clearSessionNotice = useStore((s) => s.clearSessionNotice);
 
-  const [title, setTitle] = useState('Untitled Notebook');
-  const [dragging, setDragging] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [title, setTitle] = useState('');
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Import ────────────────────────────────────────────────────────────────
+  async function handleCreate() {
+    const t = title.trim() || 'Untitled Notebook';
+    if (creating) return;
+    setCreating(true);
+    await createNewNotebook(t);
+    setCreating(false);
+    setCreatingNotebook(false);
+  }
 
   async function handleFile(file: File) {
     if (!file.name.endsWith('.json') && !file.name.endsWith('.zip')) {
@@ -32,37 +38,8 @@ export function NotebookCreationPanel() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  function onDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(true);
-  }
-
-  function onDragLeave() {
-    setDragging(false);
-  }
-
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  }
-
-  // ── Create empty ─────────────────────────────────────────────────────────
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    const t = title.trim() || 'Untitled Notebook';
-    setCreating(true);
-    await createNewNotebook(t);
-    setCreating(false);
-    setCreatingNotebook(false);
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <div className="nb-creation-panel">
+    <div className="welcome-screen">
       {sessionNotice && (
         <div className="session-notice">
           <span>{sessionNotice}</span>
@@ -70,72 +47,47 @@ export function NotebookCreationPanel() {
         </div>
       )}
 
-      <div className="nb-creation-header">
-        <h2 className="nb-creation-title">New Notebook</h2>
-        <button
-          className="nb-creation-cancel"
-          onClick={() => setCreatingNotebook(false)}
-          title="Cancel"
-        >
-          ✕
-        </button>
-      </div>
+      <h1 className="welcome-title">New Notebook</h1>
+      <p className="welcome-subtitle">
+        Create a new notebook or import an existing one
+      </p>
 
-      <div className="nb-creation-dashed-frame">
-      <div className="nb-creation-options">
-        {/* ── Import option ── */}
-        <div
-          className={`nb-creation-card${dragging ? ' nb-creation-card-drag' : ''}`}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          onClick={() => !importing && fileInputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-        >
-          <span className="nb-creation-card-icon">⬆</span>
-          <span className="nb-creation-card-label">
-            {importing ? 'Importing…' : 'Import Notebook'}
-          </span>
-          <span className="nb-creation-card-hint">
-            Drop or click to upload<br />.notebook.json or exported .zip
-          </span>
+      <div className="welcome-create-project">
+        <p className="welcome-hint">Create empty notebook</p>
+        <div className="welcome-create-form">
           <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,.notebook.json,.zip"
-            onChange={onFileChange}
-            style={{ display: 'none' }}
-            aria-label="Select notebook file"
-          />
-        </div>
-
-        <div className="nb-creation-or">or</div>
-
-        {/* ── Create empty option ── */}
-        <form className="nb-creation-card nb-creation-card-create" onSubmit={handleCreate}>
-          <span className="nb-creation-card-icon">✚</span>
-          <span className="nb-creation-card-label">Create Empty</span>
-          <input
-            className="nb-creation-title-input"
-            type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Notebook title"
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Notebook title"
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
+            placeholder="Notebook name..."
+            disabled={creating}
             autoFocus
           />
-          <button
-            type="submit"
-            className="nb-creation-submit"
-            disabled={creating}
-          >
-            {creating ? 'Creating…' : 'Create'}
+          <button onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating...' : 'Create'}
           </button>
-        </form>
-      </div>
+        </div>
+
+        <div className="welcome-divider">or</div>
+
+        <button
+          className="welcome-import-btn"
+          onClick={() => !importing && fileInputRef.current?.click()}
+          disabled={importing}
+        >
+          {importing ? 'Importing...' : 'Import from file'}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,.notebook.json,.zip"
+          onChange={onFileChange}
+          style={{ display: 'none' }}
+        />
+
+        <button className="welcome-cancel-btn" onClick={() => setCreatingNotebook(false)}>
+          Cancel
+        </button>
       </div>
     </div>
   );

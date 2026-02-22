@@ -16,7 +16,6 @@ import {
   attachToolResult,
   findRunningCellId,
 } from './notebook-mutations.js';
-
 const MEMORY_SYSTEM_PROMPT =
   'At the start of each session, read the MEMORY.md file in your ' +
   'working directory. It contains important context, including the ' +

@@ -89,7 +89,8 @@ export async function initWorkspaceMemory(workspaceDir: string): Promise<void> {
   const content =
     `# MEMORY\n\n` +
     `## Shared Library Directory\n\n` +
-    `Path (relative to this workspace): \`${relPath}\`\n\n` +
+    `Path (relative to this workspace): \`${relPath}\`\n` +
+    `Absolute path: \`${libraryDir}\`\n\n` +
     `This is the shared library directory accessible to all notebooks.\n` +
     `You can both read from and write to this directory.\n` +
     `Use it to store datasets, scripts, configuration files, and other\n` +

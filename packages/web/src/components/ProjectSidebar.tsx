@@ -119,16 +119,23 @@ function FileBrowser() {
     }
   };
 
+  const [showNbCreate, setShowNbCreate] = useState(false);
+  const [nbTitle, setNbTitle] = useState('');
+  const [nbCreating, setNbCreating] = useState(false);
+
   const handleCreateNotebook = async () => {
-    const title = prompt('Notebook name:');
-    if (!title?.trim() || !activeProjectId) return;
+    if (!nbTitle.trim() || !activeProjectId || nbCreating) return;
+    setNbCreating(true);
     try {
       const store = useStore.getState();
-      await store.createNotebook(activeProjectId, title.trim());
-      // Refresh file list
+      await store.createNotebook(activeProjectId, nbTitle.trim());
+      setNbTitle('');
+      setShowNbCreate(false);
       navigateFileBrowser(fileBrowserPath);
     } catch (err) {
       console.error('Failed to create notebook:', err);
+    } finally {
+      setNbCreating(false);
     }
   };
 
@@ -161,15 +168,34 @@ function FileBrowser() {
           </div>
         ))}
       </div>
-      <button className="file-browser-create-btn" onClick={handleCreateNotebook}>
-        + New Notebook
-      </button>
+      {showNbCreate ? (
+        <div className="project-create-form">
+          <input
+            autoFocus
+            value={nbTitle}
+            onChange={e => setNbTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleCreateNotebook(); if (e.key === 'Escape') setShowNbCreate(false); }}
+            placeholder="Notebook name..."
+            disabled={nbCreating}
+          />
+          <button onClick={handleCreateNotebook} disabled={nbCreating || !nbTitle.trim()}>
+            {nbCreating ? '...' : 'Create'}
+          </button>
+        </div>
+      ) : (
+        <button className="file-browser-create-btn" onClick={() => setShowNbCreate(true)}>
+          + New Notebook
+        </button>
+      )}
     </div>
   );
 }
 
 export function ProjectSidebar() {
   const sidebarLevel = useStore(s => s.sidebarLevel);
-  if (sidebarLevel === 'L1') return <ProjectList />;
-  return <FileBrowser />;
+  return (
+    <aside className="sidebar">
+      {sidebarLevel === 'L1' ? <ProjectList /> : <FileBrowser />}
+    </aside>
+  );
 }
