@@ -179,6 +179,9 @@ export const NotebookMetadataSchema = z.object({
   cwd: z.string().optional(),
   git_repo: z.boolean().default(false),
   tmux_session: z.string().optional(),
+  project_id: z.string().optional(),
+  worktree_path: z.string().optional(),
+  branch: z.string().optional(),
 });
 
 // ─── Notebook (顶层文档) ───
@@ -190,6 +193,26 @@ export const NotebookSchema = z.object({
   slice: SliceSchema.default({ generated: false, sections: [] }),
   annotations: z.array(AnnotationSchema).default([]),
   assets: AssetsSchema.default({ intermediate_files: [] }),
+});
+
+// --- Project ---
+
+export const ProjectSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  path: z.string(),
+  status: z.enum(['active', 'archived']).default('active'),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
+export const ProjectListItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.enum(['active', 'archived']),
+  notebookCount: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
 });
 
 // ─── WebSocket Messages ───
@@ -527,3 +550,6 @@ export type AnnotationSyncOk = z.infer<typeof AnnotationSyncOkSchema>;
 export type NotebookListItem = z.infer<typeof NotebookListItemSchema>;
 export type WorkspaceInfo = z.infer<typeof WorkspaceInfoSchema>;
 export type CreateNotebookRequest = z.infer<typeof CreateNotebookRequestSchema>;
+
+export type Project = z.infer<typeof ProjectSchema>;
+export type ProjectListItem = z.infer<typeof ProjectListItemSchema>;
