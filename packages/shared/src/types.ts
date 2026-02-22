@@ -334,6 +334,14 @@ export const CellOutputMessageSchema = z.object({
   output: CellOutputSchema,
 });
 
+export const CellStreamMessageSchema = z.object({
+  type: z.literal('cell_stream'),
+  session_id: z.string(),
+  cell_id: z.string(),
+  delta: z.string(),
+  block_type: z.enum(['text', 'thinking']),
+});
+
 export const ExecutionCompleteSchema = z.object({
   type: z.literal('execution_complete'),
   session_id: z.string(),
@@ -436,6 +444,7 @@ export const AnnotationSyncOkSchema = z.object({
 
 export const WSServerMessageSchema = z.discriminatedUnion('type', [
   CellOutputMessageSchema,
+  CellStreamMessageSchema,
   ExecutionCompleteSchema,
   GitDiffMessageSchema,
   ExportCompleteSchema,
@@ -520,6 +529,7 @@ export type Notebook = z.infer<typeof NotebookSchema>;
 
 export type ExecuteRequest = z.infer<typeof ExecuteRequestSchema>;
 export type CellOutputMessage = z.infer<typeof CellOutputMessageSchema>;
+export type CellStreamMessage = z.infer<typeof CellStreamMessageSchema>;
 export type ExecutionComplete = z.infer<typeof ExecutionCompleteSchema>;
 export type GitDiffMessage = z.infer<typeof GitDiffMessageSchema>;
 export type SliceUpdate = z.infer<typeof SliceUpdateSchema>;
