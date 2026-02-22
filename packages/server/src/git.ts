@@ -108,4 +108,37 @@ export class GitManager {
       date: entry.date,
     }));
   }
+
+  // ── Worktree management ────────────────────────────────────
+
+  /** Create a new local branch from the current HEAD */
+  async createBranch(branchName: string): Promise<void> {
+    await this.git.branch([branchName]);
+  }
+
+  /** Add a git worktree at the given path, checked out to the specified branch */
+  async addWorktree(path: string, branch: string): Promise<void> {
+    await this.git.raw(['worktree', 'add', path, branch]);
+  }
+
+  /** Remove a git worktree (force) */
+  async removeWorktree(path: string): Promise<void> {
+    await this.git.raw(['worktree', 'remove', path, '--force']);
+  }
+
+  /** List all worktrees and their checked-out branches */
+  async listWorktrees(): Promise<Array<{ path: string; branch: string }>> {
+    const output = await this.git.raw(['worktree', 'list', '--porcelain']);
+    const worktrees: Array<{ path: string; branch: string }> = [];
+    let current: { path?: string; branch?: string } = {};
+    for (const line of output.split('\n')) {
+      if (line.startsWith('worktree ')) current.path = line.slice(9);
+      else if (line.startsWith('branch ')) current.branch = line.slice(7).replace('refs/heads/', '');
+      else if (line === '') {
+        if (current.path && current.branch) worktrees.push({ path: current.path, branch: current.branch });
+        current = {};
+      }
+    }
+    return worktrees;
+  }
 }
