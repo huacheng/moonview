@@ -70,6 +70,6 @@ None — `summarize` does not write `.auto-signal`. It is a recovery/maintenance
 
 - **Utility, not lifecycle**: `summarize` is a maintenance tool for context recovery. It does not participate in the auto loop and does not write `.auto-signal`
 - **Non-destructive**: Only writes `.summary.md` files — never modifies source files (`.target.md`, `.plan.md`, etc.) or state files (`.index.json`)
-- **Format compliance**: Generated `.summary.md` follows the format specified in `commands/ai-cli-task.md` (Status/Phase/Progress header, Plan Overview, Current State, Key Decisions, Known Issues, Lessons Learned sections). Keep under ~200 lines
-- **Concurrency**: Summarize acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
+- **Format compliance**: Generated `.summary.md` follows the format specified in `commands/task-ai.md` (Status/Phase/Progress header, Plan Overview, Current State, Key Decisions, Known Issues, Lessons Learned sections). Keep under ~200 lines
+- **Concurrency**: Summarize acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)
 - **`--all` scope**: Without `--all`, only the task-level `.summary.md` is regenerated. With `--all`, all sub-directory summaries are also regenerated, which requires reading every file in every sub-directory

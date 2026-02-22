@@ -216,15 +216,15 @@ Run `--rebuild-index` → `--compact` → `--check-staleness` in sequence. Also 
 
 ## Library Write Protocol
 
-> **See `commands/references/library-write-protocol.md`** (from `task-ai/` root) for the full six-step write protocol (mkdir → acquire lock → write file → changelog append → update index → release lock), changelog line format, append vs overwrite rules, and `.summary.md` staleness notes.
+> **See `commands/references/library-write-protocol.md`** for the full six-step write protocol (mkdir → acquire lock → write file → changelog append → update index → release lock), changelog line format, append vs overwrite rules, and `.summary.md` staleness notes.
 
-> See `references/write-protocol.md` (relative to this skill) for per-directory lock table, hold duration, and stale-lock recovery procedure.
+> See `references/write-protocol.md` for per-directory lock table, hold duration, and stale-lock recovery procedure.
 
 ---
 
 ## Changelog Consumption Protocol
 
-> **See `commands/references/changelog-consumption-protocol.md`** (from `task-ai/` root) for the full four-step consumption protocol (read state → seek changelog → score & load → update state), three-tier degradation path, `.library-state.json` schema, and context window budget.
+> **See `commands/references/changelog-consumption-protocol.md`** for the full four-step consumption protocol (read state → seek changelog → score & load → update state), three-tier degradation path, `.library-state.json` schema, and context window budget.
 
 ---
 

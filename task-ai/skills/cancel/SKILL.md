@@ -41,7 +41,7 @@ Cancel a task module, stopping any active auto loop and optionally cleaning up t
    - Delete `.auto-signal` file if exists
    - Delete `.auto-stop` file if exists
    - Delete `.lock` file if exists — first read lock content and verify the holder: (a) if holder `pid` is dead → delete lock (stale); (b) if holder `session` matches the auto session being cancelled → delete lock (same session); (c) if held by a **different live session** → REJECT with error identifying the holding session — user must stop that session first or use `cancel` from the holding session. Cancel does NOT force-override locks held by other live sessions to prevent concurrent write corruption
-3. **Acquire** `.working/.lock` (see Concurrency Protection in `commands/ai-cli-task.md`). If lock is held by a different live session (not the auto session stopped in step 2), REJECT — user must stop that session first
+3. **Acquire** `.working/.lock` (see Concurrency Protection in `commands/task-ai.md`). If lock is held by a different live session (not the auto session stopped in step 2), REJECT — user must stop that session first
 4. **If uncommitted changes exist**, git commit snapshot: `ai-cli-task(<notebook>):cancel pre-cancel snapshot`
 5. **Update** `.index.json`:
    - Set `status` to `cancelled`
@@ -65,4 +65,4 @@ Any non-terminal status → `cancelled`. Terminal statuses (`complete`, `cancell
 - If the task has uncommitted code changes in a worktree, `--cleanup` will warn before deleting
 - Without `--cleanup`, the branch and worktree are preserved for reference
 - A cancelled task can be referenced by `report` for documentation purposes
-- **Concurrency**: Cancel acquires `.working/.lock` before modifying files and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`). Lock cleanup for the auto session (step 2) is separate from cancel's own lock acquisition (step 3)
+- **Concurrency**: Cancel acquires `.working/.lock` before modifying files and releases on completion (see Concurrency Protection in `commands/task-ai.md`). Lock cleanup for the auto session (step 2) is separate from cancel's own lock acquisition (step 3)

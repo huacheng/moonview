@@ -23,7 +23,7 @@ Merge a completed task's branch into main, with automated conflict resolution an
 
 - Task status must be `executing`
 - Latest `.analysis/` file must contain an ACCEPT verdict (from `check --checkpoint post-exec`)
-- **Dependency gate**: All `depends_on` modules must meet their required status — simple string entries require `complete`, extended `{ module, min_status }` entries require at-or-past `min_status` (see depends_on Format in `commands/ai-cli-task.md`). If any dependency is not met, merge REJECTS with error listing blocking dependencies and their current statuses
+- **Dependency gate**: All `depends_on` modules must meet their required status — simple string entries require `complete`, extended `{ module, min_status }` entries require at-or-past `min_status` (see depends_on Format in `commands/task-ai.md`). If any dependency is not met, merge REJECTS with error listing blocking dependencies and their current statuses
 
 ## Merge Strategy
 
@@ -115,4 +115,4 @@ On successful merge:
 - After manual resolution, if the user has already merged manually, they can update `.index.json` status to `complete` directly
 - Pre-merge refactoring is optional — if no cleanup needed, skip directly to merge
 - **Worktree signal race prevention**: In worktree mode, `.auto-signal` is written to the main worktree's `$NB_WORKSPACES_ROOT/<notebook_name>/.working/` path (not the task worktree), ensuring the daemon can read it after worktree removal. The daemon MUST watch the main worktree path for all signal files
-- **Concurrency**: Merge acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
+- **Concurrency**: Merge acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)

@@ -34,11 +34,11 @@ Run domain-adapted tests and verification procedures for a task module, producin
 ## Execution Steps
 
 1. **Read** `.index.json` — get `type`, `status`. Validate status is not terminal (`complete` or `cancelled`)
-2. **Read** `.type-profile.md` if exists — "Verification Standards" section is the **primary** source for testing approach, quality metrics, and acceptance criteria for this task
+2. **Read** `.type-profile.md` if exists — "Verification Standards" section is the **primary** source for testing approach, quality metrics, and acceptance criteria for this task (see `plan/references/type-profiling.md` for type system details)
 3. **Read** `.test/` latest criteria file — determine what to verify
 4. **Read** `.target.md` — extract acceptance criteria
 5. **Read** `.summary.md` if exists — condensed context for understanding verification scope
-6. **Load library context via Changelog Consumption Protocol** (see `library/SKILL.md`): read `.library-state.json` → seek `.changelog` to `changelog_offset` → score new lines → load matched files → update `.library-state.json` (atomic). On missing file or parse error → use offset 0 (cold start). On offset > file size (post-compact) → read `.master-index.md` full-text match first, then reset offset. Step 7 provides full context for cold-start
+6. **Load library context** via Changelog Consumption Protocol (`commands/references/changelog-consumption-protocol.md`)
 7. **Read** `$NB_WORKSPACES_LIBRARY/.memory/.references/.summary.md` if exists — keyword match against task domain → read matched `.memory/.references/<topic>.md` files for domain verification guidance (testing frameworks, tools, best practices)
 8. **Gap check**: if `.type-profile.md` lacks verification standards OR `.references/` lacks testing/verification knowledge for the task `type`, trigger `research --scope gap --caller verify` to collect missing references before proceeding
 9. **Determine** verification strategy: use `.type-profile.md` "Verification Standards" first, supplement with per-type seed file `init/references/seed-types/<type>.md` (verify section), combine with `.references/` domain knowledge. If verification reveals that `.type-profile.md` standards are inadequate, update its "Verification Standards" section with findings. For hybrid types (`A|B`), read seed files and experience for all segments
@@ -48,7 +48,7 @@ Run domain-adapted tests and verification procedures for a task module, producin
     - `full`: all `.test/` criteria, acceptance tests from `.target.md`, regression tests
     - `step-N`: only criteria associated with step N from `.test/` criteria file
 11. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics)
-12. **Write** `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-verify.md` with test outcomes, domain verification patterns, and threshold findings — `quality_status: provisional`. Follow six-step Library Write Protocol (see `library/SKILL.md`): acquire `.memory/.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.memory/.experiences/<type>/.index.md` row → release lock. Skip if `--checkpoint quick` (insufficient evidence for experience)
+12. **Write** `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-verify.md` with test outcomes, domain verification patterns, and threshold findings — `quality_status: provisional`. Follow six-step Library Write Protocol (see `skills/library/SKILL.md`): acquire `.memory/.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.memory/.experiences/<type>/.index.md` row → release lock. Skip if `--checkpoint quick` (insufficient evidence for experience)
 13. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
 14. **Git commit**: `ai-cli-task(<notebook>):verify <checkpoint> verification`
 15. **Write** `.auto-signal`: `{ "step": "verify", "result": "(pass|fail|partial)", "next": "check", "checkpoint": "<checkpoint>", "timestamp": "..." }`
@@ -99,4 +99,4 @@ Result values: `(pass)`, `(fail)`, `(partial)` — see Result Values table above
 - **check integration**: `check` can optionally invoke `verify` internally, or read pre-existing `verify` results from `.test/`. When recent `verify` results exist (same day, matching checkpoint), `check` incorporates them instead of re-running tests
 - **exec integration**: Per-step verification in `exec` can optionally invoke `verify --checkpoint step-N` for domain-specific testing. For lightweight checks (build + lint), inline verification is sufficient
 - **Domain adaptation**: Verification strategy MUST match the task `type` — use `.type-profile.md` first, then per-type seed file `init/references/seed-types/<type>.md` for domain-specific testing procedures, tools, and thresholds. Supplement with web search for current best practices
-- **Concurrency**: Verify acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
+- **Concurrency**: Verify acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)

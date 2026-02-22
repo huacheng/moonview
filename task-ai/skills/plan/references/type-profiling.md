@@ -108,7 +108,7 @@ Auto-maintained by research. Predefined seed types + dynamically discovered type
 
 ### Lifecycle
 
-1. **Seed**: `init` creates `.type-registry.md` (if missing) with the predefined types from `commands/ai-cli-task.md` as seed rows
+1. **Seed**: `init` creates `.type-registry.md` (if missing) with the predefined types from `commands/task-ai.md` as seed rows
 2. **Grow**: When `research` classifies a type not in the registry, it appends a new row with discovery date and source task module name
 3. **Read**: `research` reads the registry during type classification to match against known types (both seed and discovered)
 4. **Shared**: The registry is a shared resource — types discovered by one task benefit future tasks. No lock needed (append-only, one writer at a time via task `.lock`)
@@ -245,7 +245,7 @@ If `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<type>.md` exists, research re
 
 ### Concurrency
 
-Shared profiles use the same lock protocol: acquire `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` before writing (see Concurrency Protection in `commands/ai-cli-task.md`).
+Shared profiles use the same lock protocol: acquire `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` before writing (see Concurrency Protection in `commands/task-ai.md`).
 
 ### For Hybrid Types
 

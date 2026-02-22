@@ -1,17 +1,10 @@
 # Library Write Protocol — Reference
 
-All sub-commands that write to `$NB_WORKSPACES_LIBRARY/` MUST follow the six-step protocol defined in `library/SKILL.md`. This file provides the per-directory lock table, hold duration guidance, and stale-lock recovery procedure.
+All sub-commands that write to `$NB_WORKSPACES_LIBRARY/` MUST follow the six-step protocol. This file provides the per-directory lock table, hold duration guidance, and stale-lock recovery procedure.
 
-## Six-Step Protocol (Summary)
+## Six-Step Protocol
 
-```
-1. mkdir -p   target sub-directory
-2. Acquire    directory-level .lock  (O_CREAT|O_EXCL)
-3. Write file — overwrite: <file>.tmp → rename  |  append: O_APPEND + --- separator
-4. Acquire .changelog.lock → append one line → release .changelog.lock
-5. Update     directory .index.md  (while holding directory .lock)
-6. Release    directory-level .lock
-```
+> See `commands/references/library-write-protocol.md` for the canonical six-step protocol, changelog format, and append/overwrite rules.
 
 ## Per-Directory Lock Table
 
