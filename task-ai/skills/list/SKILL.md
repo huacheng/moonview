@@ -78,7 +78,7 @@ Parse commit messages to reconstruct the timeline of status changes with timesta
 
 ## Execution Steps
 
-1. **Read** `$NB_WORKSPACES_ROOT/.index.json` — get notebook listing
+1. **Scan** `$NB_WORKSPACES_ROOT/` — list directories that contain `.working/.index.json` to discover notebooks
 2. **For each target notebook**: read `<notebook_name>/.working/.index.json` to get task metadata
 3. **If `--deps`**: build dependency graph from all notebooks' `depends_on` fields; **if `--timeline`**: extract history via `git log --oneline --grep="ai-cli-task(<notebook>)"`
 4. **Format** and print output (table, details, Mermaid graph, or timeline)
