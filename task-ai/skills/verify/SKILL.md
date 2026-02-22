@@ -50,7 +50,7 @@ Run domain-adapted tests and verification procedures for a task module, producin
 11. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics)
 12. **Write** `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-verify.md` with test outcomes, domain verification patterns, and threshold findings — `quality_status: provisional`. Follow six-step Library Write Protocol (see `skills/library/SKILL.md`): acquire `.memory/.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.memory/.experiences/<type>/.index.md` row → release lock. Skip if `--checkpoint quick` (insufficient evidence for experience)
 13. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
-14. **Git commit**: `ai-cli-task(<notebook>):verify <checkpoint> verification`
+14. **Git commit**: `task-ai(<notebook>):verify <checkpoint> verification`
 15. **Write** `.auto-signal`: `{ "step": "verify", "result": "(pass|fail|partial)", "next": "check", "checkpoint": "<checkpoint>", "timestamp": "..." }`
 16. **Report** results summary to user
 
@@ -69,14 +69,14 @@ None — `verify` is a utility sub-command. It does not change task status.
 ## Git
 
 ```
-ai-cli-task(<notebook>):verify <checkpoint> verification
+task-ai(<notebook>):verify <checkpoint> verification
 ```
 
 Examples:
 ```
-ai-cli-task(auth-refactor):verify quick verification
-ai-cli-task(auth-refactor):verify full verification
-ai-cli-task(auth-refactor):verify step-3 verification
+task-ai(auth-refactor):verify quick verification
+task-ai(auth-refactor):verify full verification
+task-ai(auth-refactor):verify step-3 verification
 ```
 
 ## .auto-signal

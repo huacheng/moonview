@@ -9,10 +9,10 @@
 
 ## Commit Message Convention
 
-All ai-cli-task triggered commits use `--` prefix to distinguish from user manual commits:
+All task-ai triggered commits use `--` prefix to distinguish from user manual commits:
 
 ```
-ai-cli-task(<module>):<type> <description>
+task-ai(<module>):<type> <description>
 ```
 
 | type | Scenario | Commit Scope |
@@ -37,23 +37,23 @@ Commit scope: $NB_WORKSPACES_ROOT/ directory files (state/plan) or project files
 ## Commit Message Examples
 
 ```
-ai-cli-task(auth-refactor):init initialize task module
-ai-cli-task(auth-refactor):plan generate implementation plan
-ai-cli-task(auth-refactor):research collect references
-ai-cli-task(auth-refactor):check post-plan PASS → review
-ai-cli-task(auth-refactor):feat add user auth middleware
-ai-cli-task(auth-refactor):fix fix token expiration check
-ai-cli-task(auth-refactor):exec step 2/5 done
-ai-cli-task(auth-refactor):check post-exec ACCEPT
-ai-cli-task(auth-refactor):refactor cleanup before merge
-ai-cli-task(auth-refactor):merge merge completed task
-ai-cli-task(auth-refactor):merge resolve merge conflict
-ai-cli-task(auth-refactor):merge task completed
-ai-cli-task(auth-refactor):report generate completion report
-ai-cli-task(auth-refactor):verify full verification
-ai-cli-task(auth-refactor):annotate annotations processed
-ai-cli-task(auth-refactor):summarize regenerate context summary
-ai-cli-task(auth-refactor):cancel user cancelled
+task-ai(auth-refactor):init initialize task module
+task-ai(auth-refactor):plan generate implementation plan
+task-ai(auth-refactor):research collect references
+task-ai(auth-refactor):check post-plan PASS → review
+task-ai(auth-refactor):feat add user auth middleware
+task-ai(auth-refactor):fix fix token expiration check
+task-ai(auth-refactor):exec step 2/5 done
+task-ai(auth-refactor):check post-exec ACCEPT
+task-ai(auth-refactor):refactor cleanup before merge
+task-ai(auth-refactor):merge merge completed task
+task-ai(auth-refactor):merge resolve merge conflict
+task-ai(auth-refactor):merge task completed
+task-ai(auth-refactor):report generate completion report
+task-ai(auth-refactor):verify full verification
+task-ai(auth-refactor):annotate annotations processed
+task-ai(auth-refactor):summarize regenerate context summary
+task-ai(auth-refactor):cancel user cancelled
 ```
 
 ## Refactoring & Merge

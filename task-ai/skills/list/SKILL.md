@@ -69,7 +69,7 @@ Nodes colored by status: green (complete), blue (executing/review), yellow (plan
 Extract status transition history from git log:
 
 ```
-git log --oneline --fixed-strings --grep="ai-cli-task(<notebook>)"
+git log --oneline --fixed-strings --grep="task-ai(<notebook>)"
 ```
 
 Use `--fixed-strings` to prevent `(` and `)` in the pattern from being interpreted as regex metacharacters.
@@ -80,7 +80,7 @@ Parse commit messages to reconstruct the timeline of status changes with timesta
 
 1. **Scan** `$NB_WORKSPACES_ROOT/` — list project directories, then within each project list notebook directories that contain `.working/.index.json` to discover notebooks
 2. **For each target notebook**: read `<project>/<notebook_name>/.working/.index.json` to get task metadata
-3. **If `--deps`**: build dependency graph from all notebooks' `depends_on` fields; **if `--timeline`**: extract history via `git log --oneline --grep="ai-cli-task(<notebook>)"`
+3. **If `--deps`**: build dependency graph from all notebooks' `depends_on` fields; **if `--timeline`**: extract history via `git log --oneline --grep="task-ai(<notebook>)"`
 4. **Format** and print output (table, details, Mermaid graph, or timeline)
 
 ## State Transitions

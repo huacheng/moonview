@@ -50,7 +50,7 @@ Regenerate `.summary.md` files for a task module. Used to recover lost context o
    - Key decisions (architectural/design decisions)
    - Known issues (active issues, blockers, risks)
    - Lessons learned (patterns, workarounds, discoveries)
-10. **Git commit**: `ai-cli-task(<notebook>):summarize regenerate context summary`
+10. **Git commit**: `task-ai(<notebook>):summarize regenerate context summary`
 
 ## State Transitions
 
@@ -59,7 +59,7 @@ None — `summarize` is a utility sub-command. It does not change task status.
 ## Git
 
 ```
-ai-cli-task(<notebook>):summarize regenerate context summary
+task-ai(<notebook>):summarize regenerate context summary
 ```
 
 ## .auto-signal

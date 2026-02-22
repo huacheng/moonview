@@ -30,7 +30,7 @@ Merge a completed task's branch into main, with automated conflict resolution an
 ### Phase 1: Pre-Merge Refactoring
 
 1. **Review** code changes on task branch for cleanup opportunities (dead code, naming, duplication)
-2. **Commit** cleanup: `ai-cli-task(<notebook>):refactor cleanup before merge`
+2. **Commit** cleanup: `task-ai(<notebook>):refactor cleanup before merge`
 
 ### Phase 2: Merge Attempt
 
@@ -38,7 +38,7 @@ Merge a completed task's branch into main, with automated conflict resolution an
 2. **Checkout main** (non-worktree) or already on main (worktree, from main worktree)
 3. **Attempt merge**:
    ```bash
-   git merge task/<notebook> --no-ff -m "ai-cli-task(<notebook>):merge merge completed task"
+   git merge task/<notebook> --no-ff -m "task-ai(<notebook>):merge merge completed task"
    ```
 
 ### Phase 3: Conflict Resolution (if merge fails)
@@ -58,10 +58,10 @@ On successful merge:
 
 1. **Update** `.index.json` status → `complete`, update timestamp — retain `branch` and `worktree` values (needed for cleanup in steps 4–5)
 2. **Write** `.summary.md` with final task summary: completion status, plan overview, key changes, verification outcome, lessons learned (integrate from directory summaries)
-3. **Git commit** state FIRST: `ai-cli-task(<notebook>):merge task completed` — commit state changes before any destructive cleanup, so status is persisted even if cleanup fails
+3. **Git commit** state FIRST: `task-ai(<notebook>):merge task completed` — commit state changes before any destructive cleanup, so status is persisted even if cleanup fails
 4. **If worktree exists**: `git worktree remove .worktrees/task-<module>` (failure is non-fatal — log warning, continue)
 5. **Delete** merged branch: `git branch -d task/<notebook>` (failure is non-fatal — branch may already be deleted or have extra commits; log warning, continue)
-6. **Clear** `branch` to `""` and `worktree` to `""` in `.index.json` (atomic write), git commit: `ai-cli-task(<notebook>):merge cleanup branch metadata`
+6. **Clear** `branch` to `""` and `worktree` to `""` in `.index.json` (atomic write), git commit: `task-ai(<notebook>):merge cleanup branch metadata`
 
 ## Execution Steps
 
@@ -91,11 +91,11 @@ On successful merge:
 
 | Action | Commit Message |
 |--------|---------------|
-| Pre-merge cleanup | `ai-cli-task(<notebook>):refactor cleanup before merge` |
-| Merge commit | `ai-cli-task(<notebook>):merge merge completed task` |
-| Conflict resolution | `ai-cli-task(<notebook>):merge resolve merge conflict` |
-| State update | `ai-cli-task(<notebook>):merge task completed` |
-| Metadata cleanup | `ai-cli-task(<notebook>):merge cleanup branch metadata` |
+| Pre-merge cleanup | `task-ai(<notebook>):refactor cleanup before merge` |
+| Merge commit | `task-ai(<notebook>):merge merge completed task` |
+| Conflict resolution | `task-ai(<notebook>):merge resolve merge conflict` |
+| State update | `task-ai(<notebook>):merge task completed` |
+| Metadata cleanup | `task-ai(<notebook>):merge cleanup branch metadata` |
 
 ## .auto-signal
 

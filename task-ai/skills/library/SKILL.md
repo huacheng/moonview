@@ -178,7 +178,7 @@ Rebuild all `.index.md` files and `.master-index.md` from actual filesystem stat
 5. **IOC scan**: extract all outbound URLs from `.memory/.references/` files; tally domain counts; write/overwrite `.ioc.md` if any domain appears in ≥ 3 documents; format: `| domain | doc_count | first_seen | last_seen | risk | note |`
 6. **Fix `effectiveness_mark` uniqueness violations**: if multiple files in same topic scope or same notebook-type scope share `effectiveness_mark: true`, keep the one with latest `last_verified_at`, clear others (acquire lock before clearing)
 7. Clear `.inconsistency.log` (all issues resolved by rebuild)
-8. Git commit: `ai-cli-task(library):maintain rebuild index`
+8. Git commit: `task-ai(library):maintain rebuild index`
 
 #### `--compact`
 
@@ -193,7 +193,7 @@ Archive `.changelog` entries older than 90 days.
    # COMPACT 2026-02-21: archived 847 lines → .changelog-archive/2026-01.md
    ```
 4. Remove aged entries from `.changelog` (retain marker + recent entries)
-5. Git add `.changelog-archive/YYYY-MM.md` + commit: `ai-cli-task(library):maintain archive YYYY-MM`
+5. Git add `.changelog-archive/YYYY-MM.md` + commit: `task-ai(library):maintain archive YYYY-MM`
 6. **Offset invalidation**: notebooks whose saved `changelog_offset` now exceeds file size will automatically degrade to cold-start path on next read (reads `.master-index.md` full match then resets offset) — no per-notebook file update required
 
 #### `--check-staleness`
@@ -371,7 +371,7 @@ All external content written to `.library/.memory/.references/` MUST be sanitise
 | 3 | Unicode hidden attacks | Zero-width chars, bidirectional control chars (U+202A–U+202E), C0/C1 control chars, NFC normalisation bypass | medium–high |
 | 4 | ANSI / terminal sequences | Terminal control codes (`\x1b[...`) | medium |
 | 5 | Resource exhaustion | Files > 50KB hard limit; repeated content blocks > 3 repetitions → fold | low–medium |
-| 6 | System format impersonation | Strings matching `.auto-signal` JSON structure, `ai-cli-task(` commit prefix, `.index.json` schema fields | high |
+| 6 | System format impersonation | Strings matching `.auto-signal` JSON structure, `task-ai(` commit prefix, `.index.json` schema fields | high |
 | 7 | Encoding obfuscation | Base64 string (> 30 chars) adjacent to `decode`/`eval`/`exec`/`base64 -d`; hex-encoded commands (`\x41\x42…`); split-string concatenation forming shell commands | high (non-degradable) |
 | 8 | Two-stage loading | `curl \| bash`, `wget \| sh`, `eval $(curl …)`, download + `chmod +x` + execute chains; embedded `#!/bin/bash` inside document code blocks | high (non-degradable) |
 | 9 | Cross-document domain convergence | Source three-tier classification at fetch time; IOC tracking in `.ioc.md` at maintain time | medium–high |
@@ -449,8 +449,8 @@ None. `library` is a pure utility sub-command — no task `status` or `phase` fi
 
 | Operation | Commit message |
 |-----------|---------------|
-| `maintain --compact` | `ai-cli-task(library):maintain archive YYYY-MM` |
-| `maintain --rebuild-index` | `ai-cli-task(library):maintain rebuild index` |
+| `maintain --compact` | `task-ai(library):maintain archive YYYY-MM` |
+| `maintain --rebuild-index` | `task-ai(library):maintain rebuild index` |
 | `search`, `list`, `status`, `--check-staleness` | No commit |
 
 ## .auto-signal

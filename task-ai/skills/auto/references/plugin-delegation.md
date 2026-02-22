@@ -1,6 +1,6 @@
 # Plugin Delegation Protocol
 
-External plugin delegation for ai-cli-task lifecycle skills. Enables runtime discovery and invocation of system-installed plugins (PDF parsers, code review tools, frontend design tools, TDD frameworks, etc.) through **capability slots**, **semantic matching**, and **Task subagent isolation**.
+External plugin delegation for task-ai lifecycle skills. Enables runtime discovery and invocation of system-installed plugins (PDF parsers, code review tools, frontend design tools, TDD frameworks, etc.) through **capability slots**, **semantic matching**, and **Task subagent isolation**.
 
 ## Design Principles
 

@@ -9,7 +9,7 @@ arguments:
     required: false
 ---
 
-# /moonview:ai-cli-task — Task Lifecycle Management
+# /moonview:task-ai — Task Lifecycle Management
 
 Single entry point for task lifecycle management in the `$NB_WORKSPACES_ROOT/` directory.
 
@@ -144,7 +144,7 @@ Simple string `"module"` → requires `complete`. Extended object `{ "module", "
 
 ### Git Integration
 
-Every task has a dedicated branch (`task/<notebook-name>`) with optional worktree. Commits follow `ai-cli-task(<module>):<type> <description>` format.
+Every task has a dedicated branch (`task/<notebook-name>`) with optional worktree. Commits follow `task-ai(<module>):<type> <description>` format.
 
 > **See `commands/references/git-details.md`** for branch convention, commit message format table, commit examples, worktree execution, rollback, and `.gitignore` entries.
 

@@ -102,7 +102,7 @@ The report is written to `[deliverables-dir]/.report.md` (the notebook's deliver
     - (h) Release `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.lock`
 14. **Distill thinking patterns**: Read `.memory/.thinking/raw/<notebook>-*.md` files (glob); filter to entries with `quality.thinking: H`. For each identified reasoning pattern: acquire `$NB_WORKSPACES_LIBRARY/.memory/.thinking/patterns/.lock` → write/update `.memory/.thinking/patterns/<problem-type>.md` (overwrite; `.tmp → rename`) → append changelog line (`<timestamp> | pattern | .memory/.thinking/patterns/<problem-type>.md | source:<notebook>`) → update `.memory/.thinking/patterns/.index.md` (state: `draft` if new, `active` if already used) → release lock. **Batch update** `failure_count`: scan this task's git history for REPLAN commits (`git log --grep="REPLAN"`); for each REPLAN, if `.plan.md` at that commit referenced a pattern, increment that pattern's `failure_count` in its frontmatter (overwrite with `.tmp → rename`).
 15. **Sync shared type profile**: If `.type-profile.md` exists, merge refined profile back to `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<primary-type>.md` for ALL types. Apply directory-safe transform. Acquire `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` before writing. If shared profile already exists, update sections with higher-confidence info (check refinement log dates); append task's refinement log entries. Append changelog line: `<timestamp> | type-profile | .memory/.type-profiles/<type>.md | source:<notebook>`. Update `.memory/.type-profiles/.index.md`. Release lock after write.
-16. **Git commit**: `ai-cli-task(<notebook>):report generate completion report`
+16. **Git commit**: `task-ai(<notebook>):report generate completion report`
 17. **Write** `.auto-signal`: `{ "step": "report", "result": "(generated)", "next": "(stop)", "checkpoint": "", "timestamp": "..." }`
 18. **Lightweight maintain**: Call `library maintain --compact` (compact-threshold check only — no I/O unless `.changelog` exceeds 2000-line threshold). This runs **after** `.auto-signal` is written so the automation loop advances first.
 19. **Print** report to screen
@@ -115,7 +115,7 @@ No status change — report generation is informational. The task must already b
 
 ## Git
 
-- `ai-cli-task(<notebook>):report generate completion report`
+- `task-ai(<notebook>):report generate completion report`
 
 ## .auto-signal
 
@@ -129,5 +129,5 @@ Report is always a terminal step — `next` is always `(stop)`.
 - For `blocked` tasks, the report documents what was completed and what blocks remain
 - For `cancelled` tasks, the report documents the reason for cancellation
 - The report serves as a permanent record even after task files are archived
-- For `complete` tasks, report includes change history via `git log --oneline --all --fixed-strings --grep="ai-cli-task(<notebook>)"` (uses `--fixed-strings` to avoid regex interpretation of parentheses; works even after task branch deletion)
+- For `complete` tasks, report includes change history via `git log --oneline --all --fixed-strings --grep="task-ai(<notebook>)"` (uses `--fixed-strings` to avoid regex interpretation of parentheses; works even after task branch deletion)
 - **Concurrency**: Report acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)

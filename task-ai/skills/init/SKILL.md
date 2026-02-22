@@ -151,7 +151,7 @@ Dependencies reference other task modules. Two formats — simple string (requir
 
     <!-- Any constraints or limitations -->
     ```
-12. **Git commit**: `ai-cli-task(<notebook_name>):init initialize notebook`
+12. **Git commit**: `task-ai(<notebook_name>):init initialize notebook`
 14. **Report**: path, files created, branch name, worktree path (if any), next step hint
 
 ## Git
@@ -159,7 +159,7 @@ Dependencies reference other task modules. Two formats — simple string (requir
 - Creates branch: `task/<notebook_name>` from current HEAD
 - Without worktree: `git checkout task/<notebook_name>` before creating files
 - Optional worktree: `.worktrees/task-<notebook_name>`
-- Commit: `ai-cli-task(<notebook_name>):init initialize notebook`
+- Commit: `task-ai(<notebook_name>):init initialize notebook`
 
 ## Notes
 

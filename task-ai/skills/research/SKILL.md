@@ -165,7 +165,7 @@ Callable independently for preparatory research before any phase, or to suppleme
     ```
 17. **Flush** any pending plugin registry updates to `$NB_WORKSPACES_LIBRARY/.plugin-registry.md` (accumulated during step 15 doc-parse delegation — see `auto/references/plugin-delegation.md` Re-entrancy rule). This happens while still holding `.memory/.references/.lock`, avoiding a second lock acquisition
 18. **Release** `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock`
-19. **Git commit**: `ai-cli-task(<notebook>):research collect references` (skip if no files written; include `.type-profile.md` and `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` if updated)
+19. **Git commit**: `task-ai(<notebook>):research collect references` (skip if no files written; include `.type-profile.md` and `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` if updated)
 20. **Write** `.auto-signal`: `{ "step": "research", "result": "(collected)" or "(sufficient)", "next": "<caller>", "checkpoint": "post-research", "timestamp": "..." }` — `next` field routes back to the calling phase (default: `plan`; if `--caller verify` → `verify`; if `--caller check` → `check`; if `--caller exec` → `exec`)
 
 ## --caller target: Target Deepening Steps
@@ -253,7 +253,7 @@ else: print('O1')
 ```
 
 `.auto-signal`: `result: "(o1-collected)"`, `next: "(stop)"`, `checkpoint: "post-o1"`
-Git commit: `ai-cli-task(<notebook>):research deepen target background`
+Git commit: `task-ai(<notebook>):research deepen target background`
 
 **O2: Feasibility & Constraints** (可行性与约束分析)
 
@@ -281,7 +281,7 @@ Git commit: `ai-cli-task(<notebook>):research deepen target background`
 ```
 
 `.auto-signal`: `result: "(o2-collected)"`, `next: "(stop)"`, `checkpoint: "post-o2"`
-Git commit: `ai-cli-task(<notebook>):research deepen target feasibility`
+Git commit: `task-ai(<notebook>):research deepen target feasibility`
 
 **O3: Refined Objective** (目标精炼)
 
@@ -303,7 +303,7 @@ Git commit: `ai-cli-task(<notebook>):research deepen target feasibility`
 ```
 
 `.auto-signal`: `result: "(o3-collected)"`, `next: "(stop)"`, `checkpoint: "post-o3"`
-Git commit: `ai-cli-task(<notebook>):research deepen target objective`
+Git commit: `task-ai(<notebook>):research deepen target objective`
 
 **Objective Complete**: When T0 detects all stages done (no `[PROPOSED]` residuals):
 `.auto-signal`: `result: "(objective-complete)"`, `next: "(stop)"`
@@ -333,7 +333,7 @@ Executes after O3 is confirmed. Uses confirmed O1/O2/O3 content as context.
 - Never modify `## Objective`, `## Requirements`, or other human-authored sections
 - `[PROPOSED]` marker: keep until human accepts; remove when merging into main sections
 
-Git commit: `ai-cli-task(<notebook>):research deepen target requirements`
+Git commit: `task-ai(<notebook>):research deepen target requirements`
 
 ## --caller test: Test Intelligence Steps
 
@@ -407,7 +407,7 @@ Write or append to `$NB_WORKSPACES_LIBRARY/.memory/.references/testing-<type>.md
 - Consolidated testing knowledge for this domain type
 - Reusable by future tasks of the same type
 
-**Git commit**: `ai-cli-task(<notebook>):research collect references` (when files written)
+**Git commit**: `task-ai(<notebook>):research collect references` (when files written)
 
 ## Output
 
@@ -438,12 +438,12 @@ Research writes to shared directories (`$NB_WORKSPACES_LIBRARY/.memory/.referenc
 
 | Outcome | Commit Message |
 |---------|---------------|
-| References collected | `ai-cli-task(<notebook>):research collect references` |
+| References collected | `task-ai(<notebook>):research collect references` |
 | References sufficient | (no commit — nothing changed) |
-| Target O1 (background) | `ai-cli-task(<notebook>):research deepen target background` |
-| Target O2 (feasibility) | `ai-cli-task(<notebook>):research deepen target feasibility` |
-| Target O3 (objective) | `ai-cli-task(<notebook>):research deepen target objective` |
-| Target requirements | `ai-cli-task(<notebook>):research deepen target requirements` |
+| Target O1 (background) | `task-ai(<notebook>):research deepen target background` |
+| Target O2 (feasibility) | `task-ai(<notebook>):research deepen target feasibility` |
+| Target O3 (objective) | `task-ai(<notebook>):research deepen target objective` |
+| Target requirements | `task-ai(<notebook>):research deepen target requirements` |
 
 ## .auto-signal
 
