@@ -128,6 +128,62 @@ export function createProjectsRouter(
     }
   });
 
+  // List files within project directory
+  router.get('/:projectId/files', async (req, res) => {
+    try {
+      const project = db.getProject(req.params.projectId);
+      if (!project) return res.status(404).json({ error: 'not found' });
+
+      const subPath = (req.query.path as string) || '';
+      const fullPath = path.join(project.path, subPath);
+
+      // Validate path is within project
+      const resolved = path.resolve(fullPath);
+      if (!resolved.startsWith(path.resolve(project.path))) {
+        return res.status(403).json({ error: 'path traversal' });
+      }
+
+      const { readdir, stat } = await import('fs/promises');
+      let entries;
+      try {
+        entries = await readdir(fullPath, { withFileTypes: true });
+      } catch {
+        return res.json({ dirPath: fullPath, files: [], truncated: false });
+      }
+
+      const files = await Promise.all(
+        entries
+          .filter(e => !e.name.startsWith('.') || e.name.endsWith('.notebook.json') || e.name === '.index.json')
+          .map(async (e) => {
+            const entryPath = path.join(fullPath, e.name);
+            let size = 0;
+            let modifiedAt = new Date().toISOString();
+            try {
+              const s = await stat(entryPath);
+              size = s.size;
+              modifiedAt = s.mtime.toISOString();
+            } catch { /* ignore */ }
+            return {
+              name: e.name,
+              type: e.isDirectory() ? 'directory' as const : 'file' as const,
+              size,
+              modifiedAt,
+            };
+          })
+      );
+
+      // Sort: directories first, then alphabetically
+      files.sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      res.json({ dirPath: fullPath, files, truncated: false });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Delete project
   router.delete('/:projectId', (req, res) => {
     db.deleteProject(req.params.projectId);

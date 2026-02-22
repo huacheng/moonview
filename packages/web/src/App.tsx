@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Notebook } from './components/Notebook';
-import { Sidebar } from './components/Sidebar';
-import { FilesPanel } from './components/FilesPanel';
-import { FileViewer } from './components/FileViewer';
+import { ProjectSidebar } from './components/ProjectSidebar';
+import { NotebookTabs } from './components/NotebookTabs';
+import { RightPanel } from './components/RightPanel';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { NotebookCreationPanel } from './components/NotebookCreationPanel';
 import { LoginPage } from './components/LoginPage';
@@ -86,63 +86,28 @@ function NotebookLoadingScreen() {
 }
 
 function AuthenticatedApp() {
-  const sessionId = useStore((s) => s.sessionId);
   const notebook = useStore((s) => s.notebook);
   const notebookLoading = useStore((s) => s.notebookLoading);
   const activeNotebookId = useStore((s) => s.activeNotebookId);
   const creatingNotebook = useStore((s) => s.creatingNotebook);
   const restoreNotebook = useStore((s) => s.restoreNotebook);
-  const filesPanelOpen = useStore((s) => s.filesPanelOpen);
-  const openFile = useStore((s) => s.openFile);
-  const fileViewerMaximized = useStore((s) => s.fileViewerMaximized);
   const wsStatus = useStore((s) => s.wsStatus);
   const wsReconnectExhausted = useStore((s) => s.wsReconnectExhausted);
+  const sessionId = useStore((s) => s.sessionId);
+  const fetchProjects = useStore((s) => s.fetchProjects);
 
   const contentRef = useRef<HTMLElement | null>(null);
-  const contentSplitRef = useRef<HTMLDivElement | null>(null);
-  const isDraggingRef = useRef(false);
-
-  const SPLIT_KEY = 'fv-split-ratio';
-  const [splitRatio, setSplitRatio] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(SPLIT_KEY);
-      if (saved) return Math.min(0.85, Math.max(0.15, parseFloat(saved)));
-    } catch { /* ignore */ }
-    return 0.5;
-  });
-
-  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    function onMouseMove(ev: MouseEvent) {
-      if (!isDraggingRef.current || !contentSplitRef.current) return;
-      const rect = contentSplitRef.current.getBoundingClientRect();
-      const ratio = (ev.clientX - rect.left) / rect.width;
-      const clamped = Math.min(0.85, Math.max(0.15, ratio));
-      setSplitRatio(clamped);
-      try { localStorage.setItem(SPLIT_KEY, String(clamped)); } catch { /* ignore */ }
-    }
-
-    function onMouseUp() {
-      isDraggingRef.current = false;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    }
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }, []);
 
   // Initiate WebSocket connection only when we have a sessionId.
   useWebSocket(sessionId);
 
   // Persist and restore scroll position across notebook switches and browser tab switches.
   useScrollRestoration(activeNotebookId, contentRef);
+
+  // Fetch projects on mount
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   // Save last opened notebook ID to localStorage.
   useEffect(() => {
@@ -161,8 +126,6 @@ function AuthenticatedApp() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show the notebook view as soon as notebook data exists (optimistic create/restore).
-  // sessionId may still be null while the backend session initializes — that's fine.
   const hasNotebook = notebook !== null;
 
   return (
@@ -179,38 +142,23 @@ function AuthenticatedApp() {
           </button>
         </div>
       )}
-      <div className={[
-        'app-body',
-        filesPanelOpen ? 'app-body--files-open' : '',
-        openFile ? 'app-body--viewer-open' : '',
-      ].filter(Boolean).join(' ')}>
-        <Sidebar />
+      <div className="app-body">
+        <ProjectSidebar />
         <main ref={contentRef} className="app-content">
-          <div
-            ref={contentSplitRef}
-            className={`content-split${openFile ? ' content-split--active' : ''}`}
-          >
-            <div
-              className={`notebook-area${fileViewerMaximized && openFile ? ' notebook-area--hidden' : ''}`}
-              style={openFile && !fileViewerMaximized ? { flex: `0 0 ${splitRatio * 100}%` } : undefined}
-            >
-              {notebookLoading ? (
-                <NotebookLoadingScreen />
-              ) : creatingNotebook ? (
-                <NotebookCreationPanel />
-              ) : hasNotebook ? (
-                <Notebook />
-              ) : (
-                <WelcomeScreen />
-              )}
-            </div>
-            {openFile && !fileViewerMaximized && (
-              <div className="split-divider" onMouseDown={handleDividerMouseDown} />
+          <NotebookTabs />
+          <div className="notebook-area">
+            {notebookLoading ? (
+              <NotebookLoadingScreen />
+            ) : creatingNotebook ? (
+              <NotebookCreationPanel />
+            ) : hasNotebook ? (
+              <Notebook />
+            ) : (
+              <WelcomeScreen />
             )}
-            {openFile && <FileViewer />}
           </div>
         </main>
-        <FilesPanel />
+        <RightPanel />
       </div>
     </div>
   );

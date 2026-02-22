@@ -44,12 +44,12 @@ export function Cell({ cell, index }: CellProps) {
       {hasResponse && (
         <div className="cell-response-area">
           <StatusIndicator status={cell.status} />
-          {cell.outputs.length > 0 && (
-            <CellOutput
-              outputs={cell.outputs}
-              isActiveCell={cell.status === 'running'}
-            />
-          )}
+          <CellOutput
+            outputs={cell.outputs}
+            isActiveCell={cell.status === 'running'}
+            cellId={cell.id}
+            cellStatus={cell.status}
+          />
         </div>
       )}
 

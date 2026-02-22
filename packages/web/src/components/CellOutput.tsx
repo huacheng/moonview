@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CellOutput as CellOutputItem } from '@notebook-ai/shared';
+import { StreamingText, StreamingThinking } from './StreamingCellOutput';
 
 // ── SVG sanitizer ────────────────────────────────────────────────────────────
 
@@ -159,9 +160,13 @@ function ToolsPanel({ items }: { items: ToolItem[] }) {
 interface CellOutputProps {
   outputs: CellOutputItem[];
   isActiveCell?: boolean;
+  cellId?: string;
+  cellStatus?: string;
 }
 
-export function CellOutput({ outputs }: CellOutputProps) {
+export function CellOutput({ outputs, cellId, cellStatus }: CellOutputProps) {
+  const isRunning = cellStatus === 'running';
+
   const thinkingItems = outputs.filter(
     (o): o is ThinkingItem => o.type === 'thinking',
   );
@@ -172,16 +177,25 @@ export function CellOutput({ outputs }: CellOutputProps) {
     (o) => o.type === 'text' || o.type === 'error' || o.type === 'chart',
   );
 
-  if (outputs.length === 0) return null;
+  const hasStaticOutput = outputs.length > 0;
+  const hasStreaming = isRunning && cellId;
+
+  if (!hasStaticOutput && !hasStreaming) return null;
 
   return (
     <div className="cell-output-area">
+
+      {/* ── Streaming thinking (live, shown while running) ── */}
+      {hasStreaming && <StreamingThinking cellId={cellId} />}
 
       {/* ── Thinking (collapsible, default collapsed) ── */}
       {thinkingItems.length > 0 && <ThinkingPanel items={thinkingItems} />}
 
       {/* ── Tools (each row individually collapsible) ── */}
       {toolItems.length > 0 && <ToolsPanel items={toolItems} />}
+
+      {/* ── Streaming text (live, shown while running) ── */}
+      {hasStreaming && <StreamingText cellId={cellId} />}
 
       {/* ── Response output ── */}
       {responseItems.length > 0 && (
