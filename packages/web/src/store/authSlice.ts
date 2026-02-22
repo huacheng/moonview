@@ -19,10 +19,10 @@ export const createAuthSlice: StateCreator<NotebookStore, [], [], Pick<NotebookS
       if (data.authEnabled) {
         const token = get().authToken;
         if (token) {
-          const check = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token }),
+          // Validate stored token via /verify (not /login)
+          // to avoid triggering brute-force rate limiting.
+          const check = await fetch('/api/auth/verify', {
+            headers: { 'Authorization': `Bearer ${token}` },
           });
           if (!check.ok) {
             localStorage.removeItem('nb-auth-token');

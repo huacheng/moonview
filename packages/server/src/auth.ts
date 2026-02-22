@@ -10,6 +10,58 @@ const NB_AUTH_TOKEN = process.env['NB_AUTH_TOKEN'] ?? '';
 /** Whether auth is enabled (non-empty NB_AUTH_TOKEN). */
 export const authEnabled = NB_AUTH_TOKEN.length > 0;
 
+// ── Brute-force protection ──────────────────────────────────────────────────
+
+interface FailRecord {
+  count: number;
+  lockedUntil: number; // epoch ms
+}
+
+const failMap = new Map<string, FailRecord>();
+
+/** Base lockout in ms after first failure. Doubles each subsequent failure. */
+const BASE_LOCKOUT_MS = 60_000;
+/** Max lockout cap: 30 minutes. */
+const MAX_LOCKOUT_MS = 30 * 60_000;
+
+function getClientIp(req: Request): string {
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string') return xff.split(',')[0].trim();
+  return req.socket.remoteAddress ?? 'unknown';
+}
+
+function checkRateLimit(ip: string): { blocked: boolean; retryAfterSec: number } {
+  const rec = failMap.get(ip);
+  if (!rec || rec.count === 0) return { blocked: false, retryAfterSec: 0 };
+  const now = Date.now();
+  if (now < rec.lockedUntil) {
+    return { blocked: true, retryAfterSec: Math.ceil((rec.lockedUntil - now) / 1000) };
+  }
+  // Lockout expired — allow attempt but keep count (never resets until success)
+  return { blocked: false, retryAfterSec: 0 };
+}
+
+function recordFailure(ip: string): number {
+  const rec = failMap.get(ip) ?? { count: 0, lockedUntil: 0 };
+  rec.count++;
+  const lockout = Math.min(BASE_LOCKOUT_MS * Math.pow(2, rec.count - 1), MAX_LOCKOUT_MS);
+  rec.lockedUntil = Date.now() + lockout;
+  failMap.set(ip, rec);
+  return Math.ceil(lockout / 1000);
+}
+
+function clearFailures(ip: string): void {
+  failMap.delete(ip);
+}
+
+// Cleanup stale entries every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, rec] of failMap) {
+    if (now > rec.lockedUntil + MAX_LOCKOUT_MS) failMap.delete(ip);
+  }
+}, 10 * 60_000);
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -25,23 +77,52 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 export function handleLogin(req: Request, res: Response): void {
   if (!authEnabled) {
-    // Auth disabled — always grant access
     res.json({ ok: true });
+    return;
+  }
+
+  const ip = getClientIp(req);
+  const { blocked, retryAfterSec } = checkRateLimit(ip);
+  if (blocked) {
+    res.status(429).json({ error: `Too many failed attempts. Try again in ${retryAfterSec}s.`, retryAfter: retryAfterSec });
     return;
   }
 
   const { token } = req.body as { token?: unknown };
 
   if (typeof token !== 'string' || !token) {
-    res.status(401).json({ error: 'Token is required.' });
+    const lockSec = recordFailure(ip);
+    res.status(401).json({ error: `Token is required. Locked for ${lockSec}s.`, retryAfter: lockSec });
     return;
   }
 
   if (!timingSafeEqual(token, NB_AUTH_TOKEN)) {
-    res.status(401).json({ error: 'Invalid token.' });
+    const lockSec = recordFailure(ip);
+    res.status(401).json({ error: `Invalid token. Locked for ${lockSec}s.`, retryAfter: lockSec });
     return;
   }
 
+  clearFailures(ip);
+  res.json({ ok: true });
+}
+
+// ── Token verify endpoint (no rate limiting) ───────────────────────────────
+
+export function handleVerify(req: Request, res: Response): void {
+  if (!authEnabled) {
+    res.json({ ok: true });
+    return;
+  }
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ ok: false });
+    return;
+  }
+  const token = authHeader.slice(7);
+  if (!timingSafeEqual(token, NB_AUTH_TOKEN)) {
+    res.status(401).json({ ok: false });
+    return;
+  }
   res.json({ ok: true });
 }
 

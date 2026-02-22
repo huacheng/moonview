@@ -6,17 +6,47 @@ interface LoginPageProps {
   loading: boolean;
 }
 
+/** Extract retryAfter seconds from error message like "Locked for 60s." */
+function parseRetryAfter(error: string | null): number {
+  if (!error) return 0;
+  const m = error.match(/(\d+)s[.\s]/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 export function LoginPage({ onLogin, error, loading }: LoginPageProps) {
   const [token, setToken] = useState('');
+  const [countdown, setCountdown] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  // Start countdown when error contains retry time
+  useEffect(() => {
+    const secs = parseRetryAfter(error);
+    if (secs > 0) {
+      setCountdown(secs);
+    }
+  }, [error]);
+
+  // Tick countdown
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const id = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(id); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [countdown]);
+
+  const locked = countdown > 0;
+
   function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
-    if (!token.trim() || loading) return;
+    if (!token.trim() || loading || locked) return;
     onLogin(token.trim());
   }
 
@@ -40,19 +70,19 @@ export function LoginPage({ onLogin, error, loading }: LoginPageProps) {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="Paste your token here"
-              disabled={loading}
+              disabled={loading || locked}
               autoComplete="off"
             />
           </div>
 
-          {error && <div className="login-error">{error}</div>}
+          {error && <div className="login-error">{locked ? `${error} (${countdown}s)` : error}</div>}
 
           <button
             className="login-btn"
             type="submit"
-            disabled={!token.trim() || loading}
+            disabled={!token.trim() || loading || locked}
           >
-            {loading ? 'Verifying...' : 'Sign In'}
+            {loading ? 'Verifying...' : locked ? `Wait ${countdown}s` : 'Sign In'}
           </button>
         </form>
       </div>
