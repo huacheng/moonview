@@ -2,6 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 certs/
+.env
 .worktrees/
 AiTasks/**/.tmp-annotations.json
 AiTasks/**/.auto-signal

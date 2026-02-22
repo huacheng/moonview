@@ -38,6 +38,10 @@ echo "==> Ports $PORTS are free."
 
 echo "==> Starting notebook-ai dev server..."
 cd "$(dirname "$0")"
+# Load .env if present
+if [ -f .env ]; then
+  set -a; source .env; set +a
+fi
 PORT=3002 NB_AUTH_TOKEN="${NB_AUTH_TOKEN:-test123}" nohup pnpm dev > /tmp/notebook-dev.log 2>&1 &
 
 # Wait for backend to be ready (up to 15s)

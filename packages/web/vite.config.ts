@@ -14,6 +14,9 @@ export default defineConfig({
       key: fs.readFileSync(path.join(certDir, 'key.pem')),
       cert: fs.readFileSync(path.join(certDir, 'cert.pem')),
     },
+    hmr: {
+      timeout: 5000,
+    },
     proxy: {
       '/api': 'http://localhost:3002',
       '/ws': {
