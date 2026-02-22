@@ -20,7 +20,7 @@ Task type is NOT a one-shot decision. It is a **continuously refined classificat
 1. **Type is a hypothesis, not a label** — every type assignment starts as a hypothesis that must be validated by research
 2. **Fully automatic discovery** — `init` does not accept a `--type` argument; type is determined by `research` during the first `plan` phase, based on `.target.md` content + web research
 3. **Hybrid types are first-class** — many real tasks span multiple domains; represented as `A|B` pipe-separated format (e.g., `data-pipeline|ml`)
-4. **Auto-expanding type registry** — when research discovers a domain not in the predefined table, it registers the new type in `AiTasks/.type-registry.md` automatically. The predefined table is a seed, not a ceiling
+4. **Auto-expanding type registry** — when research discovers a domain not in the predefined table, it registers the new type in `$NB_WORKSPACES_LIBRARY/.type-registry.md` automatically. The predefined table is a seed, not a ceiling
 5. **Progressive refinement** — type confidence grows across phases: target analysis → research → plan → verify/check/exec feedback
 
 ## Type Format in `.index.json`
@@ -35,7 +35,7 @@ The `type` field uses a simple string with pipe separator for hybrids:
 
 **Validation regex**: Each segment must match `[a-zA-Z0-9_:-]+`. Full type field: `[a-zA-Z0-9_:|-]+` (pipe allowed as separator). Parsing: `type.split('|')` → `[0]` is primary, `[1:]` are secondary.
 
-**Experiences mapping**: For hybrid type `A|B`, `report` writes to **both** `AiTasks/.experiences/A/<module>.md` and `AiTasks/.experiences/B/<module>.md`, updating per-type `.summary.md` in each directory. Plan reads `.summary.md` for all segments, drilling into individual entries when relevant.
+**Experiences mapping**: For hybrid type `A|B`, `report` writes to **both** `$NB_WORKSPACES_LIBRARY/.memory/.experiences/A/<notebook>.md` and `$NB_WORKSPACES_LIBRARY/.memory/.experiences/B/<notebook>.md`, updating per-type `.summary.md` in each directory. Plan reads `.summary.md` for all segments, drilling into individual entries when relevant.
 
 ## Type Determination Flow
 
@@ -88,7 +88,7 @@ The `type` field uses a simple string with pipe separator for hybrids:
 
 ### Location
 
-`AiTasks/.type-registry.md` — shared across all tasks, auto-maintained by `research`.
+`$NB_WORKSPACES_LIBRARY/.type-registry.md` — shared across all tasks, auto-maintained by `research`.
 
 ### Format
 
@@ -108,7 +108,7 @@ Auto-maintained by research. Predefined seed types + dynamically discovered type
 
 ### Lifecycle
 
-1. **Seed**: `init` creates `.type-registry.md` (if missing) with the predefined types from `commands/ai-cli-task.md` as seed rows
+1. **Seed**: `init` creates `.type-registry.md` (if missing) with the predefined types from `commands/task-ai.md` as seed rows
 2. **Grow**: When `research` classifies a type not in the registry, it appends a new row with discovery date and source task module name
 3. **Read**: `research` reads the registry during type classification to match against known types (both seed and discovered)
 4. **Shared**: The registry is a shared resource — types discovered by one task benefit future tasks. No lock needed (append-only, one writer at a time via task `.lock`)
@@ -211,12 +211,12 @@ Every task module gets a `.type-profile.md`. This is the **authoritative** domai
 
 Per-task `.type-profile.md` is task-specific and non-shared. When task A builds a comprehensive domain profile (verification tools, implementation patterns, phase intelligence), task B with the same type starts from scratch — duplicating the same web searches and methodology discovery. This applies to ALL types: both new types not in static tables and seed types whose static table entries are generic defaults lacking task-derived experience.
 
-### Solution: `AiTasks/.type-profiles/`
+### Solution: `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/`
 
 A shared directory of type profiles, auto-maintained by `research` and `report` for **all** types (seed and discovered):
 
 ```
-AiTasks/.type-profiles/
+$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/
 ├── quantum-computing.md     # Discovered by task quantum-sim
 ├── game-design.md           # Discovered by task rpg-prototype
 └── bioinformatics.md        # Discovered by task genome-analysis
@@ -226,8 +226,8 @@ AiTasks/.type-profiles/
 
 | Phase | Trigger | Action |
 |-------|---------|--------|
-| **research** | Builds or updates `.type-profile.md` for **any** type (seed or discovered) | Copy profile to `AiTasks/.type-profiles/<primary-type>.md` (create or overwrite if confidence is higher). Apply directory-safe transform: replace `:` with `-` in type for filename |
-| **report** | Task completes with a refined `.type-profile.md` | Merge refinements back to `AiTasks/.type-profiles/<primary-type>.md` (append refinement log, update sections that changed). Apply directory-safe transform for `:` in type |
+| **research** | Builds or updates `.type-profile.md` for **any** type (seed or discovered) | Copy profile to `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<primary-type>.md` (create or overwrite if confidence is higher). Apply directory-safe transform: replace `:` with `-` in type for filename |
+| **report** | Task completes with a refined `.type-profile.md` | Merge refinements back to `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<primary-type>.md` (append refinement log, update sections that changed). Apply directory-safe transform for `:` in type |
 
 **Note**: ALL types sync to shared profiles — including seed types. Over time, shared profiles become richer than static reference tables because they incorporate real task execution experience (tool discoveries, verified patterns, phase-specific intelligence). Static tables remain as initial fallback only.
 
@@ -236,20 +236,20 @@ AiTasks/.type-profiles/
 When research needs domain intelligence for a type, it checks sources in this order:
 
 ```
-1. AiTasks/.type-profiles/<type>.md     ← shared profile from prior tasks (most specific; apply directory-safe transform: `:` → `-`)
+1. $NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<type>.md     ← shared profile from prior tasks (most specific; apply directory-safe transform: `:` → `-`)
 2. Per-type seed files                   ← init/references/seed-types/<type>.md (factory defaults)
 3. Web search from scratch              ← fallback for completely unknown types
 ```
 
-If `AiTasks/.type-profiles/<type>.md` exists, research reads it as the starting point for `.type-profile.md`, then refines per-task. This eliminates redundant web searches across tasks in the same domain.
+If `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<type>.md` exists, research reads it as the starting point for `.type-profile.md`, then refines per-task. This eliminates redundant web searches across tasks in the same domain.
 
 ### Concurrency
 
-Shared profiles use the same lock protocol: acquire `AiTasks/.type-profiles/.lock` before writing (see Concurrency Protection in `commands/ai-cli-task.md`).
+Shared profiles use the same lock protocol: acquire `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` before writing (see Concurrency Protection in `commands/task-ai.md`).
 
 ### For Hybrid Types
 
-For type `A|B`, shared profiles are stored by **primary** type: `AiTasks/.type-profiles/A.md`. The profile itself contains secondary domain info in its sections. If `B` also has a standalone profile, research reads both.
+For type `A|B`, shared profiles are stored by **primary** type: `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/A.md`. The profile itself contains secondary domain info in its sections. If `B` also has a standalone profile, research reads both.
 
 ## Refinement Across Phases
 
@@ -270,7 +270,7 @@ For type `A|B`, shared profiles are stored by **primary** type: `AiTasks/.type-p
 research has **three type-related responsibilities**:
 
 ### 1. Type discovery (when called from plan)
-- Analyze `.target.md` keywords against type registry (`AiTasks/.type-registry.md`)
+- Analyze `.target.md` keywords against type registry (`$NB_WORKSPACES_LIBRARY/.type-registry.md`)
 - Web search to identify the actual domain field
 - Detect hybrid indicators (keywords from multiple domains)
 - Classify and write `type` to `.index.json` using `A|B` format for hybrids

@@ -4,8 +4,8 @@ description: Autonomous execution loop — single Claude session orchestrates pl
 model_tier: heavy
 auto_delegatable: false
 arguments:
-  - name: task_module
-    description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
+  - name: notebook
+    description: "Notebook name (e.g., auth-refactor)"
     required: true
   - name: action
     description: "Action: start, stop, or status"
@@ -20,12 +20,12 @@ Coordinate the full task lifecycle autonomously: plan → verify → check → e
 ## Usage
 
 ```
-/moonview:auto <task_module_path> [--start|--stop|--status]
+/moonview:auto <notebook_name> [--start|--stop|--status]
 ```
 
 ## Architecture
 
-Auto mode runs as a **single long-lived Claude session** started by the daemon via `claude "/moonview:auto <module>"`. The daemon starts the session and monitors it externally; it does NOT dispatch individual commands.
+Auto mode runs as a **single long-lived Claude session** started by the daemon via `claude "/moonview:auto <notebook_name>"`. The daemon starts the session and monitors it externally; it does NOT dispatch individual commands.
 
 ### Components
 
@@ -117,9 +117,9 @@ The daemon validates `.auto-signal` fields for monitoring integrity:
 | Field | Validation | Allowed Values |
 |-------|-----------|----------------|
 | `step` | Whitelist | `plan`, `check`, `exec`, `merge`, `report`, `research`, `verify`, `annotate` |
-| `result` | Whitelist | `PASS`, `NEEDS_REVISION`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED`, `CONTINUE`, `(generated)`, `(done)`, `(mid-exec)`, `(step-N)` (where N is integer), `(blocked)`, `(collected)`, `(sufficient)`, `(pass)`, `(fail)`, `(partial)`, `(processed)`, `success`, `conflict` |
+| `result` | Whitelist | `PASS`, `NEEDS_REVISION`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED`, `CONTINUE`, `(generated)`, `(done)`, `(mid-exec)`, `(step-N)` (where N is integer), `(blocked)`, `(collected)`, `(sufficient)`, `(o1-collected)`, `(o2-collected)`, `(o3-collected)`, `(objective-complete)`, `(pass)`, `(fail)`, `(partial)`, `(processed)`, `success`, `conflict`, `rejected` |
 | `next` | Whitelist | `plan`, `check`, `exec`, `merge`, `report`, `research`, `verify`, `annotate`, `(stop)` |
-| `checkpoint` | Whitelist | `""`, `post-plan`, `post-research`, `mid-exec`, `post-exec`, `quick`, `full`, `step-N` |
+| `checkpoint` | Whitelist | `""`, `post-plan`, `post-research`, `post-o1`, `post-o2`, `post-o3`, `mid-exec`, `post-exec`, `quick`, `full`, `step-N`, `dependency-blocked`, `no-accept` |
 | `iteration` | Integer | ≥ 0 |
 | `compaction_count` | Integer | ≥ 0 |
 | `timestamp` | Format check | ISO 8601 |
@@ -182,7 +182,7 @@ Terminal: merge conflict → (stop, status stays executing — retryable)
 The auto skill runs this loop within a single Claude session:
 
 ```
-1. Read .index.json → determine entry point (status-based routing)
+1. Read .index.json → determine entry point (status-based routing). For `draft` status: also read `.target.md` to detect `## Research Insights` presence and `[PROPOSED]` residuals before routing
 2. LOOP:
    a. Check for .auto-stop file → if exists, break loop
    b. Context check: if context window usage ≥ 70%, run /compact to compress context
@@ -206,7 +206,7 @@ The auto skill runs this loop within a single Claude session:
 
 | Current Status | First Step |
 |----------------|-----------|
-| `draft` | Validate `.target.md` has substantive content (not just template placeholders) → if empty, stop and report "fill `.target.md` first". Otherwise execute plan (generate mode) |
+| `draft` | Validate `.target.md` has substantive content → if empty, stop and report "fill `.target.md` first". Then check `.target.md` structural markers: **if `[PROPOSED]` markers present** → PAUSE with "Pending `[PROPOSED]` items — review and confirm before continuing"; **if `## Research Insights` section is absent or incomplete** (no `### Proposed Requirements`) → run `research --caller target --phase objective` (research detects the current O-stage internally and returns the appropriate signal; auto routes via the Result-Based Routing table below); **if `## Research Insights` is complete but no `### Proposed Requirements`** → run `research --caller target --phase requirements`; **if requirements present and no `[PROPOSED]` residuals** → execute plan (generate mode) |
 | `planning` | Execute verify → check (post-plan) |
 | `review` | Execute exec |
 | `executing` | Execute verify → check (post-exec). **Note**: even if `completed_steps` < total, auto enters via post-exec verification first — check detects incomplete work and routes back to exec via NEEDS_FIX, adding one extra iteration. This avoids re-parsing `.plan.md` to count total steps at entry |
@@ -238,7 +238,12 @@ After each step, Claude evaluates the result and determines the next step intern
 | exec | (blocked) | (stop) | — | Cannot continue |
 | merge | success | report | — | Merge complete, generate report |
 | merge | conflict | (stop) | — | Merge conflict unresolvable |
+| merge | rejected | (stop) | dependency-blocked / no-accept | Prerequisite not met (dependency or missing ACCEPT verdict) |
 | research | (collected)/(sufficient) | `<caller>` (plan/verify/check/exec) | post-research | References collected, resume calling phase |
+| research | (o1-collected) | (stop) | post-o1 | O1 background research done, wait for user confirmation |
+| research | (o2-collected) | (stop) | post-o2 | O2 feasibility analysis done, wait for user confirmation |
+| research | (o3-collected) | (stop) | post-o3 | O3 refined objective done, wait for user confirmation |
+| research | (objective-complete) | (stop) | — | All O-stages confirmed, suggest --phase requirements |
 | verify | (pass/fail/partial) | check | (from trigger context) | Verification done, check renders verdict. Auto loop uses the **triggering context** to determine check checkpoint: plan→post-plan, exec(done)→post-exec, exec(mid-exec)→mid-exec |
 | annotate | (processed) | verify | post-plan | Annotations processed, verify then assess |
 | report | (any) | (stop) | — | Loop complete |
@@ -289,7 +294,7 @@ Auto mode inherits git behavior from each sub-command it invokes. No additional 
 
 ## Notes
 
-- Auto mode starts with a single `claude "/moonview:auto <module>"` CLI invocation; all subsequent steps execute within that same session
+- Auto mode starts with a single `claude "/moonview:auto <notebook_name>"` CLI invocation; all subsequent steps execute within that same session
 - The daemon's only active intervention is writing `.auto-stop`; all other daemon activity is passive monitoring
 - `.auto-signal` and `.auto-stop` are transient files — should be in `.gitignore`
 - The daemon logs all signal events and stall detections to server console for debugging

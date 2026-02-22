@@ -8,129 +8,145 @@
 
 ## 插件
 
-### ai-cli-task
+### ai-cli-task (v0.5.0)
 
-结构化任务生命周期管理，包含 13 个子命令。Git 集成的 branch-per-task 工作流，支持 worktree 并行执行、批注驱动的规划，以及自主执行循环。
-
-```
-/ai-cli-task:<subcommand> [args]
-```
-
-#### 子命令
-
-| 命令 | 说明 |
-|------|------|
-| `init` | 创建任务模块 — 目录、`.index.json`、git 分支、可选 worktree |
-| `plan` | 从 `.target.md` 生成实施计划 |
-| `research` | 为所有生命周期阶段（plan/verify/check/exec）收集领域知识 |
-| `check` | 3 个检查点的决策门：post-plan、mid-exec、post-exec |
-| `verify` | 运行领域适配的测试/验证，产出结果文件 |
-| `exec` | 按步骤执行计划，每步验证 |
-| `merge` | 合并任务分支到 main，冲突解决（最多 3 次重试） |
-| `report` | 生成完成报告 + 提炼经验到知识库 |
-| `auto` | 自主循环：plan → verify → check → exec → merge → report |
-| `cancel` | 取消任务，可选清理 worktree 和分支 |
-| `list` | 查询任务状态与依赖关系（只读） |
-| `annotate` | 处理 Plan 面板批注（从 plan 分离） |
-| `summarize` | 重建 `.summary.md` 上下文摘要 |
-
-#### 任务生命周期
+结构化任务生命周期管理，包含 **14 个技能**，面向 AI 驱动开发。Git 集成的 branch-per-task 工作流，支持项目/笔记本层级、领域感知验证、知识库和自主执行。
 
 ```
-init → plan → verify → check → exec → verify → check(mid) → exec → verify → check(post) → merge → report
-  research↗      ↑                 ↓                                    ↓
-                re-plan ←──────────┴────────────────────────────────────┘（遇到问题时）
+/moonview:ai-cli-task <subcommand> [args]
 ```
 
-每个任务存放在 `AiTasks/<module>/` 目录中，包含结构化元数据，运行在独立的 `task/<module>` git 分支上。
+## 生命周期
 
-#### 特性
+```
+init → research(target) → plan → research(test) → verify → check → exec → merge → report
+            ↑                ↑         ↑              ↑       ↑       ↑
+            └──────────────── research 可在任意阶段独立调用 ────────────┘
+```
 
-- **状态机** — 8 个状态（draft/planning/review/executing/re-planning/complete/blocked/cancelled），经过验证的转换规则，无死锁
-- **Git 集成** — branch-per-task，worktree 隔离实现并行执行
-- **批注驱动** — 前端 Plan 面板批注（插入/删除/替换/评注）处理为计划更新
-- **Auto 模式** — 单会话自主编排，支持停滞检测、上下文配额管理和安全限制
-- **类型自动发现** — 任务类型由 `research` 根据 `.target.md` + 网络搜索自动识别，init 时无需用户指定
-- **混合类型** — 跨领域任务使用 `A|B` 管道分隔格式（如 `data-pipeline|ml`），所有阶段同时适配多个领域
-- **类型自动扩充** — `AiTasks/.type-registry.md` 随 `research` 发现新领域自动增长；19 个种子类型，无限扩展
-- **动态类型画像** — 每个任务的 `.type-profile.md` 记录领域方法论、验证标准和实现模式，跨所有阶段持续精炼
-- **共享类型画像** — `AiTasks/.type-profiles/` 为所有类型（种子和新发现的）积累跨任务领域智能，消除重复的网络研究
-- **Per-type 种子文件** — 14 个自包含种子文件（每类型一个），包含 plan/verify/check/exec 四阶段的 Phase Intelligence，结构与 `.type-profile.md` 对齐
-- **全生命周期研究** — `research` 通过 `--caller` 参数服务所有阶段（plan/verify/check/exec），按阶段定向收集
-- **经验知识库** — 已完成任务的经验提炼到 `AiTasks/.experiences/`，支持跨任务学习
-- **参考资料库** — 研究阶段收集的外部领域知识存放在 `AiTasks/.references/`
-- **并发保护** — 基于锁文件的互斥，支持过期锁恢复
+辅助命令（随时可用）：`auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
+
+### 技能（14 个）
+
+| 技能 | 层级 | 说明 |
+|------|------|------|
+| `init` | light | 创建笔记本 — 目录、`.index.json`、git 分支、可选 worktree |
+| `research` | medium | 情报官 — 目标深化、参考收集、类型发现 |
+| `plan` | heavy | 从 `.target.md` 生成实施计划，采用领域适配方法论 |
+| `verify` | medium | 运行领域适配测试，生成结果文件 |
+| `check` | heavy | 六视角审计：post-plan、mid-exec、post-exec 三个检查点 |
+| `exec` | heavy | 按步骤执行计划，每步验证 |
+| `merge` | medium | 合并任务分支到 main，冲突解决（最多 3 次重试） |
+| `report` | medium | 生成完成报告，提炼经验到知识库 |
+| `auto` | heavy | 自主循环：plan → verify → check → exec → merge → report |
+| `cancel` | light | 取消任务，可选清理 worktree 和分支 |
+| `list` | light | 查询任务状态、依赖图、状态时间线（只读） |
+| `annotate` | medium | 处理 Plan 面板批注（插入/删除/替换/评注） |
+| `summarize` | light | 重建 `.summary.md` 上下文摘要 |
+| `library` | light | 知识库管理（search / list / status / maintain） |
+
+### 状态机
+
+```
+draft → planning → review → executing → complete
+                 ↗            ↘
+          re-planning    ←    blocked
+```
+
+8 个状态，经过验证的转换规则。终态：`complete`、`cancelled`。
+
+## 特性
+
+- **项目层级** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` 两级组织结构
+- **14 个技能** — 从 init 到 report 的完整生命周期，加辅助命令
+- **领域感知** — 19 个种子类型（software、science:\*、image-processing、video-production、DSP、literary、screenwriting、mechatronics、chip-design 等），支持自动发现和混合类型（`data-pipeline|ml`）
+- **知识库** — `.library/.memory/` 存储跨任务经验、外部参考、类型方法论和思维模式
+- **Git 集成** — branch-per-task，worktree 隔离实现并行执行，结构化提交信息
+- **批注驱动** — 前端 Plan 面板批注处理为计划更新
+- **Auto 模式** — 单会话自主编排，支持停滞检测、上下文配额、插件委托
+- **六视角审计** — check 从 6 个独立视角评估计划和实施
+- **研究情报** — 每个阶段都可独立调用，用于领域知识、需求深化、测试方法论
+- **并发保护** — 基于锁文件的互斥，6 级锁优先级排序，过期锁恢复
 
 ## 安装
 
 ```bash
-# 添加 marketplace 源
-/plugin marketplace add huacheng/moonview
-
-# 安装插件
-/plugin install ai-cli-task@moonview
+# 从市场安装
+claude plugin add huacheng/moonview
 ```
 
 ## 快速开始
 
 ```bash
-# 1. 初始化任务（类型自动发现，无需 --type）
-/ai-cli-task:init auth-refactor --title "重构认证为 JWT"
+# 1. 在项目下初始化笔记本
+/moonview:ai-cli-task init my-project auth-refactor --title "重构认证为 JWT"
 
-# 2. 在 AiTasks/auth-refactor/.target.md 中编写需求，然后生成计划
-/ai-cli-task:plan auth-refactor --generate
+# 2. 在 .target.md 中编写需求，然后让 research 深化
+/moonview:research my-project/auth-refactor --caller target
 
-# 3. 验证并审查计划质量
-/ai-cli-task:verify auth-refactor --checkpoint quick
-/ai-cli-task:check auth-refactor --checkpoint post-plan
+# 3. 生成计划
+/moonview:plan auth-refactor --generate
 
-# 4. 执行计划
-/ai-cli-task:exec auth-refactor
+# 4. 验证 → 审查计划质量
+/moonview:verify auth-refactor
+/moonview:check auth-refactor --checkpoint post-plan
 
-# 5. 验证并评估完成情况
-/ai-cli-task:verify auth-refactor --checkpoint full
-/ai-cli-task:check auth-refactor --checkpoint post-exec
+# 5. 执行计划
+/moonview:exec auth-refactor
 
-# 6. 合并到 main
-/ai-cli-task:merge auth-refactor
-
-# 7. 生成报告
-/ai-cli-task:report auth-refactor
+# 6. 合并到 main + 生成报告
+/moonview:merge auth-refactor
+/moonview:report auth-refactor
 
 # 或者自动运行完整生命周期：
-/ai-cli-task:auto auth-refactor --start
+/moonview:auto auth-refactor --start
 ```
 
-## AiTasks/ 目录结构
+## 目录结构
 
 ```
-AiTasks/
-├── .index.json                # 根索引（任务模块列表）
-├── .type-registry.md          # 自动扩充类型注册表（种子 + 发现的类型）
-├── .experiences/              # 跨任务知识库（按领域类型分类）
-│   ├── .summary.md            # 经验文件索引
-│   └── <type>.md
-├── .references/               # 外部参考资料（按主题分类）
-│   ├── .summary.md            # 参考文件索引
-│   └── <topic>.md
-├── .type-profiles/            # 共享类型画像（跨任务，所有类型）
-│   └── <type>.md              # 领域方法论、验证标准、实现模式
-└── <module>/
-    ├── .index.json            # 任务元数据（状态、阶段、类型、时间戳、依赖）
-    ├── .target.md             # 需求目标（人工编写）
-    ├── .type-profile.md       # 领域方法论画像（自动发现、持续精炼）
-    ├── .plan.md               # 实施计划
-    ├── .summary.md            # 压缩上下文摘要
-    ├── .report.md             # 完成报告
-    ├── .analysis/             # 评估历史
-    ├── .test/                 # 测试标准与结果
-    ├── .bugfix/               # 问题历史
-    └── .notes/                # 研究笔记
+$NB_WORKSPACES_ROOT/
+│
+├── .library/                          # 共享知识库
+│   ├── .changelog                     # 追加写入日志
+│   ├── .master-index.md               # 所有库文件扁平索引
+│   ├── .type-registry.md              # 类型注册表（种子 + 自动扩展）
+│   └── .memory/                       # 系统管理知识库
+│       ├── .type-profiles/            # 共享领域方法论
+│       ├── .experiences/              # 跨任务经验（按类型分类）
+│       ├── .references/               # 外部参考资料（版本化）
+│       └── .thinking/                 # Thinking CoT 原始记录 + 蒸馏模式
+│
+├── project-a/
+│   ├── .index.json                    # 项目元数据
+│   ├── notebook-1/
+│   │   └── .working/                  # 任务状态文件（系统管理）
+│   │       ├── .index.json            # 任务元数据（status/phase/type）
+│   │       ├── .target.md             # 需求目标（人工编写）
+│   │       ├── .plan.md               # 实施计划
+│   │       ├── .type-profile.md       # 领域方法论（任务级）
+│   │       ├── .summary.md            # 压缩上下文摘要
+│   │       ├── .analysis/             # check 评估历史
+│   │       ├── .test/                 # 测试准则与结果
+│   │       ├── .bugfix/               # 问题修复历史
+│   │       └── .notes/                # 研究笔记与执行日志
+│   └── notebook-2/
+│       └── ...
+│
+└── project-b/
+    └── ...
 ```
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `NB_WORKSPACES_ROOT` | `/home/user/nb-workspaces` | 所有项目和笔记本的根目录 |
+| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` | 共享知识库目录 |
 
 ## 相关项目
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Claude Code 网页终端，包含 Plan 批注面板和 Chat 编辑器
+- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Claude Code 网页界面，包含 Plan 批注面板和 Chat 编辑器
 
 ## 许可证
 

@@ -33,7 +33,7 @@ Match the current context against the 6 named slots above (`doc-parse` through `
 
 ### Level 2: Registry Lookup
 
-Read `AiTasks/.plugin-registry.md` if it exists. Check if a previously discovered capability slot matches the current context. Registry entries include the last-matched plugin name — try that plugin first for faster resolution.
+Read `$NB_WORKSPACES_LIBRARY/.plugin-registry.md` if it exists. Check if a previously discovered capability slot matches the current context. Registry entries include the last-matched plugin name — try that plugin first for faster resolution.
 
 **Stale entry detection**: Before invoking a registry-recommended plugin, verify it exists in the current available skill/tool list. If the plugin is no longer available (uninstalled/renamed), mark the entry as `(stale)` in the `Last Matched Plugin` column. After 3 cumulative stale detections for the same entry (across any tasks), remove the row from the registry. This prevents accumulation of entries for uninstalled plugins while tolerating transient unavailability.
 
@@ -44,7 +44,7 @@ If no seed slot matched AND no registry entry matched, perform a broad semantic 
 2. Scan all available plugins/tools for semantic relevance
 3. If a match is found with confidence >= medium:
    - Invoke via Task subagent (see invocation template below)
-   - **Register** the new capability as a named slot in `AiTasks/.plugin-registry.md`
+   - **Register** the new capability as a named slot in `$NB_WORKSPACES_LIBRARY/.plugin-registry.md`
    - New slot name: `domain-<kebab-case-description>` (e.g., `domain-audio-mastering`)
 
 ### Discovery Result
@@ -59,7 +59,7 @@ If no seed slot matched AND no registry entry matched, perform a broad semantic 
 
 ## Runtime Capability Registry
 
-File: `AiTasks/.plugin-registry.md`
+File: `$NB_WORKSPACES_LIBRARY/.plugin-registry.md`
 
 Created on first successful delegation. Updated on each new capability discovery. Shared across all task modules.
 
@@ -73,9 +73,9 @@ Created on first successful delegation. Updated on each new capability discovery
 | domain-audio-mastering | Audio loudness and EQ optimization | exec | dsp | example-audio-master | 2024-01-22 |
 ```
 
-**Write protection**: Acquire `AiTasks/.references/.lock` before writing. Reuses the existing references lock to avoid proliferating lock files — the registry is a lightweight companion to `.references/`.
+**Write protection**: Acquire `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` before writing. Reuses the existing references lock to avoid proliferating lock files — the registry is a lightweight companion to `.memory/.references/`.
 
-**Re-entrancy rule**: If the calling skill already holds `AiTasks/.references/.lock` (e.g., `research` during steps 11-14), the registry update MUST be batched — accumulate pending registry writes in memory and flush them before releasing the existing lock. Do NOT attempt a second lock acquisition (same-process re-entrant acquire would self-REJECT). Skills that do NOT hold the references lock (e.g., `exec`, `check`, `verify`) acquire the lock normally for registry writes.
+**Re-entrancy rule**: If the calling skill already holds `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` (e.g., `research` during steps 11-14), the registry update MUST be batched — accumulate pending registry writes in memory and flush them before releasing the existing lock. Do NOT attempt a second lock acquisition (same-process re-entrant acquire would self-REJECT). Skills that do NOT hold the references lock (e.g., `exec`, `check`, `verify`) acquire the lock normally for registry writes.
 
 ## Task Subagent Invocation Template
 
@@ -166,8 +166,8 @@ Delegation results (both successes and failures) are persisted for traceability:
 
 | Outcome | File | Content |
 |---------|------|---------|
-| Success | `AiTasks/<module>/.notes/<YYYY-MM-DD>-delegate-<slot>.md` | Slot, plugin, findings, action items, confidence |
-| Failure | `AiTasks/<module>/.notes/<YYYY-MM-DD>-delegate-<slot>-failed.md` | Slot, plugin (if identified), error description |
+| Success | `.working/.notes/<YYYY-MM-DD>-delegate-<slot>.md` | Slot, plugin, findings, action items, confidence |
+| Failure | `.working/.notes/<YYYY-MM-DD>-delegate-<slot>-failed.md` | Slot, plugin (if identified), error description |
 
 After writing, update `.notes/.summary.md` per standard protocol.
 

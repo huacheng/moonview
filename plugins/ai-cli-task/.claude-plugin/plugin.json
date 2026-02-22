@@ -1,9 +1,0 @@
-{
-  "name": "moonview",
-  "version": "0.3.9",
-  "description": "Task lifecycle management for Claude Code",
-  "author": {
-    "name": "huacheng"
-  },
-  "license": "MIT"
-}

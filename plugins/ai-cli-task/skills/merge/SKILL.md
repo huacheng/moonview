@@ -4,8 +4,8 @@ description: "Merge completed task branch to main — with conflict resolution, 
 model_tier: medium
 auto_delegatable: false
 arguments:
-  - name: task_module
-    description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
+  - name: notebook
+    description: "Notebook name (e.g., auth-refactor)"
     required: true
 ---
 
@@ -16,21 +16,21 @@ Merge a completed task's branch into main, with automated conflict resolution an
 ## Usage
 
 ```
-/moonview:merge <task_module_path>
+/moonview:merge <notebook_name>
 ```
 
 ## Prerequisites
 
 - Task status must be `executing`
 - Latest `.analysis/` file must contain an ACCEPT verdict (from `check --checkpoint post-exec`)
-- **Dependency gate**: All `depends_on` modules must meet their required status — simple string entries require `complete`, extended `{ module, min_status }` entries require at-or-past `min_status` (see depends_on Format in `commands/ai-cli-task.md`). If any dependency is not met, merge REJECTS with error listing blocking dependencies and their current statuses
+- **Dependency gate**: All `depends_on` modules must meet their required status — simple string entries require `complete`, extended `{ module, min_status }` entries require at-or-past `min_status` (see depends_on Format in `commands/task-ai.md`). If any dependency is not met, merge REJECTS with error listing blocking dependencies and their current statuses
 
 ## Merge Strategy
 
 ### Phase 1: Pre-Merge Refactoring
 
 1. **Review** code changes on task branch for cleanup opportunities (dead code, naming, duplication)
-2. **Commit** cleanup: `ai-cli-task(<module>):refactor cleanup before merge`
+2. **Commit** cleanup: `ai-cli-task(<notebook>):refactor cleanup before merge`
 
 ### Phase 2: Merge Attempt
 
@@ -38,7 +38,7 @@ Merge a completed task's branch into main, with automated conflict resolution an
 2. **Checkout main** (non-worktree) or already on main (worktree, from main worktree)
 3. **Attempt merge**:
    ```bash
-   git merge task/<module> --no-ff -m "ai-cli-task(<module>):merge merge completed task"
+   git merge task/<notebook> --no-ff -m "ai-cli-task(<notebook>):merge merge completed task"
    ```
 
 ### Phase 3: Conflict Resolution (if merge fails)
@@ -56,11 +56,12 @@ If merge conflict detected:
 
 On successful merge:
 
-1. **Update** `.index.json` status → `complete`, clear `branch` to `""` (branch will be deleted), update timestamp
+1. **Update** `.index.json` status → `complete`, update timestamp — retain `branch` and `worktree` values (needed for cleanup in steps 4–5)
 2. **Write** `.summary.md` with final task summary: completion status, plan overview, key changes, verification outcome, lessons learned (integrate from directory summaries)
-3. **Git commit** state FIRST: `ai-cli-task(<module>):merge task completed` — commit state changes before any destructive cleanup, so status is persisted even if cleanup fails
+3. **Git commit** state FIRST: `ai-cli-task(<notebook>):merge task completed` — commit state changes before any destructive cleanup, so status is persisted even if cleanup fails
 4. **If worktree exists**: `git worktree remove .worktrees/task-<module>` (failure is non-fatal — log warning, continue)
-5. **Delete** merged branch: `git branch -d task/<module>` (failure is non-fatal — branch may already be deleted or have extra commits; log warning, continue)
+5. **Delete** merged branch: `git branch -d task/<notebook>` (failure is non-fatal — branch may already be deleted or have extra commits; log warning, continue)
+6. **Clear** `branch` to `""` and `worktree` to `""` in `.index.json` (atomic write), git commit: `ai-cli-task(<notebook>):merge cleanup branch metadata`
 
 ## Execution Steps
 
@@ -75,8 +76,8 @@ On successful merge:
    b. Attempt resolution (up to 3 tries)
    c. Each resolution: fix conflicts → verify (build + test) → if pass commit, if fail abort and retry
    d. If all 3 attempts fail → stay `executing`, abort merge, report unresolvable conflicts
-8. **Phase 4**: Post-merge cleanup (status update → `complete`, write `.summary.md`, git commit state FIRST, then worktree removal + branch deletion — cleanup failures are non-fatal)
-9. **Write** `.auto-signal` to the **main worktree's** `AiTasks/<module>/` directory (NOT the task worktree's copy) — MUST be written AFTER Phase 4 status update to `complete`, so the daemon reads correct status when routing to `report`. In worktree mode, the task directory exists in both locations; writing to main ensures the signal survives worktree removal. The daemon's `fs.watch` MUST monitor the main worktree path. **Resolve main worktree path**: read `.git` file in task worktree → extract `gitdir` → resolve to main worktree root. Or use `git -C <main-repo> rev-parse --show-toplevel`
+8. **Phase 4**: Post-merge cleanup (status → `complete` with branch retained, write `.summary.md`, git commit state FIRST, then worktree removal + branch deletion — cleanup failures are non-fatal — finally clear `branch`/`worktree` fields and commit metadata cleanup)
+9. **Write** `.auto-signal` to the **main worktree's** `$NB_WORKSPACES_ROOT/<project>/<notebook_name>/.working/` directory (NOT the task worktree's copy) — MUST be written AFTER Phase 4 status update to `complete`, so the daemon reads correct status when routing to `report`. In worktree mode, the task directory exists in both locations; writing to main ensures the signal survives worktree removal. The daemon's `fs.watch` MUST monitor the main worktree path. **Resolve main worktree path**: read `.git` file in task worktree → extract `gitdir` → resolve to main worktree root. Or use `git -C <main-repo> rev-parse --show-toplevel`
 10. **Report** merge result
 
 ## State Transitions
@@ -90,10 +91,11 @@ On successful merge:
 
 | Action | Commit Message |
 |--------|---------------|
-| Pre-merge cleanup | `ai-cli-task(<module>):refactor cleanup before merge` |
-| Merge commit | `ai-cli-task(<module>):merge merge completed task` |
-| Conflict resolution | `ai-cli-task(<module>):merge resolve merge conflict` |
-| State update | `ai-cli-task(<module>):merge task completed` |
+| Pre-merge cleanup | `ai-cli-task(<notebook>):refactor cleanup before merge` |
+| Merge commit | `ai-cli-task(<notebook>):merge merge completed task` |
+| Conflict resolution | `ai-cli-task(<notebook>):merge resolve merge conflict` |
+| State update | `ai-cli-task(<notebook>):merge task completed` |
+| Metadata cleanup | `ai-cli-task(<notebook>):merge cleanup branch metadata` |
 
 ## .auto-signal
 
@@ -101,6 +103,8 @@ On successful merge:
 |--------|--------|
 | Success | `{ "step": "merge", "result": "success", "next": "report", "checkpoint": "", "timestamp": "..." }` |
 | Conflict | `{ "step": "merge", "result": "conflict", "next": "(stop)", "checkpoint": "", "timestamp": "..." }` |
+| Dependency not met | `{ "step": "merge", "result": "rejected", "next": "(stop)", "checkpoint": "dependency-blocked", "timestamp": "..." }` |
+| No ACCEPT verdict | `{ "step": "merge", "result": "rejected", "next": "(stop)", "checkpoint": "no-accept", "timestamp": "..." }` |
 
 ## Notes
 
@@ -110,5 +114,5 @@ On successful merge:
 - On merge failure, status stays `executing` (not `blocked`) so merge can be retried. The user should manually resolve conflicts and then run `/moonview:merge` again
 - After manual resolution, if the user has already merged manually, they can update `.index.json` status to `complete` directly
 - Pre-merge refactoring is optional — if no cleanup needed, skip directly to merge
-- **Worktree signal race prevention**: In worktree mode, `.auto-signal` is written to the main worktree's `AiTasks/<module>/` path (not the task worktree), ensuring the daemon can read it after worktree removal. The daemon MUST watch the main worktree path for all signal files
-- **Concurrency**: Merge acquires `AiTasks/<module>/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
+- **Worktree signal race prevention**: In worktree mode, `.auto-signal` is written to the main worktree's `$NB_WORKSPACES_ROOT/<project>/<notebook_name>/.working/` path (not the task worktree), ensuring the daemon can read it after worktree removal. The daemon MUST watch the main worktree path for all signal files
+- **Concurrency**: Merge acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)

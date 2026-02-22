@@ -11,7 +11,7 @@ Supports two formats — simple string (require `complete`) and object (custom m
 }
 ```
 
-Simple string `"auth-refactor"` → `AiTasks/auth-refactor`, requires status `complete`.
+Simple string `"auth-refactor"` → notebook `auth-refactor`, requires status `complete`.
 
 Extended object `{ "module", "min_status" }` → requires the dependency to be at **or past** `min_status` in the state machine progression: `draft` < `planning` < `review` < `executing` < `complete`. Status `blocked`, `re-planning`, `cancelled` do not satisfy any `min_status`.
 

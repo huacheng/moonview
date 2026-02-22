@@ -4,8 +4,8 @@ description: "Generate a completion report for a finished task module. Triggered
 model_tier: medium
 auto_delegatable: true
 arguments:
-  - name: task_module
-    description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
+  - name: notebook
+    description: "Notebook name (e.g., auth-refactor)"
     required: true
   - name: format
     description: "Report format: full (default) or summary"
@@ -20,7 +20,7 @@ Generate a structured completion report for a task module, documenting what was 
 ## Usage
 
 ```
-/moonview:report <task_module_path> [--format full|summary]
+/moonview:report <notebook_name> [--format full|summary]
 ```
 
 ## Prerequisites
@@ -75,7 +75,7 @@ Compact single-section report with: status, objective (1 line), key changes (bul
 
 ## Output
 
-The report is written to `AiTasks/<module_name>/.report.md` and also printed to screen.
+The report is written to `[deliverables-dir]/.report.md` (the notebook's deliverables directory, not `.working/`) and also printed to screen.
 
 ## Execution Steps
 
@@ -91,11 +91,21 @@ The report is written to `AiTasks/<module_name>/.report.md` and also printed to 
 10. **Collect** git changes related to the task (if identifiable)
 11. **Compose** report in requested format
 12. **Write** to `.report.md`
-13. **Distill experience**: If task status is `complete` and `type` is non-empty, validate each pipe-separated segment matches `[a-zA-Z0-9_:-]+`. **Directory-safe transform**: replace `:` with `-` in segment when used as directory name (e.g., `science:astro` → `science-astro`); original type value in `.index.json` is unchanged. Extract key learnings for **each** segment (e.g., type `data-pipeline|ml` → write to both `data-pipeline/` and `ml/`). Acquire `AiTasks/.experiences/.lock` before writing (see Concurrency Protection in `commands/ai-cli-task.md`). For each segment: (a) create `AiTasks/.experiences/<segment>/` directory if not exists; (b) write `AiTasks/.experiences/<segment>/<module>.md` containing: what worked, what didn't, key decisions, tools/patterns discovered; (c) overwrite `AiTasks/.experiences/<segment>/.summary.md` — condensed summary of all entries in that type directory (distilled key patterns + entry index table with module, date, key learnings). Then overwrite top-level `AiTasks/.experiences/.summary.md` — index of all type directories (type, task count, keywords, last updated). Release lock after write
-14. **Sync shared type profile**: If `.type-profile.md` exists, merge refined profile back to `AiTasks/.type-profiles/<primary-type>.md` for ALL types (seed and discovered alike — shared profiles accumulate cross-task intelligence that static tables cannot). Apply directory-safe transform: replace `:` with `-` in type when used as filename (e.g., `science:astro` → `science-astro`). Acquire `AiTasks/.type-profiles/.lock` before writing. If shared profile already exists, update sections that have higher-confidence info (check refinement log dates). Append task's refinement log entries. Release lock after write
-15. **Git commit**: `ai-cli-task(<module>):report generate completion report`
-16. **Write** `.auto-signal`: `{ "step": "report", "result": "(generated)", "next": "(stop)", "checkpoint": "", "timestamp": "..." }`
-17. **Print** report to screen
+13. **Distill experience**: If task status is `complete` and `type` is non-empty, follow the **Library Write Protocol** (`library/SKILL.md`). Validate each pipe-separated segment matches `[a-zA-Z0-9_:-]+`. **Directory-safe transform**: replace `:` with `-` in segment when used as directory name. Extract key learnings for **each** segment (type `data-pipeline|ml` → write to both directories). Steps:
+    - (a) `mkdir -p $NB_WORKSPACES_LIBRARY/.memory/.experiences/<segment>/`
+    - (b) Acquire `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.lock`
+    - (c) Write `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<segment>/<notebook>-complete.md` (overwrite; `.tmp → rename`): what worked, what didn't, key decisions, tools/patterns discovered; frontmatter includes `quality_status: verified`, `completeness: complete`
+    - (d) Acquire `.changelog.lock` → append one line per segment written: `<timestamp> | experience | .memory/.experiences/<segment>/<notebook>-complete.md | quality_status:verified` → release `.changelog.lock`
+    - (e) Update `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<segment>/.index.md` (overwrite matching row or append new row for this notebook)
+    - (f) Overwrite `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<segment>/.summary.md` (distilled patterns + entry index table)
+    - (g) Overwrite top-level `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.summary.md` (all type directories index)
+    - (h) Release `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.lock`
+14. **Distill thinking patterns**: Read `.memory/.thinking/raw/<notebook>-*.md` files (glob); filter to entries with `quality.thinking: H`. For each identified reasoning pattern: acquire `$NB_WORKSPACES_LIBRARY/.memory/.thinking/patterns/.lock` → write/update `.memory/.thinking/patterns/<problem-type>.md` (overwrite; `.tmp → rename`) → append changelog line (`<timestamp> | pattern | .memory/.thinking/patterns/<problem-type>.md | source:<notebook>`) → update `.memory/.thinking/patterns/.index.md` (state: `draft` if new, `active` if already used) → release lock. **Batch update** `failure_count`: scan this task's git history for REPLAN commits (`git log --grep="REPLAN"`); for each REPLAN, if `.plan.md` at that commit referenced a pattern, increment that pattern's `failure_count` in its frontmatter (overwrite with `.tmp → rename`).
+15. **Sync shared type profile**: If `.type-profile.md` exists, merge refined profile back to `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<primary-type>.md` for ALL types. Apply directory-safe transform. Acquire `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` before writing. If shared profile already exists, update sections with higher-confidence info (check refinement log dates); append task's refinement log entries. Append changelog line: `<timestamp> | type-profile | .memory/.type-profiles/<type>.md | source:<notebook>`. Update `.memory/.type-profiles/.index.md`. Release lock after write.
+16. **Git commit**: `ai-cli-task(<notebook>):report generate completion report`
+17. **Write** `.auto-signal`: `{ "step": "report", "result": "(generated)", "next": "(stop)", "checkpoint": "", "timestamp": "..." }`
+18. **Lightweight maintain**: Call `library maintain --compact` (compact-threshold check only — no I/O unless `.changelog` exceeds 2000-line threshold). This runs **after** `.auto-signal` is written so the automation loop advances first.
+19. **Print** report to screen
 
 **Note**: Report is a terminal step — it reads ALL history files (not just latest) to produce a comprehensive record. `.summary.md` is used as an overview, not a replacement for full history in report context.
 
@@ -105,7 +115,7 @@ No status change — report generation is informational. The task must already b
 
 ## Git
 
-- `ai-cli-task(<module>):report generate completion report`
+- `ai-cli-task(<notebook>):report generate completion report`
 
 ## .auto-signal
 
@@ -119,5 +129,5 @@ Report is always a terminal step — `next` is always `(stop)`.
 - For `blocked` tasks, the report documents what was completed and what blocks remain
 - For `cancelled` tasks, the report documents the reason for cancellation
 - The report serves as a permanent record even after task files are archived
-- For `complete` tasks, report includes change history via `git log --oneline --all --fixed-strings --grep="ai-cli-task(<module>)"` (uses `--fixed-strings` to avoid regex interpretation of parentheses; works even after task branch deletion)
-- **Concurrency**: Report acquires `AiTasks/<module>/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
+- For `complete` tasks, report includes change history via `git log --oneline --all --fixed-strings --grep="ai-cli-task(<notebook>)"` (uses `--fixed-strings` to avoid regex interpretation of parentheses; works even after task branch deletion)
+- **Concurrency**: Report acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)

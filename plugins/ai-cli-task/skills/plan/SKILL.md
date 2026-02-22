@@ -4,8 +4,8 @@ description: "Generate implementation plans for a task module. Triggered after i
 model_tier: heavy
 auto_delegatable: false
 arguments:
-  - name: task_module
-    description: "Task module name (e.g., auth-refactor)"
+  - name: notebook
+    description: "Notebook name (e.g., auth-refactor)"
     required: true
   - name: generate
     description: "Generate or regenerate the implementation plan (flag, no value). Default behavior when invoked — the flag exists for explicitness in auto mode commands"
@@ -19,7 +19,7 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 ## Usage
 
 ```
-/moonview:plan <task_module> [--generate]
+/moonview:plan <notebook_name> [--generate]
 ```
 
 `--generate` is the default behavior — the flag exists for explicitness when invoked from auto mode or scripts. Omitting it has the same effect.
@@ -28,7 +28,10 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 
 1. Read `.target.md` for requirements
 2. **Invoke research** (which handles type discovery): Delegate reference collection AND type determination to the `research` sub-command. **Invocation method**: in auto mode, Read `skills/research/SKILL.md` and execute its numbered steps inline (skipping its `.auto-signal` write — auto loop handles it). In manual/standalone mode, use Skill tool to invoke `/moonview:research`. See `skills/research/SKILL.md` and `references/type-profiling.md` for details:
-   - **First plan** (status `draft`/`planning`, no existing `.plan.md`): invoke research with `--scope full --caller plan` — research will analyze `.target.md`, validate/override any user-specified type, detect hybrid domains, build `.type-profile.md`, and collect comprehensive references
+   - **First plan** (status `draft`/`planning`, no existing `.plan.md`):
+     - Check if `.target.md` contains `## Research Insights` section (indicates `research --caller target` was already run)
+     - **If `## Research Insights` present**: invoke research with `--scope gap --caller plan` — target research already provided comprehensive coverage, only fill plan-specific gaps
+     - **If no `## Research Insights`**: invoke research with `--scope full --caller plan` — full collection (backward compatible, works when user skips target research)
    - **Re-plan** (status `re-planning`/`review`/`executing`): invoke research with `--scope gap --caller plan` — incremental type refinement and reference collection
 3. **Read** `.type-profile.md` — research has created or updated this. Verify the type classification makes sense in context. If plan disagrees with research's classification, update `.type-profile.md` with rationale and adjust `type` in `.index.json`
 4. Validate type value: each pipe-separated segment matches `[a-zA-Z0-9_:-]+`, full field matches `[a-zA-Z0-9_:|-]+`. Ensure `type` in `.index.json` is set
@@ -36,23 +39,25 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 6. Read `.analysis/` latest file only if exists (address check feedback from NEEDS_REVISION)
 7. Read `.bugfix/` latest file only if exists (address most recent mid-exec issue from REPLAN)
 8. Read `.test/` latest criteria and results files if exists (incorporate lessons learned)
-9. Read `AiTasks/.experiences/<type>/.summary.md` if exists — condensed cross-task experience from completed tasks of the same domain type (apply directory-safe transform: `:` → `-` in type for directory name, e.g., `science:astro` → `science-astro`). For hybrid types (`A|B`), read summary files for **all** pipe-separated segments. If summary references specific entries relevant to current task, read those `AiTasks/.experiences/<type>/<module>.md` files for detail
-10. **Read** `AiTasks/.references/.summary.md` if exists — find relevant external reference files by keyword matching against task requirements. Read matched `.references/<topic>.md` files for domain knowledge
-11. Read project codebase for context (relevant files, CLAUDE.md conventions)
-12. Read `.notes/` latest file only if exists (prior research findings and experience)
-13. **If re-planning** (status is `re-planning` or `review`/`executing` transitioning to re-plan): archive existing `.plan.md` — rename to `.plan-superseded.md` (append numeric suffix if already exists, e.g., `.plan-superseded-2.md`). This prevents `exec` from reading outdated steps alongside the new plan
-14. Generate implementation plan using **domain-appropriate methodology** (incorporating check feedback, bugfix history, prior notes, cross-task experience, and researched best practices)
+9. **Load library context** via Changelog Consumption Protocol (`commands/references/changelog-consumption-protocol.md`)
+10. Read `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/.summary.md` if exists — condensed cross-task experience from completed tasks of the same domain type (apply directory-safe transform: `:` → `-` in type for directory name, e.g., `science:astro` → `science-astro`). For hybrid types (`A|B`), read summary files for **all** pipe-separated segments. If summary references specific entries relevant to current task, read those `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<module>.md` files for detail
+11. **Read** `$NB_WORKSPACES_LIBRARY/.memory/.references/.summary.md` if exists — find relevant external reference files by keyword matching against task requirements. Read matched `.memory/.references/<topic>.md` files for domain knowledge
+12. Read project codebase for context (relevant files, CLAUDE.md conventions)
+13. Read `.notes/` latest file only if exists (prior research findings and experience)
+14. **If re-planning** (status is `re-planning` or `review`/`executing` transitioning to re-plan): archive existing `.plan.md` — rename to `.plan-superseded.md` (append numeric suffix if already exists, e.g., `.plan-superseded-2.md`). This prevents `exec` from reading outdated steps alongside the new plan
+15. Generate implementation plan using **domain-appropriate methodology** (incorporating check feedback, bugfix history, prior notes, cross-task experience, and researched best practices)
     - **Optional delegation — brainstorm**: On first plan generation (no existing `.plan.md`), follow `auto/references/plugin-delegation.md` to attempt matching the `brainstorm` capability slot. If matched, invoke via Task subagent — exploration results serve as supplementary planning input. No match or failure → continue normally
-15. Write plan to `.plan.md` in the task module
-16. Write `.test/<YYYY-MM-DD>-plan-criteria.md` with **domain-appropriate** verification criteria: acceptance criteria from `.target.md` + per-step test cases using methods standard in the task domain. On re-plan, write `.test/<YYYY-MM-DD>-replan-criteria.md` incorporating lessons from previous `.test/` results files
-17. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
-18. Create `.notes/<YYYY-MM-DD>-<summary>-plan.md` with research findings and key decisions
-19. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
-20. Write task-level `.summary.md` with condensed context: plan overview, key decisions, requirements summary, known constraints (integrate from directory summaries)
-21. Update `.index.json`: set `type` field (if not already set or if task nature changed), status → `planning` (from `draft`/`planning`/`blocked`) or `re-planning` (from `review`/`executing`/`re-planning`), update timestamp. If the **new** status is `re-planning`, set `phase: needs-check`. For all other **new** statuses, clear `phase` to `""`. Reset `completed_steps` to `0` (new/revised plan invalidates prior progress)
-22. **Git commit**: `ai-cli-task(<module>):plan generate implementation plan`
-23. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
-24. Report plan summary to user
+16. Write plan to `.plan.md` in the task module
+17. Write `.test/<YYYY-MM-DD>-plan-criteria.md` with **domain-appropriate** verification criteria: acceptance criteria from `.target.md` + per-step test cases using methods standard in the task domain. On re-plan, write `.test/<YYYY-MM-DD>-replan-criteria.md` incorporating lessons from previous `.test/` results files
+18. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
+19. Create `.notes/<YYYY-MM-DD>-<summary>-plan.md` with research findings and key decisions
+20. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
+21. Write task-level `.summary.md` with condensed context: plan overview, key decisions, requirements summary, known constraints (integrate from directory summaries)
+22. Update `.index.json`: set `type` field (if not already set or if task nature changed), status → `planning` (from `draft`/`planning`/`blocked`) or `re-planning` (from `review`/`executing`/`re-planning`), update timestamp. If the **new** status is `re-planning`, set `phase: needs-check`. For all other **new** statuses, clear `phase` to `""`. Reset `completed_steps` to `0` (new/revised plan invalidates prior progress)
+23. **CoT capture** (optional, encouraged): If this planning session involved complex or novel reasoning, write `.memory/.thinking/raw/<notebook>-plan-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND (no lock needed — filename is unique). Append one row to `.memory/.thinking/raw/.index.md` on first creation (O_APPEND). See `skills/library/SKILL.md` `.memory/.thinking/raw/` Entry Format and `library/references/quality-rubric.md` for format and H/M/L rubric
+24. **Git commit**: `ai-cli-task(<notebook>):plan generate implementation plan`
+25. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
+26. Report plan summary to user
 
 **Context management**: When `.summary.md` exists, read it as the primary context source instead of reading all files from `.analysis/`, `.bugfix/`, `.notes/`. Only read the latest (last by filename sort) file from each directory for detailed info on the most recent assessment/issue/note.
 
@@ -72,7 +77,7 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 ## Git
 
 ```
-ai-cli-task(<module>):plan generate implementation plan
+ai-cli-task(<notebook>):plan generate implementation plan
 ```
 
 ## .auto-signal
@@ -85,12 +90,12 @@ ai-cli-task(<module>):plan generate implementation plan
 
 Plan methodology MUST adapt to the task domain. Different domains require different design approaches, tool choices, and milestones.
 
-> **See `init/references/seed-types/<type>.md`** for per-type seed methodology (plan structure, key considerations). Shared profiles in `AiTasks/.type-profiles/` take precedence when available.
+> **See `init/references/seed-types/<type>.md`** for per-type seed methodology (plan structure, key considerations). Shared profiles in `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` take precedence when available.
 
 ## Notes
 
 - All plan research should consider the full context of the task module (read `.target.md` and `.plan.md`)
 - When researching implementation plans, use the project codebase as context (read relevant project files)
 - **Evidence-based decisions**: Primary domain research is handled by the `research` sub-command (step 2). For plan-specific decisions, use shell commands to verify claims (curl docs/APIs, npm info, etc.) rather than relying solely on internal knowledge
-- **Concurrency**: Plan acquires `AiTasks/<module>/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`). Reference writing is handled by the `research` sub-command (which manages its own `.references/.lock`)
+- **Concurrency**: Plan acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`). Reference writing is handled by the `research` sub-command (which manages its own `.memory/.references/.lock`)
 - **Task-type-aware test design**: `.test/` criteria must use domain-appropriate verification methods (e.g., unit tests for code, SSIM/PSNR for image processing, SNR for audio/DSP, schema validation for data pipelines). Research established best practices for the task domain before writing test criteria. See `check/SKILL.md` Task-Type-Aware Verification section for the full domain reference table

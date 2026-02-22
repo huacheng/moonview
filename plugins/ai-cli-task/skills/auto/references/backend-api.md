@@ -14,7 +14,7 @@ Backend implementation details for the auto mode daemon. This file is for server
 Request body for POST:
 ```json
 {
-  "taskDir": "/absolute/path/to/AiTasks/module-name",
+  "taskDir": "/absolute/path/to/nb-workspaces/notebook-name/.working",
   "maxIterations": 20,
   "timeoutMinutes": 30
 }
@@ -22,7 +22,7 @@ Request body for POST:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `taskDir` | string | (required) | Absolute path to task module in **main worktree** (e.g., `/project/AiTasks/auth-refactor`). In worktree mode, this is still the main worktree path — NOT the task worktree path. Daemon's `fs.watch` monitors this path for `.auto-signal` |
+| `taskDir` | string | (required) | Absolute path to notebook `.working/` directory in **main worktree** (e.g., `/nb-workspaces/auth-refactor/.working`). In worktree mode, this is still the main worktree path — NOT the task worktree path. Daemon's `fs.watch` monitors this path for `.auto-signal` |
 | `maxIterations` | number | 20 | Max plan/check/exec cycles before forced stop |
 | `timeoutMinutes` | number | 30 | Total execution time limit (minutes). User sets based on task difficulty |
 

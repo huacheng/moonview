@@ -4,8 +4,8 @@ description: Check plan feasibility at key checkpoints — post-plan, mid-execut
 model_tier: heavy
 auto_delegatable: false
 arguments:
-  - name: task_module
-    description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
+  - name: notebook
+    description: "Notebook name (e.g., auth-refactor)"
     required: true
   - name: checkpoint
     description: "Evaluation checkpoint: post-plan, mid-exec, post-exec"
@@ -20,7 +20,7 @@ Check the implementation plan at three lifecycle checkpoints. Acts as the decisi
 ## Usage
 
 ```
-/moonview:check <task_module_path> [--checkpoint post-plan|mid-exec|post-exec]
+/moonview:check <notebook_name> [--checkpoint post-plan|mid-exec|post-exec]
 ```
 
 ## Checkpoints
@@ -115,20 +115,26 @@ When writing to any history directory (`.analysis/`, `.bugfix/`, `.test/`), also
    - `mid-exec`: requires status `executing`
    - `post-exec`: requires status `executing`
 3. **Validate dependencies**: read `depends_on` from `.index.json`, check each dependency module's `.index.json` status against its required level (simple string → `complete`, extended object → at-or-past `min_status`). If any dependency is not met, verdict is BLOCKED with dependency details
-4. **Read** `.type-profile.md` if exists — "Verification Standards", "Quality metrics", and "Audit Adaptation" sections are the **primary** source for evaluation criteria and domain-specific audit checkpoints. If check reveals the profile's standards are inadequate for this domain, update the relevant sections with findings
+4. **Read** `.type-profile.md` if exists — "Verification Standards", "Quality metrics", and "Audit Adaptation" sections are the **primary** source for evaluation criteria and domain-specific audit checkpoints (see `plan/references/type-profiling.md` for type system details). If check reveals the profile's standards are inadequate for this domain, update the relevant sections with findings
 5. **Read** all relevant files per checkpoint (use `.summary.md` as primary context, latest file only from each history directory)
-6. **Scan** `AiTasks/.references/.summary.md` if exists — find relevant external reference files to inform evaluation criteria and domain best practices
-7. **Gap check**: if `.type-profile.md` lacks evaluation criteria OR `.references/` lacks domain evaluation standards/benchmarks for the task `type`, trigger `research --scope gap --caller check` to collect missing references before proceeding
-8. **Incorporate verify results**: If fresh verification results exist in `.test/` (from a prior `verify` run, same day and matching checkpoint), read and incorporate them. Otherwise, run verification procedures inline as part of evaluation — inline scope is limited to the criteria in the latest `.test/` criteria file only (build + test + acceptance). For comprehensive domain-adapted verification, invoke `verify` explicitly before `check`
-9. **Evaluate** against criteria
-   - **Optional delegation — code-review** (post-exec checkpoint only): Follow `auto/references/plugin-delegation.md` to attempt matching the `code-review` capability slot. If matched, invoke via Task subagent with a git diff summary as input — review results serve as supplementary evaluation evidence. No match or failure → continue standard inline evaluation
-10. **Write** output files per outcome: evaluation to `.analysis/` or `.bugfix/` (per Outcomes tables above), and test results to `.test/<date>-<checkpoint>-results.md` when tests are evaluated (mid-exec and post-exec checkpoints)
-11. **Update** each written directory's `.summary.md` — overwrite with condensed summary of ALL entries in that directory (`.analysis/.summary.md`, `.bugfix/.summary.md`, `.test/.summary.md` as applicable per checkpoint)
-12. **Write** task-level `.summary.md` with condensed context: task state, plan summary, evaluation outcome, progress (`completed_steps`), known issues, key decisions (integrate from directory summaries)
-13. **Update** `.index.json` status and timestamp per outcome
-14. **Git commit**: per outcome (see Git section below). All outcomes commit their output files and state updates, regardless of whether status changes
-15. **Write** `.auto-signal` with verdict, next action, and checkpoint (see .auto-signal section below)
-16. **Report** evaluation result with detailed reasoning
+6. **Load library context** via Changelog Consumption Protocol (`commands/references/changelog-consumption-protocol.md`)
+7. **Scan** `$NB_WORKSPACES_LIBRARY/.memory/.references/.summary.md` if exists — find relevant external reference files to inform evaluation criteria and domain best practices
+8. **Gap check**: if `.type-profile.md` lacks evaluation criteria OR `.references/` lacks domain evaluation standards/benchmarks for the task `type`, trigger `research --scope gap --caller check` to collect missing references before proceeding
+9. **Incorporate verify results**: If fresh verification results exist in `.test/` (from a prior `verify` run, same day and matching checkpoint), read and incorporate them. Otherwise, run verification procedures inline as part of evaluation — inline scope is limited to the criteria in the latest `.test/` criteria file only (build + test + acceptance). For comprehensive domain-adapted verification, invoke `verify` explicitly before `check`
+10. **Evaluate** against criteria
+    - **Optional delegation — code-review** (post-exec checkpoint only): Follow `auto/references/plugin-delegation.md` to attempt matching the `code-review` capability slot. If matched, invoke via Task subagent with a git diff summary as input — review results serve as supplementary evaluation evidence. No match or failure → continue standard inline evaluation
+11. **Write** output files per outcome: evaluation to `.analysis/` or `.bugfix/` (per Outcomes tables above), and test results to `.test/<date>-<checkpoint>-results.md` when tests are evaluated (mid-exec and post-exec checkpoints)
+    - **REPLAN with traceable reference**: if verdict is REPLAN AND evaluation identifies a specific `.memory/.references/<file>` as misleading (e.g., bad API docs caused wrong approach), increment `failure_count` in that reference file's frontmatter (acquire `.memory/.references/.lock` → read frontmatter → `failure_count++` → write atomically → append `reference` changelog update line → release lock)
+12. **Write** `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-eval.md` with evaluation findings, verdict rationale, and domain quality criteria learned — `quality_status: provisional`. Follow six-step Library Write Protocol (see `skills/library/SKILL.md`): acquire `.memory/.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.memory/.experiences/<type>/.index.md` row → release lock. Skip for CONTINUE verdict (insufficient evaluation evidence)
+    - **`quality_status` promotion**: if verdict is ACCEPT (post-exec) AND a `provisional` experience file for the same notebook already exists, upgrade it to `quality_status: verified` (acquire lock → update frontmatter → write atomically → append changelog line → release)
+    - **`quality_status` invalidation**: if verdict is REPLAN AND a `provisional` experience file was the source of misleading guidance, set `quality_status: invalidated` (same protocol)
+13. **Update** each written directory's `.summary.md` — overwrite with condensed summary of ALL entries in that directory (`.analysis/.summary.md`, `.bugfix/.summary.md`, `.test/.summary.md` as applicable per checkpoint)
+14. **Write** task-level `.summary.md` with condensed context: task state, plan summary, evaluation outcome, progress (`completed_steps`), known issues, key decisions (integrate from directory summaries)
+15. **Update** `.index.json` status and timestamp per outcome
+16. **CoT capture** (optional, encouraged): If this evaluation involved complex reasoning or novel domain criteria, write `.memory/.thinking/raw/<notebook>-check-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND. See `skills/library/SKILL.md` `.memory/.thinking/raw/` Entry Format and `library/references/quality-rubric.md`
+17. **Git commit**: per outcome (see Git section below). All outcomes commit their output files and state updates, regardless of whether status changes
+18. **Write** `.auto-signal` with verdict, next action, and checkpoint (see .auto-signal section below)
+19. **Report** evaluation result with detailed reasoning
 
 ## State Transitions
 
@@ -152,14 +158,14 @@ post-exec REPLAN:        executing → re-planning, phase: needs-plan
 
 | Outcome | Commit Message |
 |---------|---------------|
-| PASS | `ai-cli-task(<module>):check post-plan PASS → review` |
-| ACCEPT | `ai-cli-task(<module>):check post-exec ACCEPT` |
-| REPLAN | `ai-cli-task(<module>):check replan → re-planning` |
-| BLOCKED | `ai-cli-task(<module>):check blocked → blocked` |
-| NEEDS_REVISION | `ai-cli-task(<module>):check post-plan NEEDS_REVISION` |
-| NEEDS_FIX (mid-exec) | `ai-cli-task(<module>):check mid-exec NEEDS_FIX` |
-| NEEDS_FIX (post-exec) | `ai-cli-task(<module>):check post-exec NEEDS_FIX` |
-| CONTINUE | `ai-cli-task(<module>):check mid-exec CONTINUE` |
+| PASS | `ai-cli-task(<notebook>):check post-plan PASS → review` |
+| ACCEPT | `ai-cli-task(<notebook>):check post-exec ACCEPT` |
+| REPLAN | `ai-cli-task(<notebook>):check replan → re-planning` |
+| BLOCKED | `ai-cli-task(<notebook>):check blocked → blocked` |
+| NEEDS_REVISION | `ai-cli-task(<notebook>):check post-plan NEEDS_REVISION` |
+| NEEDS_FIX (mid-exec) | `ai-cli-task(<notebook>):check mid-exec NEEDS_FIX` |
+| NEEDS_FIX (post-exec) | `ai-cli-task(<notebook>):check post-exec NEEDS_FIX` |
+| CONTINUE | `ai-cli-task(<notebook>):check mid-exec CONTINUE` |
 
 All outcomes commit their output files and state updates, regardless of whether status changes.
 
@@ -186,7 +192,7 @@ When ACCEPT, the `merge` sub-command handles refactoring, merge, conflict resolu
 
 Verification methods MUST match the task domain. Read `type` from `.index.json` and apply domain-appropriate verification. If test methods are mismatched for the task type → verdict is NEEDS_REVISION.
 
-> **See `init/references/seed-types/<type>.md`** for per-type seed methodology (indicators, verification approach). Shared profiles in `AiTasks/.type-profiles/` take precedence when available.
+> **See `init/references/seed-types/<type>.md`** for per-type seed methodology (indicators, verification approach). Shared profiles in `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` take precedence when available.
 
 ## Notes
 
@@ -197,6 +203,6 @@ Verification methods MUST match the task domain. Read `type` from `.index.json` 
 - For `post-exec`, if tests exist (`.test/` criteria files), they MUST be run and pass for ACCEPT
 - Check writes test results to `.test/<date>-<checkpoint>-results.md` (e.g., `2024-01-15-post-exec-results.md`) documenting test outcomes
 - `depends_on` in `.index.json` MUST be validated: if any dependency is not met (simple string → `complete`, extended object → at-or-past `min_status`), verdict is BLOCKED (not just flagged as risk)
-- **Concurrency**: Check acquires `AiTasks/<module>/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
+- **Concurrency**: Check acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)
 - **Six-perspective audit**: For thorough evaluation, apply security / architecture / performance / extensibility / consistency / correctness checks systematically, adapted to the task's domain type. See `references/six-perspective-audit.md` for the full checklist and domain adaptation table
 - **verify integration**: The `verify` sub-command can pre-run tests independently. When recent `verify` results exist (same day, matching checkpoint), check incorporates them instead of re-running. This is optional — check works standalone

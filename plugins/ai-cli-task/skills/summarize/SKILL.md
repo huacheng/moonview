@@ -4,8 +4,8 @@ description: Regenerate .summary.md files for context recovery or refresh
 model_tier: light
 auto_delegatable: true
 arguments:
-  - name: task_module
-    description: "Path to the task module directory (e.g., AiTasks/auth-refactor)"
+  - name: notebook
+    description: "Notebook name (e.g., auth-refactor)"
     required: true
   - name: all
     description: "Also regenerate each sub-directory's .summary.md"
@@ -19,7 +19,7 @@ Regenerate `.summary.md` files for a task module. Used to recover lost context o
 ## Usage
 
 ```
-/moonview:summarize <task_module_path> [--all]
+/moonview:summarize <notebook_name> [--all]
 ```
 
 ## When to Use
@@ -50,7 +50,7 @@ Regenerate `.summary.md` files for a task module. Used to recover lost context o
    - Key decisions (architectural/design decisions)
    - Known issues (active issues, blockers, risks)
    - Lessons learned (patterns, workarounds, discoveries)
-10. **Git commit**: `ai-cli-task(<module>):summarize regenerate context summary`
+10. **Git commit**: `ai-cli-task(<notebook>):summarize regenerate context summary`
 
 ## State Transitions
 
@@ -59,7 +59,7 @@ None — `summarize` is a utility sub-command. It does not change task status.
 ## Git
 
 ```
-ai-cli-task(<module>):summarize regenerate context summary
+ai-cli-task(<notebook>):summarize regenerate context summary
 ```
 
 ## .auto-signal
@@ -70,6 +70,6 @@ None — `summarize` does not write `.auto-signal`. It is a recovery/maintenance
 
 - **Utility, not lifecycle**: `summarize` is a maintenance tool for context recovery. It does not participate in the auto loop and does not write `.auto-signal`
 - **Non-destructive**: Only writes `.summary.md` files — never modifies source files (`.target.md`, `.plan.md`, etc.) or state files (`.index.json`)
-- **Format compliance**: Generated `.summary.md` follows the format specified in `commands/ai-cli-task.md` (Status/Phase/Progress header, Plan Overview, Current State, Key Decisions, Known Issues, Lessons Learned sections). Keep under ~200 lines
-- **Concurrency**: Summarize acquires `AiTasks/<module>/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`)
+- **Format compliance**: Generated `.summary.md` follows the format specified in `commands/task-ai.md` (Status/Phase/Progress header, Plan Overview, Current State, Key Decisions, Known Issues, Lessons Learned sections). Keep under ~200 lines
+- **Concurrency**: Summarize acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)
 - **`--all` scope**: Without `--all`, only the task-level `.summary.md` is regenerated. With `--all`, all sub-directory summaries are also regenerated, which requires reading every file in every sub-directory

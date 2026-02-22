@@ -4,8 +4,8 @@ description: "Query task status and relationships — read-only, no file writes.
 model_tier: light
 auto_delegatable: true
 arguments:
-  - name: task_module
-    description: "Task module name (optional — omit to list all tasks)"
+  - name: notebook
+    description: "Notebook name (optional — omit to list all notebooks)"
     required: false
   - name: deps
     description: "Output dependency relationship graph (Mermaid)"
@@ -23,20 +23,20 @@ Query task status, details, and relationships. Pure read-only — no files writt
 
 ```
 /moonview:list                           # List all tasks
-/moonview:list <task_module>             # Single task details
-/moonview:list --deps                    # Dependency graph (all tasks)
-/moonview:list --timeline <task_module>  # Status transition timeline
+/moonview:list <notebook_name>             # Single notebook details
+/moonview:list --deps                      # Dependency graph (all notebooks)
+/moonview:list --timeline <notebook_name>  # Status transition timeline
 ```
 
 ## Modes
 
-### 1. List All Tasks (no arguments)
+### 1. List All Notebooks (no arguments)
 
-Output a summary table of all task modules:
+Output a summary table of all notebooks:
 
 | Column | Source |
 |--------|--------|
-| Module | directory name |
+| Notebook | directory name |
 | Title | `.index.json` → `title` |
 | Status | `.index.json` → `status` |
 | Phase | `.index.json` → `phase` (if non-empty) |
@@ -44,9 +44,9 @@ Output a summary table of all task modules:
 | Type | `.index.json` → `type` |
 | Updated | `.index.json` → `updated` |
 
-### 2. Single Task Details (`<task_module>`)
+### 2. Single Notebook Details (`<notebook_name>`)
 
-Output all fields from `<module>/.index.json` plus:
+Output all fields from `<notebook_name>/.working/.index.json` plus:
 - `.summary.md` content (if exists) — condensed context
 - `.target.md` first 10 lines — requirements preview
 - File listing of task module directory
@@ -64,12 +64,12 @@ graph LR
 
 Nodes colored by status: green (complete), blue (executing/review), yellow (planning/re-planning), red (blocked), gray (draft/cancelled).
 
-### 4. Status Timeline (`--timeline <task_module>`)
+### 4. Status Timeline (`--timeline <notebook_name>`)
 
 Extract status transition history from git log:
 
 ```
-git log --oneline --fixed-strings --grep="ai-cli-task(<module>)"
+git log --oneline --fixed-strings --grep="ai-cli-task(<notebook>)"
 ```
 
 Use `--fixed-strings` to prevent `(` and `)` in the pattern from being interpreted as regex metacharacters.
@@ -78,9 +78,9 @@ Parse commit messages to reconstruct the timeline of status changes with timesta
 
 ## Execution Steps
 
-1. **Read** `AiTasks/.index.json` — get module listing
-2. **For each target module**: read `<module>/.index.json` to get task metadata
-3. **If `--deps`**: build dependency graph from all modules' `depends_on` fields; **if `--timeline`**: extract history via `git log --oneline --grep="ai-cli-task(<module>)"`
+1. **Scan** `$NB_WORKSPACES_ROOT/` — list project directories, then within each project list notebook directories that contain `.working/.index.json` to discover notebooks
+2. **For each target notebook**: read `<project>/<notebook_name>/.working/.index.json` to get task metadata
+3. **If `--deps`**: build dependency graph from all notebooks' `depends_on` fields; **if `--timeline`**: extract history via `git log --oneline --grep="ai-cli-task(<notebook>)"`
 4. **Format** and print output (table, details, Mermaid graph, or timeline)
 
 ## State Transitions
@@ -98,5 +98,5 @@ None — `list` does not write `.auto-signal`. It is a utility command that does
 ## Notes
 
 - **Pure read-only**: `list` never writes files, never changes status, never creates commits. It is safe to run at any time without side effects
-- **No lock required**: Since `list` only reads files, it does not acquire `AiTasks/<module>/.lock`
+- **No lock required**: Since `list` only reads files, it does not acquire `.working/.lock`
 - **Dependency validation**: The `--deps` mode only visualizes relationships; it does not validate whether dependencies are met (that is `check`'s responsibility)
