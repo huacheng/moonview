@@ -100,6 +100,7 @@ export const createWsSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
           store.updateToolResult(parsed.cell_id, parsed.tool_use_id, parsed.content, parsed.is_error);
           break;
         case 'execution_complete':
+          store.flushStreamBuffer(parsed.cell_id);
           store.setCellStatus(parsed.cell_id, 'completed');
           break;
         case 'git_diff':

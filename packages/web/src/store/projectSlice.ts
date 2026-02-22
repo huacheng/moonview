@@ -32,6 +32,7 @@ export const createProjectSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
       const res = await fetch('/api/projects', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const projects = await res.json();
       set({ projects, projectsLoading: false });
     } catch {
@@ -86,6 +87,7 @@ export const createProjectSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
       },
       body: JSON.stringify({ title }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return { sessionId: data.sessionId, notebookPath: data.notebookPath };
   },

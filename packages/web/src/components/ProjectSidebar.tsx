@@ -9,11 +9,9 @@ interface FileEntry {
 }
 
 function ProjectList() {
-  const { projects, projectsLoading, fetchProjects, createProject, setActiveProject } = useStore();
+  const { projects, projectsLoading, createProject, setActiveProject } = useStore();
   const [newTitle, setNewTitle] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-
-  useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;

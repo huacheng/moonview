@@ -185,20 +185,20 @@ export function CellOutput({ outputs, cellId, cellStatus }: CellOutputProps) {
   return (
     <div className="cell-output-area">
 
-      {/* ── Streaming thinking (live, shown while running) ── */}
+      {/* ── Streaming thinking (live, replaces static thinking while running) ── */}
       {hasStreaming && <StreamingThinking cellId={cellId} />}
 
-      {/* ── Thinking (collapsible, default collapsed) ── */}
-      {thinkingItems.length > 0 && <ThinkingPanel items={thinkingItems} />}
+      {/* ── Thinking (collapsible, default collapsed — hidden during streaming) ── */}
+      {!hasStreaming && thinkingItems.length > 0 && <ThinkingPanel items={thinkingItems} />}
 
       {/* ── Tools (each row individually collapsible) ── */}
       {toolItems.length > 0 && <ToolsPanel items={toolItems} />}
 
-      {/* ── Streaming text (live, shown while running) ── */}
+      {/* ── Streaming text (live, replaces static text while running) ── */}
       {hasStreaming && <StreamingText cellId={cellId} />}
 
-      {/* ── Response output ── */}
-      {responseItems.length > 0 && (
+      {/* ── Response output (hidden during streaming to avoid duplicates) ── */}
+      {!hasStreaming && responseItems.length > 0 && (
         <div className="cell-response">
           {responseItems.map((item, i) => {
             if (item.type === 'text')  return <TextOutputView  key={i} content={item.content} />;

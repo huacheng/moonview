@@ -26,7 +26,9 @@ function PanelFileList({
   const [currentPath, setCurrentPath] = useState('');
 
   const loadFiles = useCallback((subPath: string) => {
-    const url = subPath ? `${fetchUrl}?path=${encodeURIComponent(subPath)}` : fetchUrl;
+    if (!fetchUrl) return;
+    const separator = fetchUrl.includes('?') ? '&' : '?';
+    const url = subPath ? `${fetchUrl}${separator}path=${encodeURIComponent(subPath)}` : fetchUrl;
     fetch(url, {
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
     })

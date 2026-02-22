@@ -489,14 +489,14 @@ export class SessionManager {
             cell_id: cellId,
             delta: delta.text,
             block_type: 'text',
-          } as any);
+          });
         } else if (delta?.type === 'thinking_delta' && delta.thinking) {
           this.broadcast(session, {
             type: 'cell_stream',
             cell_id: cellId,
             delta: delta.thinking,
             block_type: 'thinking',
-          } as any);
+          });
         }
         break;
       }

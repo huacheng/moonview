@@ -77,10 +77,18 @@ export function createProjectsRouter(
       const { title } = req.body;
       if (!title) return res.status(400).json({ error: 'title required' });
 
-      const nbSlug = titleToSlug(title);
+      let nbSlug = titleToSlug(title);
+
+      // Avoid slug collisions by appending a short suffix
+      const { existsSync } = await import('fs');
+      let workingDir = path.join(project.path, '.working', nbSlug);
+      if (existsSync(workingDir)) {
+        nbSlug = `${nbSlug}-${randomUUID().slice(0, 6)}`;
+        workingDir = path.join(project.path, '.working', nbSlug);
+      }
+
       const branchName = `task/${nbSlug}`;
       const worktreePath = path.join(project.path, '.worktrees', `task-${nbSlug}`);
-      const workingDir = path.join(project.path, '.working', nbSlug);
 
       // Create branch + worktree
       const git = new GitManager(project.path);
@@ -137,9 +145,10 @@ export function createProjectsRouter(
       const subPath = (req.query.path as string) || '';
       const fullPath = path.join(project.path, subPath);
 
-      // Validate path is within project
+      // Validate path is within project (append separator to prevent prefix-match bypass)
       const resolved = path.resolve(fullPath);
-      if (!resolved.startsWith(path.resolve(project.path))) {
+      const projectRoot = path.resolve(project.path);
+      if (resolved !== projectRoot && !resolved.startsWith(projectRoot + path.sep)) {
         return res.status(403).json({ error: 'path traversal' });
       }
 
@@ -184,10 +193,43 @@ export function createProjectsRouter(
     }
   });
 
-  // Delete project
-  router.delete('/:projectId', (req, res) => {
-    db.deleteProject(req.params.projectId);
-    res.json({ ok: true });
+  // Delete project (cascades: close sessions, remove worktrees, delete from disk + DB)
+  router.delete('/:projectId', async (req, res) => {
+    try {
+      const project = db.getProject(req.params.projectId);
+      if (!project) return res.status(404).json({ error: 'not found' });
+
+      // Close active sessions for all notebooks in this project
+      const notebooks = db.listProjectNotebooks(project.id);
+      for (const nb of notebooks) {
+        const activeSession = db.getActiveSession(nb.id);
+        if (activeSession) {
+          await sessionManager.closeSession(activeSession.tmux_session);
+        }
+      }
+
+      // Remove worktrees (best-effort)
+      try {
+        const git = new GitManager(project.path);
+        const worktrees = await git.listWorktrees();
+        for (const wt of worktrees) {
+          if (wt.path !== project.path) {
+            await git.removeWorktree(wt.path).catch(() => {});
+          }
+        }
+      } catch { /* git repo may not exist */ }
+
+      // Delete DB records (cascades notebooks → sessions)
+      db.deleteProject(project.id);
+
+      // Remove project directory from disk
+      const { rm } = await import('fs/promises');
+      await rm(project.path, { recursive: true, force: true }).catch(() => {});
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   return router;

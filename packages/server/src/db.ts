@@ -150,11 +150,12 @@ export class NotebookDb {
   }
 
   updateNotebook(id: string, updates: Partial<Pick<NotebookRow, 'title' | 'slug' | 'notebook_path' | 'status' | 'cell_count' | 'updated_at'>>): NotebookRow | undefined {
+    const ALLOWED = new Set(['title', 'slug', 'notebook_path', 'status', 'cell_count', 'updated_at']);
     const fields: string[] = [];
     const values: Record<string, unknown> = { id };
 
     for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
+      if (value !== undefined && ALLOWED.has(key)) {
         fields.push(`${key} = @${key}`);
         values[key] = value;
       }
@@ -222,9 +223,11 @@ export class NotebookDb {
   }
 
   updateProject(id: string, updates: Partial<Pick<ProjectRow, 'title' | 'status' | 'notebook_count'>>): ProjectRow | undefined {
+    const ALLOWED = new Set(['title', 'status', 'notebook_count']);
     const fields: string[] = [];
     const values: unknown[] = [];
     for (const [k, v] of Object.entries(updates)) {
+      if (!ALLOWED.has(k)) continue;
       fields.push(`${k} = ?`);
       values.push(v);
     }
@@ -236,7 +239,20 @@ export class NotebookDb {
   }
 
   deleteProject(id: string): void {
+    // Cascade: remove associated notebooks (and their sessions) first
+    const notebooks = this.db.prepare(
+      `SELECT id FROM notebooks WHERE project_id = ?`
+    ).all(id) as { id: string }[];
+    for (const nb of notebooks) {
+      this.deleteNotebook(nb.id);
+    }
     this.db.prepare(`DELETE FROM projects WHERE id = ?`).run(id);
+  }
+
+  listProjectNotebooks(projectId: string): { id: string; workspace_dir: string }[] {
+    return this.db.prepare(
+      `SELECT id, workspace_dir FROM notebooks WHERE project_id = ?`
+    ).all(projectId) as { id: string; workspace_dir: string }[];
   }
 
   // ── File Annotations ─────────────────────────────────────────────────────
