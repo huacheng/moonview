@@ -77,7 +77,7 @@ On successful merge:
    c. Each resolution: fix conflicts → verify (build + test) → if pass commit, if fail abort and retry
    d. If all 3 attempts fail → stay `executing`, abort merge, report unresolvable conflicts
 8. **Phase 4**: Post-merge cleanup (status → `complete` with branch retained, write `.summary.md`, git commit state FIRST, then worktree removal + branch deletion — cleanup failures are non-fatal — finally clear `branch`/`worktree` fields and commit metadata cleanup)
-9. **Write** `.auto-signal` to the **main worktree's** `$NB_WORKSPACES_ROOT/<notebook_name>/.working/` directory (NOT the task worktree's copy) — MUST be written AFTER Phase 4 status update to `complete`, so the daemon reads correct status when routing to `report`. In worktree mode, the task directory exists in both locations; writing to main ensures the signal survives worktree removal. The daemon's `fs.watch` MUST monitor the main worktree path. **Resolve main worktree path**: read `.git` file in task worktree → extract `gitdir` → resolve to main worktree root. Or use `git -C <main-repo> rev-parse --show-toplevel`
+9. **Write** `.auto-signal` to the **main worktree's** `$NB_WORKSPACES_ROOT/<project>/<notebook_name>/.working/` directory (NOT the task worktree's copy) — MUST be written AFTER Phase 4 status update to `complete`, so the daemon reads correct status when routing to `report`. In worktree mode, the task directory exists in both locations; writing to main ensures the signal survives worktree removal. The daemon's `fs.watch` MUST monitor the main worktree path. **Resolve main worktree path**: read `.git` file in task worktree → extract `gitdir` → resolve to main worktree root. Or use `git -C <main-repo> rev-parse --show-toplevel`
 10. **Report** merge result
 
 ## State Transitions
@@ -114,5 +114,5 @@ On successful merge:
 - On merge failure, status stays `executing` (not `blocked`) so merge can be retried. The user should manually resolve conflicts and then run `/moonview:merge` again
 - After manual resolution, if the user has already merged manually, they can update `.index.json` status to `complete` directly
 - Pre-merge refactoring is optional — if no cleanup needed, skip directly to merge
-- **Worktree signal race prevention**: In worktree mode, `.auto-signal` is written to the main worktree's `$NB_WORKSPACES_ROOT/<notebook_name>/.working/` path (not the task worktree), ensuring the daemon can read it after worktree removal. The daemon MUST watch the main worktree path for all signal files
+- **Worktree signal race prevention**: In worktree mode, `.auto-signal` is written to the main worktree's `$NB_WORKSPACES_ROOT/<project>/<notebook_name>/.working/` path (not the task worktree), ensuring the daemon can read it after worktree removal. The daemon MUST watch the main worktree path for all signal files
 - **Concurrency**: Merge acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)

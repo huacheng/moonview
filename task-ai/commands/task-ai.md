@@ -44,7 +44,7 @@ init → research(target) → plan → research(test) → verify → check → e
 
 ### Directory Convention
 
-> **See `commands/references/directory-convention.md`** for the full directory tree (`$NB_WORKSPACES_ROOT/`, `.library/`, `<notebook>/.working/`), file naming conventions, and path resolution rules.
+> **See `commands/references/directory-convention.md`** for the full directory tree (`$NB_WORKSPACES_ROOT/`, `.library/`, `<project>/<notebook>/.working/`), file naming conventions, and path resolution rules.
 
 ### .summary.md Format
 
@@ -176,7 +176,7 @@ Every sub-command that participates in the automation loop (plan, check, exec, m
 The auto daemon's signal validation whitelist (see `auto/SKILL.md`) accepts all three formats. New skills SHOULD follow this convention: judgment → UPPERCASE, action → (lowercase), git → lowercase.
 - **Atomic write**: `.auto-signal` MUST be written atomically — write to `.auto-signal.tmp` first, then `rename` to `.auto-signal`. POSIX `rename` is atomic, preventing the daemon from reading partially written JSON.
 
-**Worktree note**: In worktree mode, `.auto-signal` MUST be written to the **main worktree's** `$NB_WORKSPACES_ROOT/<notebook>/.working/` directory (not the task worktree copy) to survive worktree removal during merge cleanup.
+**Worktree note**: In worktree mode, `.auto-signal` MUST be written to the **main worktree's** `$NB_WORKSPACES_ROOT/<project>/<notebook>/.working/` directory (not the task worktree copy) to survive worktree removal during merge cleanup.
 
 ### Computation Rule
 
@@ -186,17 +186,18 @@ The auto daemon's signal validation whitelist (see `auto/SKILL.md`) accepts all 
 
 ## Input Validation
 
-All sub-commands that accept `<notebook>` MUST validate the path before processing:
+All sub-commands that accept `<project>` and/or `<notebook>` MUST validate the path before processing:
 
 | Check | Rule | Example |
 |-------|------|---------|
 | **Path containment** | Resolved path must be under `$NB_WORKSPACES_ROOT/` directory (no `..` traversal) | `$NB_WORKSPACES_ROOT/../etc/passwd` → REJECT |
+| **Project name** | Must match `[a-zA-Z0-9_-]+` (ASCII letters/digits/hyphens/underscores only) | `project-a` ✓, `../foo` ✗ |
 | **Notebook name** | Must match `[a-zA-Z0-9_-]+` (ASCII letters/digits/hyphens/underscores only) | `notebook-1` ✓, `../../foo` ✗ |
 | **No symlinks** | Task module directory must not be a symlink (prevent symlink-based escape) | REJECT if `lstat` ≠ `stat` |
 | **Existence** | Directory must exist (except for `init` which creates it) | REJECT if missing |
 | **User text sanitization** | All user-provided text written to `.index.json` or `.md` files (e.g., `--title`, `--reason`, `--tags`) must be sanitized: strip HTML comments (`<!-- ... -->`), ANSI escape sequences, and control characters (except `\n`). This prevents hidden content injection when values appear in `.summary.md` or other markdown files | Sanitize before write |
 
-Validation is performed by resolving the absolute path and confirming it starts with the `$NB_WORKSPACES_ROOT/` prefix (resolved from the environment variable). This prevents path traversal attacks where a crafted notebook name could read/write files outside the workspace directory.
+Validation is performed by resolving the absolute path and confirming it starts with the `$NB_WORKSPACES_ROOT/` prefix (resolved from the environment variable). This prevents path traversal attacks where a crafted project or notebook name could read/write files outside the workspace directory.
 
 ### Concurrency Protection
 
@@ -210,7 +211,7 @@ Sub-commands that modify task module files MUST acquire `.working/.lock` (O_CREA
 
 **Corruption recovery**: If `.index.json` fails to parse (malformed JSON):
 
-1. **Git recovery**: `git show HEAD:<notebook>/.working/.index.json` — restore from latest committed version
+1. **Git recovery**: `git show HEAD:<project>/<notebook>/.working/.index.json` — restore from latest committed version
 2. **If git recovery fails**: Reconstruct minimal `.index.json` with `"status": "draft"`, `"phase": ""`, preserve only what's parseable
 3. **Log**: Record corruption event and recovery action in `.analysis/<date>-index-recovery.md`
 

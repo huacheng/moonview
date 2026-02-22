@@ -43,33 +43,36 @@ $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 │   └── <user-imported>/               # 用户导入文件夹（非点前缀）
 │       └── ...                        # 任意结构，library search 也会索引
 │
-├── notebook-1/
-│   ├── [deliverables-dir]/            # 用户自定义名称，存放交付成果
-│   │   └── .report.md                 # 完成报告（由 report 子命令生成）
-│   └── .working/                      # 任务状态文件（系统管理）
-│       ├── .index.json                # 任务元数据（status/phase/type...）
-│       ├── .target.md                 # 需求目标（人工编写）
-│       ├── .plan.md                   # 实施计划（plan 生成，可通过 Plan 面板批注）
-│       ├── .plan-superseded.md        # 旧计划归档（re-plan 时重命名保留）
-│       ├── .type-profile.md           # 任务域方法论（任务级，区别于 library 共享版）
-│       ├── .summary.md                # 压缩上下文摘要（防 context overflow）
-│       ├── .auto-signal               # 自动循环进度信号（临时）
-│       ├── .auto-stop                 # 停止信号（临时）
-│       ├── .auto-timeline.md          # 执行时间线
-│       ├── .library-state.json        # 库读取游标（last_library_read + changelog_offset，gitignore）
-│       ├── .tmp-annotations.json      # Plan 面板批注传输（临时）
-│       ├── .analysis/                 # check 评估历史
-│       │   └── .summary.md
-│       ├── .test/                     # 测试准则 & 结果
-│       │   └── .summary.md
-│       ├── .bugfix/                   # 问题修复历史
-│       │   └── .summary.md
-│       └── .notes/                    # 研究笔记 & 执行日志
-│           └── .summary.md
+├── project-a/                         # 项目目录
+│   ├── .index.json                    # 项目元数据（notebook 列表等）
+│   ├── notebook-1/
+│   │   ├── [deliverables-dir]/        # 用户自定义名称，存放交付成果
+│   │   │   └── .report.md             # 完成报告（由 report 子命令生成）
+│   │   └── .working/                  # 任务状态文件（系统管理）
+│   │       ├── .index.json            # 任务元数据（status/phase/type...）
+│   │       ├── .target.md             # 需求目标（人工编写）
+│   │       ├── .plan.md               # 实施计划（plan 生成，可通过 Plan 面板批注）
+│   │       ├── .plan-superseded.md    # 旧计划归档（re-plan 时重命名保留）
+│   │       ├── .type-profile.md       # 任务域方法论（任务级，区别于 library 共享版）
+│   │       ├── .summary.md            # 压缩上下文摘要（防 context overflow）
+│   │       ├── .auto-signal           # 自动循环进度信号（临时）
+│   │       ├── .auto-stop             # 停止信号（临时）
+│   │       ├── .auto-timeline.md      # 执行时间线
+│   │       ├── .library-state.json    # 库读取游标（last_library_read + changelog_offset，gitignore）
+│   │       ├── .tmp-annotations.json  # Plan 面板批注传输（临时）
+│   │       ├── .analysis/             # check 评估历史
+│   │       │   └── .summary.md
+│   │       ├── .test/                 # 测试准则 & 结果
+│   │       │   └── .summary.md
+│   │       ├── .bugfix/               # 问题修复历史
+│   │       │   └── .summary.md
+│   │       └── .notes/                # 研究笔记 & 执行日志
+│   │           └── .summary.md
+│   │
+│   └── notebook-2/
+│       └── ...
 │
-├── notebook-2/
-│   └── ...
-└── notebook-N/
+└── project-b/
     └── ...
 ```
 
@@ -84,6 +87,10 @@ $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 - Each history directory (`.analysis/`, `.test/`, `.bugfix/`, `.notes/`) contains a `.summary.md` that condenses all entries in that directory. **Overwritten** (not appended) each time a new entry is added to the directory. The task-level `.summary.md` integrates from these directory summaries rather than reading every individual file
 - Library directories (`.memory/.experiences/`, `.memory/.references/`) under `$NB_WORKSPACES_LIBRARY` also contain a `.summary.md` index — skills read it first to find relevant files by keyword, avoiding full directory scans
 
+## Naming Convention
+
+Project names and notebook names share the same validation rule: ASCII letters, digits, hyphens, underscores only (`[a-zA-Z0-9_-]+`). No whitespace, no leading dot, no path separators. Examples: `project-a`, `notebook-1`, `my-research`.
+
 ## Path Resolution
 
-Sub-commands read `NB_WORKSPACES_ROOT` and `NB_WORKSPACES_LIBRARY` env vars at start. When a sub-command receives a `<notebook>` argument, its working directory is `$NB_WORKSPACES_ROOT/<notebook>/.working/` and deliverables directory is `$NB_WORKSPACES_ROOT/<notebook>/[deliverables-dir]/`.
+Sub-commands read `NB_WORKSPACES_ROOT` and `NB_WORKSPACES_LIBRARY` env vars at start. Notebooks are organized under project directories: `$NB_WORKSPACES_ROOT/<project>/`. Each project has a `.index.json` for project metadata. When a sub-command receives `<project>` and `<notebook>` arguments, its working directory is `$NB_WORKSPACES_ROOT/<project>/<notebook>/.working/` and deliverables directory is `$NB_WORKSPACES_ROOT/<project>/<notebook>/[deliverables-dir]/`.

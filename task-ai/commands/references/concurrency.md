@@ -2,9 +2,9 @@
 
 ## Task Module Lock Protocol
 
-Without worktree mode, only one task should be actively operated at a time. Sub-commands that modify task module files (`plan`, `exec`, `check`, `merge`, `research`, `annotate`, `cancel`) MUST check for an active lockfile (`$NB_WORKSPACES_ROOT/<notebook>/.working/.lock`) before proceeding:
+Without worktree mode, only one task should be actively operated at a time. Sub-commands that modify task module files (`plan`, `exec`, `check`, `merge`, `research`, `annotate`, `cancel`) MUST check for an active lockfile (`$NB_WORKSPACES_ROOT/<project>/<notebook>/.working/.lock`) before proceeding:
 
-1. **Acquire**: Attempt to create `$NB_WORKSPACES_ROOT/<notebook>/.working/.lock` with `O_CREAT | O_EXCL` (atomic create-if-not-exists). Write `{ session, pid, timestamp }` to identify the holder
+1. **Acquire**: Attempt to create `$NB_WORKSPACES_ROOT/<project>/<notebook>/.working/.lock` with `O_CREAT | O_EXCL` (atomic create-if-not-exists). Write `{ session, pid, timestamp }` to identify the holder
 2. **If lock exists**: Read lock content, check if holding process is still alive (kill -0). If dead → remove stale lock and retry. If alive → REJECT with error identifying the holding session. No retry — the caller (user or auto) decides whether to retry
 3. **Release**: Delete `.lock` on sub-command completion (including error paths)
 4. **Worktree mode**: Lock not required — each worktree has its own copy of $NB_WORKSPACES_ROOT/ files

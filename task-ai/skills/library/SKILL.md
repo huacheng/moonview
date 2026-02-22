@@ -51,7 +51,6 @@ The shared knowledge library at `$NB_WORKSPACES_ROOT/.library/` aggregates cross
 
 ```
 $NB_WORKSPACES_ROOT/
-├── .index.json
 └── .library/                              # $NB_WORKSPACES_LIBRARY
     ├── .changelog                         # Append-only write log (gitignore)
     ├── .changelog-archive/                # Monthly archived entries (git tracked)
@@ -92,7 +91,7 @@ $NB_WORKSPACES_ROOT/
     └── <user-imported>/                   # User-imported files/folders (non-dot-prefixed)
         └── ...                            # Any structure; indexed by maintain --rebuild-index
 
-<notebook>/.working/
+<project>/<notebook>/.working/
 └── .library-state.json                    # Per-notebook library read cursor (gitignore)
 ```
 
@@ -462,7 +461,7 @@ None. `library` does not write `.auto-signal` and does not participate in the au
 
 ## Notes
 
-- **Pure utility**: `library` never modifies task module files (`.index.json`, `.plan.md`, `.summary.md`, etc.) — it only reads and writes within `$NB_WORKSPACES_LIBRARY/` and `<notebook>/.working/.library-state.json`
+- **Pure utility**: `library` never modifies task module files (`.index.json`, `.plan.md`, `.summary.md`, etc.) — it only reads and writes within `$NB_WORKSPACES_LIBRARY/` and `<project>/<notebook>/.working/.library-state.json`
 - **No task lock required**: `library` does not acquire `.working/.lock` (no task state changes). It does acquire directory-level library locks when writing
 - **`init` responsibility**: `init` creates the `.library/` skeleton on first use: empty `.changelog`, empty-header `.master-index.md`, and `.type-registry.md` initialised from seed types. Sub-commands lazily create sub-directories as needed
 - **`$NB_WORKSPACES_LIBRARY`**: environment variable set to `$NB_WORKSPACES_ROOT/.library/`. If unset, infer at runtime as `$NB_WORKSPACES_ROOT/.library` — fail with clear error if `NB_WORKSPACES_ROOT` is also unset

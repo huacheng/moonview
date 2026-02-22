@@ -4,8 +4,11 @@ description: "Initialize a new notebook working directory under NB_WORKSPACES_RO
 model_tier: light
 auto_delegatable: true
 arguments:
+  - name: project_name
+    description: "Name of the project directory under NB_WORKSPACES_ROOT (e.g., project-a, my-project)"
+    required: true
   - name: notebook_name
-    description: "Name of the notebook directory to create under NB_WORKSPACES_ROOT (e.g., notebook-1, my-research)"
+    description: "Name of the notebook directory to create under the project (e.g., notebook-1, my-research)"
     required: true
   - name: title
     description: "Human-readable title for the task (defaults to notebook_name)"
@@ -20,12 +23,12 @@ arguments:
 
 # /moonview:init — Initialize Notebook Working Directory
 
-Create a new notebook directory under `$NB_WORKSPACES_ROOT` with the standard system file structure.
+Create a new notebook directory under `$NB_WORKSPACES_ROOT/<project>/` with the standard system file structure.
 
 ## Usage
 
 ```
-/moonview:init <notebook_name> [--title "Task Title"] [--tags feature,backend] [--worktree]
+/moonview:init <project_name> <notebook_name> [--title "Task Title"] [--tags feature,backend] [--worktree]
 ```
 
 ## Directory Structure Created
@@ -40,10 +43,12 @@ $NB_WORKSPACES_ROOT/
 │   ├── .type-registry.md              # 任务类型注册表（从 seed-types 初始化）
 │   └── .memory/                       # 系统管理知识库（子目录惰性创建）
 │
-└── <notebook_name>/
-    └── .working/
-        ├── .index.json                # Task metadata (JSON) — machine-readable
-        └── .target.md                 # Task target / requirements — human-authored
+└── <project_name>/
+    ├── .index.json                    # Project metadata
+    └── <notebook_name>/
+        └── .working/
+            ├── .index.json            # Task metadata (JSON) — machine-readable
+            └── .target.md             # Task target / requirements — human-authored
 ```
 
 ## .index.json JSON Schema
@@ -109,16 +114,17 @@ Dependencies reference other task modules. Two formats — simple string (requir
 
 ## Execution Steps
 
-1. **Validate** notebook_name: ASCII letters, digits, hyphens, underscores (`[a-zA-Z0-9_-]+`), no whitespace, no leading dot, no path separators
+1. **Validate** project_name and notebook_name: both must match `[a-zA-Z0-9_-]+` (ASCII letters, digits, hyphens, underscores), no whitespace, no leading dot, no path separators
 2. **Check** `$NB_WORKSPACES_ROOT/` directory exists; create if missing. Check `$NB_WORKSPACES_LIBRARY/` (= `$NB_WORKSPACES_ROOT/.library/`) exists; if missing, create the library skeleton: `.changelog` (empty file), `.changelog-archive/` (empty directory — git won't track it until `maintain --compact` writes the first archive file), `.master-index.md` (empty table header), `.type-registry.md` (initialized from seed types — read `references/seed-types/.summary.md`; see `plan/references/type-profiling.md` for registry format), `.memory/` (empty directory — the four system sub-directories `.memory/.references/`, `.memory/.experiences/`, `.memory/.type-profiles/`, `.memory/.thinking/` are created lazily by each sub-command on first write). `.plugin-registry.md` is created lazily by the `auto` sub-command on first successful plugin delegation. **First-time setup**: if `$NB_WORKSPACES_ROOT/` was just created, append gitignore entries to project `.gitignore` (create if missing): `.worktrees/`, `**/.working/.tmp-annotations.json`, `**/.working/.auto-signal`, `**/.working/.auto-signal.tmp`, `**/.working/.auto-stop`, `**/.working/.lock`, `**/.working/.library-state.json`, `.library/.changelog`, `.library/.changelog-archive/.lock`, `.library/.memory/.thinking/raw/`, `.library/.memory/.thinking/patterns/.lock`, `.library/.inconsistency.log`, `.library/.ioc.md`, `**/.lock`, `**/.lock.stale.*`
-3. **Check** `$NB_WORKSPACES_ROOT/<notebook_name>/` does not already exist; abort with error if it does
-4. **Check branch collision**: verify `task/<notebook_name>` branch does not already exist (`git branch --list task/<notebook_name>`). If exists, abort with error suggesting `--cleanup` the old task or choose a different name
-5. **Check working tree clean**: verify no uncommitted changes to tracked files (`git status --porcelain` then filter out `??` untracked entries). Untracked and gitignored files (e.g., stale `.auto-signal`, `$NB_WORKSPACES_ROOT/` ephemeral files) do NOT block init. If tracked files have modifications, abort with error — branch should be created from a clean state to avoid mixing unrelated changes. User should commit or stash first
-6. **Git**: create branch `task/<notebook_name>` from current HEAD
-7. **If `--worktree`**: `git worktree add .worktrees/task-<notebook_name> task/<notebook_name>`
-8. **If not worktree**: `git checkout task/<notebook_name>`
-9. **Create** `$NB_WORKSPACES_ROOT/<notebook_name>/.working/` directory (in worktree if applicable)
-10. **Create** `$NB_WORKSPACES_ROOT/<notebook_name>/.working/.index.json` with JSON:
+3. **Check** `$NB_WORKSPACES_ROOT/<project_name>/` exists; create if missing (with `.index.json`)
+4. **Check** `$NB_WORKSPACES_ROOT/<project_name>/<notebook_name>/` does not already exist; abort with error if it does
+5. **Check branch collision**: verify `task/<notebook_name>` branch does not already exist (`git branch --list task/<notebook_name>`). If exists, abort with error suggesting `--cleanup` the old task or choose a different name
+6. **Check working tree clean**: verify no uncommitted changes to tracked files (`git status --porcelain` then filter out `??` untracked entries). Untracked and gitignored files (e.g., stale `.auto-signal`, `$NB_WORKSPACES_ROOT/` ephemeral files) do NOT block init. If tracked files have modifications, abort with error — branch should be created from a clean state to avoid mixing unrelated changes. User should commit or stash first
+7. **Git**: create branch `task/<notebook_name>` from current HEAD
+8. **If `--worktree`**: `git worktree add .worktrees/task-<notebook_name> task/<notebook_name>`
+9. **If not worktree**: `git checkout task/<notebook_name>`
+10. **Create** `$NB_WORKSPACES_ROOT/<project_name>/<notebook_name>/.working/` directory (in worktree if applicable)
+11. **Create** `$NB_WORKSPACES_ROOT/<project_name>/<notebook_name>/.working/.index.json` with JSON:
    - `title`: from `--title` argument or notebook_name
    - `status`: `draft`
    - `phase`: `""` (empty)
@@ -129,7 +135,7 @@ Dependencies reference other task modules. Two formats — simple string (requir
    - `tags`: parsed from `--tags` argument or `[]`
    - `branch`: `task/<notebook_name>`
    - `worktree`: `.worktrees/task-<notebook_name>` (or empty if no worktree)
-11. **Create** `$NB_WORKSPACES_ROOT/<notebook_name>/.working/.target.md` with default template (type is auto-discovered by `research` during planning):
+12. **Create** `$NB_WORKSPACES_ROOT/<project_name>/<notebook_name>/.working/.target.md` with default template (type is auto-discovered by `research` during planning):
     ```markdown
     # Task Target: <title>
 
@@ -157,7 +163,7 @@ Dependencies reference other task modules. Two formats — simple string (requir
 
 ## Notes
 
-- Notebook names are ASCII only: letters, digits, hyphens, underscores (`[a-zA-Z0-9_-]+`). No whitespace, no leading dot, no path separators. Examples: `notebook-1`, `my-research`
+- Project names and notebook names are ASCII only: letters, digits, hyphens, underscores (`[a-zA-Z0-9_-]+`). No whitespace, no leading dot, no path separators. Examples: `project-a`, `notebook-1`, `my-research`
 - The `.target.md` is for human authoring — users fill in requirements via the Plan annotation panel. The default template (Objective / Requirements / Constraints) is domain-generic; users may freely restructure it for their domain (e.g., Synopsis / Characters for literary tasks). The `plan` skill reads `.target.md` content, not its structure
 - System files (dot-prefixed) should not be manually edited except `.target.md`
 - After init, the typical workflow is: edit `.working/.target.md` → `/moonview:plan` → `/moonview:check` → `/moonview:exec`
