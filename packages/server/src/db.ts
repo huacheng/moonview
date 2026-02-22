@@ -29,6 +29,17 @@ export interface SessionRow {
   closed_at: string | null;
 }
 
+export interface ProjectRow {
+  id: string;
+  title: string;
+  slug: string;
+  path: string;
+  status: 'active' | 'archived';
+  notebook_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Database ─────────────────────────────────────────────────────────────────
 
 const DB_DIR = path.join(os.homedir(), '.notebook-ai');
@@ -91,7 +102,25 @@ export class NotebookDb {
         PRIMARY KEY (session_id, file_path)
       );
       CREATE INDEX IF NOT EXISTS idx_fa_updated_at ON file_annotations(updated_at);
+
+      CREATE TABLE IF NOT EXISTS projects (
+        id              TEXT PRIMARY KEY,
+        title           TEXT NOT NULL,
+        slug            TEXT NOT NULL,
+        path            TEXT NOT NULL UNIQUE,
+        status          TEXT DEFAULT 'active',
+        notebook_count  INTEGER DEFAULT 0,
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+      CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at DESC);
     `);
+
+    // Migration: add project_id to notebooks
+    try {
+      this.db.exec(`ALTER TABLE notebooks ADD COLUMN project_id TEXT REFERENCES projects(id)`);
+    } catch { /* column already exists */ }
   }
 
   // ── Notebook CRUD ────────────────────────────────────────────────────────
@@ -169,6 +198,45 @@ export class NotebookDb {
     this.db.prepare(
       'UPDATE sessions SET status = ?, closed_at = ? WHERE id = ?'
     ).run('closed', new Date().toISOString(), id);
+  }
+
+  // ── Project CRUD ─────────────────────────────────────────────────────────
+
+  createProject(project: Omit<ProjectRow, 'notebook_count'>): ProjectRow {
+    this.db.prepare(`INSERT INTO projects (id, title, slug, path, status, notebook_count, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`).run(
+      project.id, project.title, project.slug, project.path,
+      project.status, project.created_at, project.updated_at
+    );
+    return { ...project, notebook_count: 0 };
+  }
+
+  listProjects(): ProjectRow[] {
+    return this.db.prepare(
+      `SELECT * FROM projects WHERE status = 'active' ORDER BY updated_at DESC`
+    ).all() as ProjectRow[];
+  }
+
+  getProject(id: string): ProjectRow | undefined {
+    return this.db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id) as ProjectRow | undefined;
+  }
+
+  updateProject(id: string, updates: Partial<Pick<ProjectRow, 'title' | 'status' | 'notebook_count'>>): ProjectRow | undefined {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [k, v] of Object.entries(updates)) {
+      fields.push(`${k} = ?`);
+      values.push(v);
+    }
+    fields.push('updated_at = ?');
+    values.push(new Date().toISOString());
+    values.push(id);
+    this.db.prepare(`UPDATE projects SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+    return this.getProject(id);
+  }
+
+  deleteProject(id: string): void {
+    this.db.prepare(`DELETE FROM projects WHERE id = ?`).run(id);
   }
 
   // ── File Annotations ─────────────────────────────────────────────────────
