@@ -1,6 +1,6 @@
 ---
 name: research
-description: "Intelligence officer for the full task lifecycle — independently callable at any phase to deepen target requirements, collect domain references, or build testing methodology"
+description: "Target objective deepening & lifecycle intelligence — default mode guides multi-stage objective refinement through background research, feasibility analysis, and goal synthesis; also callable from any phase for reference collection"
 model_tier: medium
 auto_delegatable: true
 arguments:
@@ -12,11 +12,11 @@ arguments:
     required: false
     default: full
   - name: caller
-    description: "Calling phase: target, plan (default), test, verify, check, or exec — determines .auto-signal next routing"
+    description: "Calling phase: target (default), plan, test, verify, check, or exec — determines .auto-signal next routing"
     required: false
-    default: plan
+    default: target
   - name: phase
-    description: "Sub-phase for --caller target only: objective (default) or requirements"
+    description: "Sub-phase for --caller target: objective (default, 3-stage: o1→o2→o3) or requirements"
     required: false
     default: objective
 ---
@@ -33,8 +33,8 @@ Collect external domain knowledge and organize it into `$NB_WORKSPACES_LIBRARY/.
 
 | --caller | --phase | 触发时机 | 产出 | next |
 |---------|---------|---------|------|------|
-| `target` | `objective`（默认） | init 后，用户写完目标草稿 | `.target.md` ← Proposed Objective Refinement | `(stop)` |
-| `target` | `requirements` | Objective 确认后 | `.target.md` ← Proposed Requirements | `plan` |
+| `target`（默认） | `objective`（默认） | init 后，3 阶段渐进深化 | `.target.md` ← O1/O2/O3 分阶段 Insights | `(stop)` |
+| `target` | `requirements` | O3 确认后 | `.target.md` ← Proposed Requirements | `plan` |
 | `plan` | — | plan 前 / plan 内部 | `.references/<topic>.md` | `plan` |
 | `test` | — | plan 前（planning）或 verify 前（executing） | `.references/testing-<type>.md` + `.test/<date>-research-*.md` | `plan`/`verify` |
 | `verify` | — | verify 内部检测到缺口 | `.references/testing-<type>.md` | `verify` |
@@ -64,19 +64,22 @@ Plan invokes research internally before generating the implementation plan. See 
 
 Each phase reads `$NB_WORKSPACES_LIBRARY/.memory/.references/.summary.md` at entry. If the existing references lack coverage for the current phase's needs (testing tools, evaluation criteria, implementation details), the phase triggers research with `--scope gap` and `--caller <phase>` before proceeding.
 
-### 3. From target deepening (manual, two-phase)
+### 3. From target deepening (default, multi-stage)
 
 ```
-/moonview:research <notebook_name> --caller target --phase objective
+/moonview:research <notebook_name>                                    # → auto-detect O1/O2/O3 stage
+/moonview:research <notebook_name> --caller target --phase objective  # → explicit objective deepening
 /moonview:research <notebook_name> --caller target --phase requirements
 ```
 
-用户在 `init` 后写完 `.target.md` 草稿，分两阶段深化目标：
+用户在 `init` 后写完 `.target.md` 草稿，通过 3 阶段渐进式深化目标（每阶段执行后停止等待用户确认）：
 
-| Phase | 调用时机 | 产出 | next |
-|-------|---------|------|------|
-| `objective` | 写完目标草稿后（任何时候） | `.target.md` ← `## Research Insights › Proposed Objective Refinement` | `(stop)` |
-| `requirements` | Objective 确认、`[PROPOSED]` 标记已清除后 | `.target.md` ← `Proposed Requirements` | `plan` |
+| Phase | 阶段 | 调用时机 | 产出 | next |
+|-------|------|---------|------|------|
+| `objective` | O1 | 写完目标草稿后（首次调用） | `.target.md` ← `## Research Insights › O1: Background Research` | `(stop)` |
+| `objective` | O2 | O1 确认后（`[PROPOSED]` 已清除） | `.target.md` ← `### O2: Feasibility & Constraints` | `(stop)` |
+| `objective` | O3 | O2 确认后（`[PROPOSED]` 已清除） | `.target.md` ← `### O3: Refined Objective` | `(stop)` |
+| `requirements` | — | O3 确认后 | `.target.md` ← `Proposed Requirements` | `plan` |
 
 ### 4. From test preparation (manual)
 
@@ -166,48 +169,151 @@ Callable independently for preparatory research before any phase, or to suppleme
 ## --caller target: Target Deepening Steps
 
 These steps execute **in addition to** steps 1–16 when `--caller target` is specified.
-Steps 1–16 handle type discovery and reference collection as usual; steps T1–T3 below
-produce the target insights.
+Steps 1–16 handle type discovery and reference collection as usual; then the target-specific
+steps below produce the target insights.
 
-**T1. Analyze `.target.md` current content**
-- Extract keywords: technology names, feature descriptions, implied constraints
-- Identify ambiguities: missing quantitative metrics, unspecified error handling, boundary condition gaps
-- Use shell scripts to count sentences, measure section lengths, detect `[PROPOSED]` residuals — no mental math
+### --phase objective: 3-Stage Progressive Deepening (O1 → O2 → O3)
 
-**T2. Domain intelligence collection** (using collected `.references/` + supplementary web search)
-- Industry standards or specifications relevant to task type (RFC, POSIX, ISO, OWASP, etc.)
-- Common failure cases / known pitfalls for this class of task
-- Authoritative definitions of core domain terminology and abbreviations
+Each invocation executes **one stage**, then stops for user confirmation. Re-invoke to advance.
 
-**T3. Generate Insights and append to `.target.md`**
+**T0. Stage Detection** (always runs first)
 
-For `--phase objective`:
+Read `.target.md` and determine current stage:
+
+```
+if no `## Research Insights` section exists          → execute O1
+if `### O1:` exists AND no `[PROPOSED]` residual
+   AND no `### O2:` exists                           → execute O2
+if `### O2:` exists AND no `[PROPOSED]` residual
+   AND no `### O3:` exists                           → execute O3
+if `### O3:` exists AND no `[PROPOSED]` residual     → all stages complete
+                                                       → signal (objective-complete)
+                                                       → suggest --phase requirements
+if `[PROPOSED]` residual found in latest stage       → STOP with message:
+   "Pending [PROPOSED] items in O{N} — review and confirm before continuing"
+```
+
+Use shell script to detect:
+```bash
+python3 -c "
+import re, sys
+t = open('.working/.target.md').read()
+has_ri = '## Research Insights' in t
+has_o1 = bool(re.search(r'### O1:', t))
+has_o2 = bool(re.search(r'### O2:', t))
+has_o3 = bool(re.search(r'### O3:', t))
+# Check [PROPOSED] only in the latest stage section
+if has_o3:
+    last = t[t.rindex('### O3:'):]
+elif has_o2:
+    last = t[t.rindex('### O2:'):]
+elif has_o1:
+    last = t[t.rindex('### O1:'):]
+else:
+    last = ''
+has_proposed = '[PROPOSED]' in last
+if not has_ri or not has_o1: print('O1')
+elif has_o1 and not has_proposed and not has_o2: print('O2')
+elif has_o2 and not has_proposed and not has_o3: print('O3')
+elif has_o3 and not has_proposed: print('COMPLETE')
+elif has_proposed: print('PENDING')
+else: print('O1')
+"
+```
+
+**O1: Background Research** (领域 + 现状 + 参考实现)
+
+聚焦于理解任务所在领域：
+- 分析 `.target.md` 中的 Objective 关键词
+- Web 搜索：领域现状、SOTA、相关标准/规范
+- 查找参考实现/先例
+- 识别领域术语和核心概念
+
+产出追加到 `.target.md`：
 ```markdown
 ## Research Insights
 > Auto-generated by /moonview:research --caller target --phase objective · {date}
-> Review proposals below. Accept by editing sections above; delete what you don't need.
+> Each O-stage proposes refinements. Review, accept/modify, then re-run to advance.
 
-### Domain Standards & Best Practices
-<!-- Industry specifications, SOTA, authoritative references — for plan phase reference -->
+### O1: Background Research · {date}
 
-### Risks & Pitfalls
-<!-- Common failure points, technical traps, known bug scenarios for this domain -->
+#### Domain & State of the Art
+<!-- 领域定位、当前技术水平、行业标准 -->
 
-### Terminology
-<!-- Domain key terms / abbreviation glossary -->
+#### Reference Implementations
+<!-- 相关参考实现、开源项目、论文 -->
 
-### Proposed Objective Refinement
-<!-- More precise, complete objective expression based on domain standards -->
-<!-- Review and replace/supplement ## Objective above after acceptance -->
+#### Terminology
+<!-- 领域核心术语 / 缩写词汇表 -->
 
-#### [PROPOSED] Refined Objective
-... (ready-to-copy objective draft)
+#### [PROPOSED] Objective Clarification
+<!-- 基于背景研究对当前 Objective 的初步澄清建议 -->
 ```
 
-For `--phase requirements`:
+`.auto-signal`: `result: "(o1-collected)"`, `next: "(stop)"`, `checkpoint: "post-o1"`
+Git commit: `ai-cli-task(<notebook>):research deepen target background`
+
+**O2: Feasibility & Constraints** (可行性与约束分析)
+
+聚焦于评估目标的可行性和边界（基于已确认的 O1 内容）：
+- 基于 O1 的领域知识，评估技术路线选项
+- 识别关键风险和限制条件
+- 分析资源约束（时间/技术/依赖）
+- 界定 scope（in/out boundary）
+
+产出追加到 `.target.md`（在 `## Research Insights` 内）：
+```markdown
+### O2: Feasibility & Constraints · {date}
+
+#### Technical Routes
+<!-- 可行技术路线对比（优缺点） -->
+
+#### Risks & Limitations
+<!-- 关键风险、已知陷阱、技术限制 -->
+
+#### Scope Boundary
+<!-- 明确的 in-scope / out-of-scope 边界 -->
+
+#### [PROPOSED] Feasibility Assessment
+<!-- 综合可行性评估，推荐技术路线 -->
+```
+
+`.auto-signal`: `result: "(o2-collected)"`, `next: "(stop)"`, `checkpoint: "post-o2"`
+Git commit: `ai-cli-task(<notebook>):research deepen target feasibility`
+
+**O3: Refined Objective** (目标精炼)
+
+综合 O1（背景）和 O2（可行性）的已确认内容，产出最终精炼目标：
+- 整合领域知识 + 可行性分析
+- 提出精确、完整、可度量的目标表述
+- 定义验收标准
+
+产出追加到 `.target.md`（在 `## Research Insights` 内）：
+```markdown
+### O3: Refined Objective · {date}
+
+#### [PROPOSED] Refined Objective
+<!-- 综合 O1 背景研究 + O2 可行性分析，产出精炼后的目标 -->
+<!-- 包含：精确的目标描述、可度量的成功标准、明确的交付物 -->
+
+#### [PROPOSED] Acceptance Criteria
+<!-- 验收标准清单 -->
+```
+
+`.auto-signal`: `result: "(o3-collected)"`, `next: "(stop)"`, `checkpoint: "post-o3"`
+Git commit: `ai-cli-task(<notebook>):research deepen target objective`
+
+**Objective Complete**: When T0 detects all stages done (no `[PROPOSED]` residuals):
+`.auto-signal`: `result: "(objective-complete)"`, `next: "(stop)"`
+No git commit (nothing written). Output message: "All objective stages complete — run `--phase requirements` to continue."
+
+### --phase requirements: Requirements Deepening
+
+Executes after O3 is confirmed. Uses confirmed O1/O2/O3 content as context.
+
 ```markdown
 ### Proposed Requirements
-<!-- Based on confirmed ## Objective, infers potentially missing requirements -->
+<!-- Based on confirmed ## Objective + Research Insights, infers potentially missing requirements -->
 <!-- Review and cut accepted items into ## Requirements above; remove [PROPOSED] marker -->
 
 #### [PROPOSED] Error Handling Strategy
@@ -220,14 +326,12 @@ For `--phase requirements`:
 ...
 ```
 
-**Append rules:**
+**Append rules** (apply to all phases):
 - If `## Research Insights` already exists: append a new dated sub-section, do NOT overwrite
 - Never modify `## Objective`, `## Requirements`, or other human-authored sections
 - `[PROPOSED]` marker: keep until human accepts; remove when merging into main sections
 
-**Git commit** (when Insights content was written):
-- `--phase objective`: `ai-cli-task(<notebook>):research deepen target objective`
-- `--phase requirements`: `ai-cli-task(<notebook>):research deepen target requirements`
+Git commit: `ai-cli-task(<notebook>):research deepen target requirements`
 
 ## --caller test: Test Intelligence Steps
 
@@ -311,7 +415,7 @@ Write or append to `$NB_WORKSPACES_LIBRARY/.memory/.references/testing-<type>.md
 | Reference index | `$NB_WORKSPACES_LIBRARY/.memory/.references/.summary.md` | Keyword-searchable index of all reference files |
 | Type registry | `$NB_WORKSPACES_LIBRARY/.type-registry.md` | Auto-expanding type list (new types appended) |
 | Shared profiles | `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/<type>.md` | Cross-task type profiles (for types not in static tables) |
-| Insights (target-obj) | `.target.md` (appended) | Proposed Objective Refinement with `[PROPOSED]` markers |
+| Insights (target-obj) | `.target.md` (appended) | O1/O2/O3 staged Insights with `[PROPOSED]` markers |
 | Insights (target-req) | `.target.md` (appended) | Proposed Requirements with `[PROPOSED]` markers |
 | Test methodology | `.test/<date>-research-methodology.md` | Testing strategy, patterns, coverage standards |
 | Test tools | `.test/<date>-research-tools.md` | Frameworks, assertions, thresholds, CI integration |
@@ -334,12 +438,19 @@ Research writes to shared directories (`$NB_WORKSPACES_LIBRARY/.memory/.referenc
 |---------|---------------|
 | References collected | `ai-cli-task(<notebook>):research collect references` |
 | References sufficient | (no commit — nothing changed) |
+| Target O1 (background) | `ai-cli-task(<notebook>):research deepen target background` |
+| Target O2 (feasibility) | `ai-cli-task(<notebook>):research deepen target feasibility` |
+| Target O3 (objective) | `ai-cli-task(<notebook>):research deepen target objective` |
+| Target requirements | `ai-cli-task(<notebook>):research deepen target requirements` |
 
 ## .auto-signal
 
 | caller | phase / status | result | next | checkpoint |
 |--------|---------------|--------|------|------------|
-| `target` | `objective` | `(collected)` | `(stop)` | `post-research` |
+| `target` | `objective` | `(o1-collected)` | `(stop)` | `post-o1` |
+| `target` | `objective` | `(o2-collected)` | `(stop)` | `post-o2` |
+| `target` | `objective` | `(o3-collected)` | `(stop)` | `post-o3` |
+| `target` | `objective` | `(objective-complete)` | `(stop)` | — |
 | `target` | `requirements` | `(collected)` | `plan` | `post-research` |
 | `plan` | — | `(collected)` / `(sufficient)` | `plan` | `post-research` |
 | `test` | status=`planning`/`draft` | `(collected)` / `(sufficient)` | `plan` | `post-research` |
@@ -348,7 +459,7 @@ Research writes to shared directories (`$NB_WORKSPACES_LIBRARY/.memory/.referenc
 | `check` | — | `(collected)` / `(sufficient)` | `check` | `post-research` |
 | `exec` | — | `(collected)` / `(sufficient)` | `exec` | `post-research` |
 
-**`next: "(stop)"` for `--caller target --phase objective`**: Auto loop exits gracefully after writing Insights. Task status remains `draft` — no state transition. Manual calls to research or auto are unaffected.
+**`next: "(stop)"` for `--caller target --phase objective`**: Each O-stage stops after writing its Insights. Task status remains `draft` — no state transition. User reviews `[PROPOSED]` items, confirms/modifies, then re-runs research to advance to the next stage.
 
 ## Reference File Guidelines
 

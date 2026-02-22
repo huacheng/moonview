@@ -117,9 +117,9 @@ The daemon validates `.auto-signal` fields for monitoring integrity:
 | Field | Validation | Allowed Values |
 |-------|-----------|----------------|
 | `step` | Whitelist | `plan`, `check`, `exec`, `merge`, `report`, `research`, `verify`, `annotate` |
-| `result` | Whitelist | `PASS`, `NEEDS_REVISION`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED`, `CONTINUE`, `(generated)`, `(done)`, `(mid-exec)`, `(step-N)` (where N is integer), `(blocked)`, `(collected)`, `(sufficient)`, `(pass)`, `(fail)`, `(partial)`, `(processed)`, `success`, `conflict` |
+| `result` | Whitelist | `PASS`, `NEEDS_REVISION`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED`, `CONTINUE`, `(generated)`, `(done)`, `(mid-exec)`, `(step-N)` (where N is integer), `(blocked)`, `(collected)`, `(sufficient)`, `(o1-collected)`, `(o2-collected)`, `(o3-collected)`, `(objective-complete)`, `(pass)`, `(fail)`, `(partial)`, `(processed)`, `success`, `conflict` |
 | `next` | Whitelist | `plan`, `check`, `exec`, `merge`, `report`, `research`, `verify`, `annotate`, `(stop)` |
-| `checkpoint` | Whitelist | `""`, `post-plan`, `post-research`, `mid-exec`, `post-exec`, `quick`, `full`, `step-N` |
+| `checkpoint` | Whitelist | `""`, `post-plan`, `post-research`, `post-o1`, `post-o2`, `post-o3`, `mid-exec`, `post-exec`, `quick`, `full`, `step-N` |
 | `iteration` | Integer | ≥ 0 |
 | `compaction_count` | Integer | ≥ 0 |
 | `timestamp` | Format check | ISO 8601 |
@@ -206,7 +206,7 @@ The auto skill runs this loop within a single Claude session:
 
 | Current Status | First Step |
 |----------------|-----------|
-| `draft` | Validate `.target.md` has substantive content → if empty, stop and report "fill `.target.md` first". Then check for `## Research Insights` in `.target.md`: **if missing** → run `research --caller target --phase objective`, then `research --caller target --phase requirements`, then PAUSE with message "Target deepened — review `.target.md`, confirm `[PROPOSED]` items, then re-run auto"; **if present and no `[PROPOSED]` residuals** → execute plan (generate mode) |
+| `draft` | Validate `.target.md` has substantive content → if empty, stop and report "fill `.target.md` first". Then check `## Research Insights` in `.target.md`: **if missing or O-stages incomplete** → run `research --caller target --phase objective` (executes one O-stage: O1/O2/O3), then PAUSE with message "Target deepened (O{N}) — review `.target.md`, confirm `[PROPOSED]` items, then re-run auto to advance"; **if all O-stages complete and `[PROPOSED]` residuals exist** → PAUSE with message "Pending `[PROPOSED]` items — review and confirm before continuing"; **if all O-stages complete, no `[PROPOSED]` residuals, but no `### Proposed Requirements`** → run `research --caller target --phase requirements`, then PAUSE; **if requirements present and no `[PROPOSED]` residuals** → execute plan (generate mode) |
 | `planning` | Execute verify → check (post-plan) |
 | `review` | Execute exec |
 | `executing` | Execute verify → check (post-exec). **Note**: even if `completed_steps` < total, auto enters via post-exec verification first — check detects incomplete work and routes back to exec via NEEDS_FIX, adding one extra iteration. This avoids re-parsing `.plan.md` to count total steps at entry |
@@ -239,6 +239,10 @@ After each step, Claude evaluates the result and determines the next step intern
 | merge | success | report | — | Merge complete, generate report |
 | merge | conflict | (stop) | — | Merge conflict unresolvable |
 | research | (collected)/(sufficient) | `<caller>` (plan/verify/check/exec) | post-research | References collected, resume calling phase |
+| research | (o1-collected) | (stop) | post-o1 | O1 background research done, wait for user confirmation |
+| research | (o2-collected) | (stop) | post-o2 | O2 feasibility analysis done, wait for user confirmation |
+| research | (o3-collected) | (stop) | post-o3 | O3 refined objective done, wait for user confirmation |
+| research | (objective-complete) | (stop) | — | All O-stages confirmed, suggest --phase requirements |
 | verify | (pass/fail/partial) | check | (from trigger context) | Verification done, check renders verdict. Auto loop uses the **triggering context** to determine check checkpoint: plan→post-plan, exec(done)→post-exec, exec(mid-exec)→mid-exec |
 | annotate | (processed) | verify | post-plan | Annotations processed, verify then assess |
 | report | (any) | (stop) | — | Loop complete |
