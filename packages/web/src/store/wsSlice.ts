@@ -93,6 +93,9 @@ export const createWsSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
         case 'cell_output':
           store.appendCellOutput(parsed.cell_id, parsed.output);
           break;
+        case 'cell_stream':
+          store.appendStreamDelta(parsed.cell_id, parsed.delta, parsed.block_type);
+          break;
         case 'tool_result':
           store.updateToolResult(parsed.cell_id, parsed.tool_use_id, parsed.content, parsed.is_error);
           break;

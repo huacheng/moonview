@@ -6,6 +6,7 @@ import type {
   SliceSection,
   NotebookListItem,
 } from '@notebook-ai/shared';
+import type { ProjectListItem } from './projectSlice';
 
 /**
  * Full combined store interface.
@@ -39,6 +40,25 @@ export interface NotebookStore {
   wsReconnectExhausted: boolean;
   openFile: { path: string; source: 'workspace' | 'library'; sessionId: string } | null;
   fileViewerMaximized: boolean;
+
+  // ── Project state ─────────────────────────────────────────────────────
+  projects: ProjectListItem[];
+  projectsLoading: boolean;
+  activeProjectId: string | null;
+  activeProjectPath: string | null;
+  sidebarLevel: 'L1' | 'L2';
+  fileBrowserPath: string;
+
+  // ── Multi-notebook state ──────────────────────────────────────────────
+  openNotebooks: Record<string, { notebook: Notebook; sessionId: string; scrollY: number }>;
+  activeNotebookTabId: string | null;
+  streamBuffer: Record<string, { text: string; thinking: string }>;
+
+  // ── Right panel state ─────────────────────────────────────────────────
+  rightPanelOpen: boolean;
+  rightPanelSplitRatio: number;
+  deliverablesViewingFile: string | null;
+  libraryViewingFile: string | null;
 
   // ── WebSocket state ────────────────────────────────────────────────────
   ws: WebSocket | null;
@@ -86,6 +106,29 @@ export interface NotebookStore {
   toggleFilesPanel(): void;
   setOpenFile(file: { path: string; source: 'workspace' | 'library'; sessionId: string } | null): void;
   toggleFileViewerMaximized(): void;
+
+  // ── Project actions ───────────────────────────────────────────────────
+  fetchProjects(): Promise<void>;
+  createProject(title: string): Promise<void>;
+  setActiveProject(id: string, path: string): void;
+  goBackToProjectList(): void;
+  navigateFileBrowser(subPath: string): void;
+  createNotebook(projectId: string, title: string): Promise<{ sessionId: string; notebookPath: string }>;
+
+  // ── Multi-notebook actions ────────────────────────────────────────────
+  openNotebookTab(notebookId: string, notebook: Notebook, sessionId: string): void;
+  closeNotebookTab(notebookId: string): void;
+  setActiveNotebookTab(notebookId: string): void;
+  appendStreamDelta(cellId: string, delta: string, blockType: 'text' | 'thinking'): void;
+  flushStreamBuffer(cellId: string): string;
+
+  // ── Right panel actions ───────────────────────────────────────────────
+  toggleRightPanel(): void;
+  setRightPanelSplitRatio(ratio: number): void;
+  openFileInDeliverables(path: string): void;
+  openFileInLibrary(path: string): void;
+  closeDeliverablesViewer(): void;
+  closeLibraryViewer(): void;
 
   // ── WebSocket actions ──────────────────────────────────────────────────
   connectWebSocket(): void;

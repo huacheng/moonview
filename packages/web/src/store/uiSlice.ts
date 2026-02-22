@@ -8,6 +8,11 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   | 'setWsReconnectExhausted' | 'toggleFilesPanel'
   | 'openFile' | 'fileViewerMaximized'
   | 'setOpenFile' | 'toggleFileViewerMaximized'
+  | 'rightPanelOpen' | 'rightPanelSplitRatio'
+  | 'deliverablesViewingFile' | 'libraryViewingFile'
+  | 'toggleRightPanel' | 'setRightPanelSplitRatio'
+  | 'openFileInDeliverables' | 'openFileInLibrary'
+  | 'closeDeliverablesViewer' | 'closeLibraryViewer'
 >> = (set) => ({
   activeTab: 'notebook',
   sessionNotice: null,
@@ -17,6 +22,10 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   wsReconnectExhausted: false,
   openFile: null,
   fileViewerMaximized: false,
+  rightPanelOpen: true,
+  rightPanelSplitRatio: 0.5,
+  deliverablesViewingFile: null,
+  libraryViewingFile: null,
 
   setActiveTab(tab) {
     set({ activeTab: tab });
@@ -44,5 +53,29 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
 
   toggleFileViewerMaximized() {
     set((s) => ({ fileViewerMaximized: !s.fileViewerMaximized }));
+  },
+
+  toggleRightPanel() {
+    set((state) => ({ rightPanelOpen: !state.rightPanelOpen }));
+  },
+
+  setRightPanelSplitRatio(ratio) {
+    set({ rightPanelSplitRatio: ratio });
+  },
+
+  openFileInDeliverables(path) {
+    set({ deliverablesViewingFile: path });
+  },
+
+  openFileInLibrary(path) {
+    set({ libraryViewingFile: path });
+  },
+
+  closeDeliverablesViewer() {
+    set({ deliverablesViewingFile: null });
+  },
+
+  closeLibraryViewer() {
+    set({ libraryViewingFile: null });
   },
 });

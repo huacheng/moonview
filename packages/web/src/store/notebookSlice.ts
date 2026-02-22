@@ -61,10 +61,16 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
   | 'updateCellSource' | 'setCellStatus' | 'appendCellOutput' | 'updateToolResult'
   | 'setCellGitDiff'
   | 'generateSlice' | 'updateSliceSections'
+  | 'openNotebooks' | 'activeNotebookTabId' | 'streamBuffer'
+  | 'openNotebookTab' | 'closeNotebookTab' | 'setActiveNotebookTab'
+  | 'appendStreamDelta' | 'flushStreamBuffer'
 >> = (set, get) => ({
   notebook: null,
   sliceLoading: false,
   notebookLoading: false,
+  openNotebooks: {},
+  activeNotebookTabId: null,
+  streamBuffer: {},
 
   setNotebook(nb) {
     set({ notebook: nb });
@@ -325,5 +331,68 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'slice_update', session_id: get().sessionId ?? '', sections }));
     }
+  },
+
+  openNotebookTab: (notebookId, notebook, sessionId) => {
+    set(state => ({
+      openNotebooks: {
+        ...state.openNotebooks,
+        [notebookId]: { notebook, sessionId, scrollY: 0 },
+      },
+      activeNotebookTabId: notebookId,
+      notebook: notebook,  // keep backward compat
+    }));
+  },
+
+  closeNotebookTab: (notebookId) => {
+    set(state => {
+      const { [notebookId]: _, ...rest } = state.openNotebooks;
+      const remainingIds = Object.keys(rest);
+      const newActiveId = state.activeNotebookTabId === notebookId
+        ? (remainingIds[0] ?? null)
+        : state.activeNotebookTabId;
+      return {
+        openNotebooks: rest,
+        activeNotebookTabId: newActiveId,
+        notebook: newActiveId ? rest[newActiveId]?.notebook ?? null : null,
+      };
+    });
+  },
+
+  setActiveNotebookTab: (notebookId) => {
+    set(state => {
+      // Save scroll position for current tab
+      const current = state.activeNotebookTabId;
+      const updated = { ...state.openNotebooks };
+      if (current && updated[current]) {
+        updated[current] = { ...updated[current], scrollY: window.scrollY };
+      }
+      return {
+        openNotebooks: updated,
+        activeNotebookTabId: notebookId,
+        notebook: updated[notebookId]?.notebook ?? null,
+      };
+    });
+  },
+
+  appendStreamDelta: (cellId, delta, blockType) => {
+    set(state => {
+      const buf = { ...state.streamBuffer };
+      if (!buf[cellId]) buf[cellId] = { text: '', thinking: '' };
+      buf[cellId] = { ...buf[cellId], [blockType]: buf[cellId][blockType] + delta };
+      return { streamBuffer: buf };
+    });
+  },
+
+  flushStreamBuffer: (cellId) => {
+    const buf = get().streamBuffer[cellId];
+    if (!buf) return '';
+    const text = buf.text;
+    set(state => {
+      const newBuf = { ...state.streamBuffer };
+      delete newBuf[cellId];
+      return { streamBuffer: newBuf };
+    });
+    return text;
   },
 });
