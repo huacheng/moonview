@@ -150,6 +150,8 @@ textarea.cell-input {
   min-height: 0;
   overflow-y: auto;
   scroll-padding-top: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ============================================================
@@ -848,7 +850,7 @@ textarea.cell-input {
   width: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
 }
 
 /* ── Notebook status bar ──────────────────────────────────────────────────── */
@@ -3501,7 +3503,6 @@ button:focus-visible {
   min-width: 320px;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
 }
 .notebook-area--hidden {
   display: none;

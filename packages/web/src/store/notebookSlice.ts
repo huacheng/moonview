@@ -341,6 +341,7 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
       },
       activeNotebookTabId: notebookId,
       notebook: notebook,  // keep backward compat
+      sessionId,
     }));
   },
 
@@ -355,6 +356,7 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
         openNotebooks: rest,
         activeNotebookTabId: newActiveId,
         notebook: newActiveId ? rest[newActiveId]?.notebook ?? null : null,
+        sessionId: newActiveId ? rest[newActiveId]?.sessionId ?? null : null,
       };
     });
   },
@@ -371,6 +373,7 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
         openNotebooks: updated,
         activeNotebookTabId: notebookId,
         notebook: updated[notebookId]?.notebook ?? null,
+        sessionId: updated[notebookId]?.sessionId ?? null,
       };
     });
   },
