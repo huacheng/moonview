@@ -216,85 +216,15 @@ Run `--rebuild-index` → `--compact` → `--check-staleness` in sequence. Also 
 
 ## Library Write Protocol
 
-**Every sub-command that writes to `$NB_WORKSPACES_LIBRARY/` MUST follow this six-step protocol:**
+> **See `commands/references/library-write-protocol.md`** (from `task-ai/` root) for the full six-step write protocol (mkdir → acquire lock → write file → changelog append → update index → release lock), changelog line format, append vs overwrite rules, and `.summary.md` staleness notes.
 
-```
-1. mkdir -p   target sub-directory (idempotent)
-2. Acquire    directory-level .lock  (O_CREAT|O_EXCL atomic create)
-              Stale-lock recovery: rename .lock → .lock.stale.<pid>, then re-acquire;
-              clean up all .lock.stale.* after successful acquisition
-3. Write file — overwrite mode: write to <file>.tmp → rename to <file>  (POSIX atomic)
-             — append mode:    O_APPEND to existing file               (POSIX atomic)
-             — append separator: prepend --- before each appended record (frontmatter included)
-4. Acquire    .changelog.lock (same O_CREAT|O_EXCL protocol, very brief hold)
-              → append one ASCII line to .changelog
-              → release .changelog.lock
-5. Update     directory .index.md: append row for new files; overwrite matching row for updates
-              (while still holding directory .lock from step 2)
-6. Release    directory-level .lock
-```
-
-**Changelog line format** (ASCII only — no multi-byte characters):
-
-```
-2026-02-21T14:32Z | experience  | .memory/.experiences/software/auth-refactor-complete.md | quality_status:verified
-2026-02-21T15:10Z | reference   | .memory/.references/jwt-auth-v3.md                      | topic:jwt-auth,staleness-refresh
-2026-02-21T16:00Z | referenced  | .memory/.references/jwt-auth-v3.md                      | caller:plan,notebook:auth-refactor
-```
-
-Supported entry types: `experience`, `reference`, `type-profile`, `pattern`, `referenced`
-
-**Append vs overwrite per file category:**
-
-| Mode | File types |
-|------|-----------|
-| Append (`---` separator + O_APPEND index) | `.memory/.thinking/raw/<nb>-<step>-<date>.md`; `<nb>-impl.md`; `<nb>-verify.md`; `<nb>-eval.md` |
-| Overwrite (`.tmp → rename`) | `<nb>-complete.md`; `.memory/.thinking/patterns/*.md`; `.memory/.type-profiles/*.md`; all `.summary.md`; all `.index.md` |
-
-**Note on `.summary.md` staleness**: `exec`, `verify`, and `check` update `.index.md` when writing partial experience files, but do NOT rebuild `.memory/.experiences/<type>/.summary.md` (prose index). That summary is rebuilt by `report` (step 13(f)-(g)). Until `report` runs, the prose summary may not reflect the latest partial entries. Use `library maintain --rebuild-index` to refresh all summaries on demand.
-
-> See `references/write-protocol.md` for per-directory lock table, hold duration, and stale-lock recovery procedure.
+> See `references/write-protocol.md` (relative to this skill) for per-directory lock table, hold duration, and stale-lock recovery procedure.
 
 ---
 
 ## Changelog Consumption Protocol
 
-Sub-commands that load library context at startup (plan, research, exec, check, verify) MUST follow this protocol:
-
-```
-1. Read   <notebook>/.working/.library-state.json
-          → last_library_read  (ISO 8601 timestamp)
-          → changelog_offset   (byte offset into .changelog)
-
-2. open($NB_WORKSPACES_LIBRARY/.changelog)
-          → seek(changelog_offset)
-          → read lines from offset to EOF
-
-3. Score each new line using per-directory relevance scoring (same as search operation):
-          Lines scoring ≥ threshold → load the referenced library file
-
-4. Write  <notebook>/.working/.library-state.json  (atomic: .tmp → rename)
-          → last_library_read  = now
-          → changelog_offset   = new EOF byte position
-```
-
-**Three-tier degradation path:**
-
-| Condition | Action |
-|-----------|--------|
-| `changelog_offset` valid and ≤ file size | Seek directly — O(1) |
-| `changelog_offset` > file size (post-compact) OR `last_library_read` is empty | Read `.master-index.md` full-text match; reset offset to EOF after |
-| `.master-index.md` missing (library not yet initialised) | Log warning; continue without library context — do not block task |
-
-**`.library-state.json` schema:**
-
-```json
-{ "last_library_read": "2026-02-21T14:00:00Z", "changelog_offset": 1247 }
-```
-
-Parse failure recovery: reset to `{ "last_library_read": "", "changelog_offset": 0 }` and trigger degradation tier 2.
-
-**Context window budget**: default 4000 tokens per sub-command library load. Per-notebook override: add `"library_context_budget": <tokens>` to `.library-state.json`.
+> **See `commands/references/changelog-consumption-protocol.md`** (from `task-ai/` root) for the full four-step consumption protocol (read state → seek changelog → score & load → update state), three-tier degradation path, `.library-state.json` schema, and context window budget.
 
 ---
 
@@ -500,7 +430,7 @@ User-imported content does not have frontmatter requirements. `library search` i
 
 | Lock file | Held by | Typical hold duration |
 |-----------|---------|----------------------|
-| `.memory/.references/.lock` | research, exec, maintain | Reference write + index update |
+| `.memory/.references/.lock` | research, exec, check, maintain | Reference write + index update |
 | `.memory/.experiences/.lock` | report, exec, verify, check, maintain | Experience write + index update |
 | `.memory/.type-profiles/.lock` | research, report, maintain | Profile write |
 | `.memory/.thinking/patterns/.lock` | report, maintain | Pattern distillation (longer hold) |

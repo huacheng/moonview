@@ -303,7 +303,7 @@ Every sub-command that participates in the automation loop (plan, check, exec, m
 |--------|---------|---------|-----------|
 | `UPPERCASE` | `check` (judgment skills) | `PASS`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED` | Verdicts that drive state transitions — emphasized as formal decisions |
 | `(lowercase)` | `plan`, `exec`, `verify`, `research`, `report`, `annotate` (action skills) | `(generated)`, `(done)`, `(pass)`, `(collected)`, `(processed)` | Outcomes wrapped in parentheses — informational status without state-changing authority |
-| `lowercase` | `merge` (git operations) | `success`, `conflict` | Git-style bare results — merge outcomes are binary and self-descriptive |
+| `lowercase` | `merge` (git operations) | `success`, `conflict`, `rejected` | Git-style bare results — merge outcomes are self-descriptive |
 
 The auto daemon's signal validation whitelist (see `auto/SKILL.md`) accepts all three formats. New skills SHOULD follow this convention: judgment → UPPERCASE, action → (lowercase), git → lowercase.
 - **Atomic write**: `.auto-signal` MUST be written atomically — write to `.auto-signal.tmp` first, then `rename` to `.auto-signal`. POSIX `rename` is atomic, preventing the daemon from reading partially written JSON.
@@ -370,6 +370,29 @@ Three shared directories require locks before writing (all use the same lock pro
 | `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/` | `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.lock` | `report`, `exec`, `verify`, `check` | Create type dir, write `<notebook>-{complete\|impl\|verify\|eval}.md`, update per-type `.index.md`. For hybrid types (`A\|B`), covers all segments |
 | `$NB_WORKSPACES_LIBRARY/.memory/.references/` | `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` | `research`, `exec`, `check` | Write `<topic>.md`, update `.index.md` and `.summary.md`; `check` updates `failure_count` on REPLAN |
 | `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` | `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` | `research`, `report` | Write `<type>.md` shared profiles |
+
+Additionally, `$NB_WORKSPACES_LIBRARY/.changelog.lock` is held briefly by any library writer during the write protocol (step 4 — single-line append). See Lock Ordering Convention below for the full lock list and acquisition order.
+
+### Lock Ordering Convention
+
+When a sub-command acquires multiple locks within a single operation, it MUST acquire them in the following order to prevent deadlocks:
+
+| Priority | Lock | Typical Holders |
+|----------|------|-----------------|
+| 1 (first) | `.working/.lock` (task module) | plan, exec, check, merge, research, annotate, cancel |
+| 2 | `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` | research, report |
+| 3 | `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.lock` | report, exec, verify, check |
+| 4 | `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` | research, exec, check |
+| 5 | `$NB_WORKSPACES_LIBRARY/.memory/.thinking/patterns/.lock` | report |
+| 6 (last) | `$NB_WORKSPACES_LIBRARY/.changelog.lock` | Any library writer (brief hold) |
+
+**Rules:**
+- Always acquire in ascending priority order (lower number first)
+- Always release in reverse order (higher number first)
+- Never hold a lower-priority lock while attempting to acquire a higher-priority one
+- `.changelog.lock` is always the innermost lock (acquired last, released first) — its hold duration is a single-line append
+
+**Example**: `report` needs `.working/.lock` (1), `.type-profiles/.lock` (2), and `.experiences/.lock` (3). Preferred order: acquire 1 → 2 → 3, release 3 → 2 → 1 (strictly monotonic). If report must process experiences before type profiles, it may acquire 1 → 3, release 3, then acquire 2 — valid because 3 is fully released before 2 is acquired. Always prefer the strictly monotonic order when the processing sequence allows it.
 
 ### .index.json Safety
 

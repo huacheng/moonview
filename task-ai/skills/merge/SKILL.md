@@ -56,11 +56,12 @@ If merge conflict detected:
 
 On successful merge:
 
-1. **Update** `.index.json` status → `complete`, clear `branch` to `""` (branch will be deleted), update timestamp
+1. **Update** `.index.json` status → `complete`, update timestamp — retain `branch` and `worktree` values (needed for cleanup in steps 4–5)
 2. **Write** `.summary.md` with final task summary: completion status, plan overview, key changes, verification outcome, lessons learned (integrate from directory summaries)
 3. **Git commit** state FIRST: `ai-cli-task(<notebook>):merge task completed` — commit state changes before any destructive cleanup, so status is persisted even if cleanup fails
 4. **If worktree exists**: `git worktree remove .worktrees/task-<module>` (failure is non-fatal — log warning, continue)
 5. **Delete** merged branch: `git branch -d task/<notebook>` (failure is non-fatal — branch may already be deleted or have extra commits; log warning, continue)
+6. **Clear** `branch` to `""` and `worktree` to `""` in `.index.json` (atomic write), git commit: `ai-cli-task(<notebook>):merge cleanup branch metadata`
 
 ## Execution Steps
 
@@ -75,7 +76,7 @@ On successful merge:
    b. Attempt resolution (up to 3 tries)
    c. Each resolution: fix conflicts → verify (build + test) → if pass commit, if fail abort and retry
    d. If all 3 attempts fail → stay `executing`, abort merge, report unresolvable conflicts
-8. **Phase 4**: Post-merge cleanup (status update → `complete`, write `.summary.md`, git commit state FIRST, then worktree removal + branch deletion — cleanup failures are non-fatal)
+8. **Phase 4**: Post-merge cleanup (status → `complete` with branch retained, write `.summary.md`, git commit state FIRST, then worktree removal + branch deletion — cleanup failures are non-fatal — finally clear `branch`/`worktree` fields and commit metadata cleanup)
 9. **Write** `.auto-signal` to the **main worktree's** `$NB_WORKSPACES_ROOT/<notebook_name>/.working/` directory (NOT the task worktree's copy) — MUST be written AFTER Phase 4 status update to `complete`, so the daemon reads correct status when routing to `report`. In worktree mode, the task directory exists in both locations; writing to main ensures the signal survives worktree removal. The daemon's `fs.watch` MUST monitor the main worktree path. **Resolve main worktree path**: read `.git` file in task worktree → extract `gitdir` → resolve to main worktree root. Or use `git -C <main-repo> rev-parse --show-toplevel`
 10. **Report** merge result
 
@@ -94,6 +95,7 @@ On successful merge:
 | Merge commit | `ai-cli-task(<notebook>):merge merge completed task` |
 | Conflict resolution | `ai-cli-task(<notebook>):merge resolve merge conflict` |
 | State update | `ai-cli-task(<notebook>):merge task completed` |
+| Metadata cleanup | `ai-cli-task(<notebook>):merge cleanup branch metadata` |
 
 ## .auto-signal
 
@@ -101,6 +103,8 @@ On successful merge:
 |--------|--------|
 | Success | `{ "step": "merge", "result": "success", "next": "report", "checkpoint": "", "timestamp": "..." }` |
 | Conflict | `{ "step": "merge", "result": "conflict", "next": "(stop)", "checkpoint": "", "timestamp": "..." }` |
+| Dependency not met | `{ "step": "merge", "result": "rejected", "next": "(stop)", "checkpoint": "dependency-blocked", "timestamp": "..." }` |
+| No ACCEPT verdict | `{ "step": "merge", "result": "rejected", "next": "(stop)", "checkpoint": "no-accept", "timestamp": "..." }` |
 
 ## Notes
 
