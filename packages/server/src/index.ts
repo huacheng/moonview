@@ -14,6 +14,7 @@ import { createFilesRouter } from './routes/files.js';
 import { createLibraryRouter } from './routes/library.js';
 import { createSessionsRouter } from './routes/sessions.js';
 import { createProjectsRouter } from './routes/projects.js';
+import { createGitRouter } from './routes/git.js';
 import { setupWebSocket } from './ws-handler.js';
 import { authMiddleware } from './auth.js';
 
@@ -81,6 +82,7 @@ app.use('/api/notebooks', createFilesRouter(sessionManager));
 app.use('/api/library', createLibraryRouter());
 app.use('/api/sessions', createSessionsRouter(sessionManager, db));
 app.use('/api/projects', createProjectsRouter(db, sessionManager, notebookStore, workspaceRoot));
+app.use('/api/projects', createGitRouter(db));
 
 // ── WebSocket ────────────────────────────────────────────────────────────────
 

@@ -342,6 +342,8 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
       activeNotebookTabId: notebookId,
       notebook: notebook,  // keep backward compat
       sessionId,
+      gitTabOpen: false,
+      activeTab: 'notebook' as const,
     }));
   },
 

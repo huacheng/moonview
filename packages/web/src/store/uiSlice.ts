@@ -2,9 +2,10 @@ import type { StateCreator } from 'zustand';
 import type { NotebookStore } from './types';
 
 export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookStore,
-  | 'activeTab' | 'sessionNotice' | 'latency' | 'creatingNotebook'
+  | 'activeTab' | 'gitTabOpen' | 'sessionNotice' | 'latency' | 'creatingNotebook'
   | 'filesPanelOpen' | 'wsReconnectExhausted'
-  | 'setActiveTab' | 'clearSessionNotice' | 'setLatency'
+  | 'setActiveTab' | 'openGitTab' | 'closeGitTab'
+  | 'clearSessionNotice' | 'setLatency'
   | 'setWsReconnectExhausted' | 'toggleFilesPanel'
   | 'openFile' | 'fileViewerMaximized'
   | 'setOpenFile' | 'toggleFileViewerMaximized'
@@ -15,6 +16,7 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   | 'closeDeliverablesViewer' | 'closeLibraryViewer'
 >> = (set) => ({
   activeTab: 'notebook',
+  gitTabOpen: false,
   sessionNotice: null,
   latency: null,
   creatingNotebook: false,
@@ -28,7 +30,15 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   libraryViewingFile: null,
 
   setActiveTab(tab) {
-    set({ activeTab: tab });
+    set({ activeTab: tab, gitTabOpen: tab === 'git' });
+  },
+
+  openGitTab() {
+    set({ activeTab: 'git', gitTabOpen: true });
+  },
+
+  closeGitTab() {
+    set({ activeTab: 'notebook', gitTabOpen: false });
   },
 
   clearSessionNotice() {

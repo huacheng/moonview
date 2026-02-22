@@ -6,6 +6,7 @@ import { NotebookTabs } from './components/NotebookTabs';
 import { RightPanel } from './components/RightPanel';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { NotebookCreationPanel } from './components/NotebookCreationPanel';
+import { GitHistoryPanel } from './components/GitHistoryPanel';
 import { LoginPage } from './components/LoginPage';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useStore } from './store';
@@ -95,6 +96,8 @@ function AuthenticatedApp() {
   const wsReconnectExhausted = useStore((s) => s.wsReconnectExhausted);
   const sessionId = useStore((s) => s.sessionId);
   const fetchProjects = useStore((s) => s.fetchProjects);
+  const gitTabOpen = useStore((s) => s.gitTabOpen);
+  const activeProjectId = useStore((s) => s.activeProjectId);
 
   const contentRef = useRef<HTMLElement | null>(null);
 
@@ -147,7 +150,9 @@ function AuthenticatedApp() {
         <main ref={contentRef} className="app-content">
           <NotebookTabs />
           <div className="notebook-area">
-            {notebookLoading ? (
+            {gitTabOpen && activeProjectId ? (
+              <GitHistoryPanel projectId={activeProjectId} />
+            ) : notebookLoading ? (
               <NotebookLoadingScreen />
             ) : creatingNotebook ? (
               <NotebookCreationPanel />

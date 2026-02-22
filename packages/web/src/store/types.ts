@@ -32,7 +32,8 @@ export interface NotebookStore {
   workspaceDir: string | null;
 
   // ── UI state ───────────────────────────────────────────────────────────
-  activeTab: 'notebook' | 'slice';
+  activeTab: 'notebook' | 'slice' | 'git';
+  gitTabOpen: boolean;
   sessionNotice: string | null;
   latency: number | null;
   creatingNotebook: boolean;
@@ -99,7 +100,9 @@ export interface NotebookStore {
   updateSliceSections(sections: SliceSection[]): void;
 
   // ── UI actions ─────────────────────────────────────────────────────────
-  setActiveTab(tab: 'notebook' | 'slice'): void;
+  setActiveTab(tab: 'notebook' | 'slice' | 'git'): void;
+  openGitTab(): void;
+  closeGitTab(): void;
   clearSessionNotice(): void;
   setLatency(ms: number | null): void;
   setWsReconnectExhausted(v: boolean): void;
