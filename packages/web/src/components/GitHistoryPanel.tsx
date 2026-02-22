@@ -5,6 +5,40 @@ import type { CommitInfo, RefInfo } from '../api/git';
 import { computeLanes, LANE_COLORS } from '../utils/gitGraph';
 import type { LaneNode, Connection } from '../utils/gitGraph';
 
+// ---------------------------------------------------------------------------
+// localStorage cache for git history
+// ---------------------------------------------------------------------------
+
+interface GitCache {
+  commits: CommitInfo[];
+  hasMore: boolean;
+  branches: string[];
+  currentBranch: string;
+  latestHash: string;
+}
+
+function gitCacheKey(projectId: string): string {
+  return `nb-git-${projectId}`;
+}
+
+function loadGitCache(projectId: string): GitCache | null {
+  try {
+    const raw = localStorage.getItem(gitCacheKey(projectId));
+    if (!raw) return null;
+    return JSON.parse(raw) as GitCache;
+  } catch {
+    return null;
+  }
+}
+
+function saveGitCache(projectId: string, cache: GitCache): void {
+  try {
+    localStorage.setItem(gitCacheKey(projectId), JSON.stringify(cache));
+  } catch {
+    // quota exceeded — silently ignore
+  }
+}
+
 /** Format ISO date to compact relative time */
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -307,16 +341,20 @@ const CommitItem = memo(function CommitItem({
 
 export function GitHistoryPanel({ projectId }: { projectId: string }) {
   const authToken = useStore((s) => s.authToken);
-  const [commits, setCommits] = useState<CommitInfo[]>([]);
+
+  // Hydrate from localStorage cache
+  const cached = useMemo(() => loadGitCache(projectId), [projectId]);
+
+  const [commits, setCommits] = useState<CommitInfo[]>(cached?.commits ?? []);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [allBranches, setAllBranches] = useState(false);
-  const [branches, setBranches] = useState<string[]>([]);
-  const [currentBranch, setCurrentBranch] = useState('');
+  const [branches, setBranches] = useState<string[]>(cached?.branches ?? []);
+  const [currentBranch, setCurrentBranch] = useState(cached?.currentBranch ?? '');
   const [selectedBranch, setSelectedBranch] = useState('');
   const debounceRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -330,6 +368,19 @@ export function GitHistoryPanel({ projectId }: { projectId: string }) {
       .catch(() => {});
   }, [projectId, authToken]);
 
+  // Persist to cache whenever commits or branches change
+  const commitsRef = useRef(commits);
+  commitsRef.current = commits;
+  const persistCache = useCallback((newCommits: CommitInfo[], newHasMore: boolean) => {
+    saveGitCache(projectId, {
+      commits: newCommits.slice(0, 30), // only cache first page
+      hasMore: newHasMore,
+      branches,
+      currentBranch,
+      latestHash: newCommits[0]?.hash ?? '',
+    });
+  }, [projectId, branches, currentBranch]);
+
   const loadPage = useCallback(async (p: number, file: string, append: boolean, all: boolean, branch: string) => {
     setLoading(true);
     setError(null);
@@ -341,22 +392,27 @@ export function GitHistoryPanel({ projectId }: { projectId: string }) {
         branch: branch || undefined,
       });
       if (resp.error) setError(resp.error);
-      setCommits((prev) => append ? [...prev, ...resp.commits] : resp.commits);
+      const newCommits = append ? [...commitsRef.current, ...resp.commits] : resp.commits;
+      setCommits(newCommits);
       setHasMore(resp.hasMore);
       setPage(p);
+      // Cache first-page default-branch results (no filter)
+      if (p === 1 && !file && !all && !branch) {
+        persistCache(resp.commits, resp.hasMore);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
-  }, [projectId, authToken]);
+  }, [projectId, authToken, persistCache]);
 
   useEffect(() => {
     loadPage(1, search, false, allBranches, selectedBranch);
   }, [search, allBranches, selectedBranch, loadPage]);
 
   // Auto-refresh polling
-  const latestHashRef = useRef<string>('');
+  const latestHashRef = useRef<string>(cached?.latestHash ?? '');
   useEffect(() => {
     if (commits.length > 0) latestHashRef.current = commits[0].hash;
   }, [commits]);
