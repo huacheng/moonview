@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../store';
 
 function CreateForm({
@@ -47,8 +47,28 @@ export function WelcomeScreen() {
   const activeProjectId = useStore((s) => s.activeProjectId);
   const createProject = useStore((s) => s.createProject);
   const createNotebook = useStore((s) => s.createNotebook);
+  const importNotebookFile = useStore((s) => s.importNotebookFile);
   const openNotebookTab = useStore((s) => s.openNotebookTab);
   const subscribeToSession = useStore((s) => s.subscribeToSession);
+
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    if (!file.name.endsWith('.json') && !file.name.endsWith('.zip')) {
+      alert('Please select a .notebook.json file or an exported .zip bundle.');
+      return;
+    }
+    setImporting(true);
+    await importNotebookFile(file);
+    setImporting(false);
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) handleFile(f);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
 
   const handleCreateNotebook = async (title: string) => {
     if (!activeProjectId) return;
@@ -94,6 +114,23 @@ export function WelcomeScreen() {
             placeholder="Notebook name..."
             buttonLabel="Create Notebook"
             onSubmit={handleCreateNotebook}
+          />
+
+          <div className="welcome-divider">or</div>
+
+          <button
+            className="welcome-import-btn"
+            onClick={() => !importing && fileInputRef.current?.click()}
+            disabled={importing}
+          >
+            {importing ? 'Importing...' : 'Import from file'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,.notebook.json,.zip"
+            onChange={onFileChange}
+            style={{ display: 'none' }}
           />
         </div>
       ) : (
