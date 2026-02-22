@@ -4,7 +4,6 @@
 
 ```
 $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
-├── .index.json                        # 全局任务列表（JSON array）
 │
 ├── .library/                          # 环境变量: NB_WORKSPACES_LIBRARY
 │   ├── .changelog                     # 追加日志（所有库写入，gitignore）
