@@ -1,6 +1,6 @@
 # Injection Protection Rules — External Content
 
-Detailed per-category detection patterns and sanitisation steps for all external content written to `.library/.references/`. Applied by `research` and `exec` before any write. Cross-referenced from `library/SKILL.md` Injection Protection section.
+Detailed per-category detection patterns and sanitisation steps for all external content written to `.library/.memory/.references/`. Applied by `research` and `exec` before any write. Cross-referenced from `library/SKILL.md` Injection Protection section.
 
 ## Frontmatter Schema for Sanitised Files
 

@@ -60,33 +60,37 @@ $NB_WORKSPACES_ROOT/
     ├── .type-registry.md                  # Known type registry (git tracked)
     ├── .ioc.md                            # Domain convergence IOC log (gitignore)
     ├── .inconsistency.log                 # Index–file mismatch log (gitignore)
-    ├── .references/
-    │   ├── .lock                          # Directory write lock (gitignore)
-    │   ├── .index.md                      # topic → file lookup table
-    │   ├── .summary.md                    # References overview (prose, for sub-command context loading)
-    │   ├── <topic>.md                     # Initial reference file (unversioned, created by research/exec)
-    │   └── <topic>-v<N>-<date>.md         # Versioned file (created on staleness refresh when content changes)
-    ├── .experiences/
-    │   ├── .lock                          # Directory write lock (gitignore)
-    │   ├── .index.md                      # type → sub-directory pointer table
-    │   ├── .summary.md                    # Experiences overview (prose)
-    │   └── <type>/
-    │       ├── .index.md                  # notebook → file lookup table
-    │       ├── .summary.md                # Per-type experience overview (prose)
-    │       └── <notebook>-<source>.md     # source: complete | impl | verify | eval
-    ├── .type-profiles/
-    │   ├── .lock                          # Directory write lock (gitignore)
-    │   ├── .index.md                      # type → file pointer table
-    │   └── <type>.md                      # Shared domain methodology profile
-    └── .thinking/
-        ├── .index.md                      # raw vs patterns navigation
-        ├── raw/                           # L0: raw CoT + quality scores (gitignore)
-        │   ├── .index.md                  # Append-log index (O_APPEND, no lock)
-        │   └── <notebook>-<step>-<date>.md
-        └── patterns/                      # L1: distilled reasoning patterns (git tracked)
-            ├── .lock                      # Directory write lock (gitignore)
-            ├── .index.md                  # problem-type → file lookup table
-            └── <problem-type>.md
+    ├── .plugin-registry.md                # Plugin capability cache (lazily created, gitignore)
+    ├── .memory/                           # System-managed knowledge base
+    │   ├── .references/
+    │   │   ├── .lock                      # Directory write lock (gitignore)
+    │   │   ├── .index.md                  # topic → file lookup table
+    │   │   ├── .summary.md                # References overview (prose, for sub-command context loading)
+    │   │   ├── <topic>.md                 # Initial reference file (unversioned, created by research/exec)
+    │   │   └── <topic>-v<N>-<date>.md     # Versioned file (created on staleness refresh when content changes)
+    │   ├── .experiences/
+    │   │   ├── .lock                      # Directory write lock (gitignore)
+    │   │   ├── .index.md                  # type → sub-directory pointer table
+    │   │   ├── .summary.md                # Experiences overview (prose)
+    │   │   └── <type>/
+    │   │       ├── .index.md              # notebook → file lookup table
+    │   │       ├── .summary.md            # Per-type experience overview (prose)
+    │   │       └── <notebook>-<source>.md # source: complete | impl | verify | eval
+    │   ├── .type-profiles/
+    │   │   ├── .lock                      # Directory write lock (gitignore)
+    │   │   ├── .index.md                  # type → file pointer table
+    │   │   └── <type>.md                  # Shared domain methodology profile
+    │   └── .thinking/
+    │       ├── .index.md                  # raw vs patterns navigation
+    │       ├── raw/                       # L0: raw CoT + quality scores (gitignore)
+    │       │   ├── .index.md              # Append-log index (O_APPEND, no lock)
+    │       │   └── <notebook>-<step>-<date>.md
+    │       └── patterns/                  # L1: distilled reasoning patterns (git tracked)
+    │           ├── .lock                  # Directory write lock (gitignore)
+    │           ├── .index.md              # problem-type → file lookup table
+    │           └── <problem-type>.md
+    └── <user-imported>/                   # User-imported files/folders (non-dot-prefixed)
+        └── ...                            # Any structure; indexed by maintain --rebuild-index
 
 <notebook>/.working/
 └── .library-state.json                    # Per-notebook library read cursor (gitignore)
@@ -109,17 +113,24 @@ Both files exist at each directory level. Sub-commands read `.summary.md` for qu
 
 Find relevant library files matching query text, with optional type or topic filter.
 
+Search follows a three-tier progressive disclosure model to minimise token cost:
+- **Layer 1** (~50 tokens): `.index.md` lookup — returns file IDs, titles, scores, and match rationale
+- **Layer 2** (~200 tokens): `.summary.md` snippets — for selected IDs, load prose summaries
+- **Layer 3** (~500-1000 tokens): full file content — only for user-selected high-value results
+
+By default, `search` returns Layer 1 results and their Layer 2 summaries. Full content (Layer 3) is loaded only when the user or sub-command explicitly requests a specific file.
+
 **Steps:**
 
-1. Read `.references/.summary.md` — keyword match against query
-2. Read `.experiences/.summary.md` — match by type or notebook keyword
-3. Read `.thinking/patterns/.index.md` — match by problem-type keyword
-4. Read `.type-profiles/.index.md` — match by type name
+1. Read `.memory/.references/.summary.md` — keyword match against query
+2. Read `.memory/.experiences/.summary.md` — match by type or notebook keyword
+3. Read `.memory/.thinking/patterns/.index.md` — match by problem-type keyword
+4. Read `.memory/.type-profiles/.index.md` — match by type name
 5. **Score each candidate** using directory-appropriate scoring:
-   - `.experiences/<type>/`: type exact match 10pts / shared segment 5pts / keyword 2pts each, threshold ≥ 8
-   - `.references/`: topic exact match 10pts / topic keyword overlap 3pts each / type keyword 2pts each, threshold ≥ 8
-   - `.thinking/patterns/`: problem-type keyword 3pts each / task type relevance 2pts, threshold ≥ 6
-   - `.type-profiles/`: type exact match → always include (no threshold)
+   - `.memory/.experiences/<type>/`: type exact match 10pts / shared segment 5pts / keyword 2pts each, threshold ≥ 8
+   - `.memory/.references/`: topic exact match 10pts / topic keyword overlap 3pts each / type keyword 2pts each, threshold ≥ 8
+   - `.memory/.thinking/patterns/`: problem-type keyword 3pts each / task type relevance 2pts, threshold ≥ 6
+   - `.memory/.type-profiles/`: type exact match → always include (no threshold)
 6. Sort results by score DESC; apply **4000-token context budget** — load files until budget exhausted; always include top-scored result regardless of budget
 7. Print scored results table with file path, score, and match rationale
 
@@ -129,11 +140,11 @@ List library contents by category.
 
 **Steps:**
 
-1. Read `.references/.index.md` — list all topics, version count, marked version, staleness flag
-2. Read `.experiences/.index.md` — list all types and notebook entry counts
-3. Read `.type-profiles/.index.md` — list all shared profiles with last-updated date
-4. Read `.thinking/patterns/.index.md` — list all patterns with lifecycle state (draft/active/validated/deprecated)
-5. Read `.thinking/raw/.index.md` — count entries by notebook and quality tier (H/M/L)
+1. Read `.memory/.references/.index.md` — list all topics, version count, marked version, staleness flag
+2. Read `.memory/.experiences/.index.md` — list all types and notebook entry counts
+3. Read `.memory/.type-profiles/.index.md` — list all shared profiles with last-updated date
+4. Read `.memory/.thinking/patterns/.index.md` — list all patterns with lifecycle state (draft/active/validated/deprecated)
+5. Read `.memory/.thinking/raw/.index.md` — count entries by notebook and quality tier (H/M/L)
 6. If `--type` specified: filter all tables to matching type or pipe-separated segments
 7. Print formatted summary tables
 
@@ -144,10 +155,10 @@ Audit library health across six dimensions.
 **Steps:**
 
 1. **Consistency check**: for each `.index.md` entry, verify the referenced file exists; append any missing file to `.inconsistency.log` (format: `timestamp | missing-file | <path>`)
-2. **Staleness check**: for each `.references/<topic>-v*.md`, compute `now − last_verified_at`; flag entries where result exceeds `staleness_threshold_days`
+2. **Staleness check**: for each `.memory/.references/<topic>-v*.md`, compute `now − last_verified_at`; flag entries where result exceeds `staleness_threshold_days`
 3. **Effectiveness candidates**: scan `.changelog` `referenced` lines; compute `usage_count` (total `referenced` lines for each file) and `failure_rate` (count of `referenced` lines for the file that were followed by a REPLAN within 24 hours in the same notebook session, divided by `usage_count`, expressed as percentage); list files meeting `usage_count ≥ 3 && failure_rate < 20%` as `effectiveness_mark` suggestions for human review
 4. **IOC summary**: read `.ioc.md`, summarise domain convergence warnings; flag any domain appearing in ≥ 3 reference files
-5. **Pattern lifecycle**: read `.thinking/patterns/.index.md`; count by state; flag `deprecated` patterns needing review
+5. **Pattern lifecycle**: read `.memory/.thinking/patterns/.index.md`; count by state; flag `deprecated` patterns needing review
 6. **Changelog size**: count lines and bytes; warn if approaching 2000-line compact threshold
 7. Print structured health report — do **not** modify any files
 
@@ -164,8 +175,8 @@ Rebuild all `.index.md` files and `.master-index.md` from actual filesystem stat
 1. For each library sub-directory: glob all `.md` files, read their frontmatter
 2. Rebuild each `.index.md` from ground truth — file frontmatter wins over stale index entries
 3. Acquire directory-level `.lock` before writing each `.index.md`; release after
-4. **Rebuild `.master-index.md`**: scan all files across `.experiences/`, `.references/`, `.type-profiles/`, and `.thinking/patterns/`; overwrite `.master-index.md` with complete flat index (topic, type, keywords, file path). This restores the cold-start fallback for the three-tier Changelog Consumption Protocol degradation path
-5. **IOC scan**: extract all outbound URLs from `.references/` files; tally domain counts; write/overwrite `.ioc.md` if any domain appears in ≥ 3 documents; format: `| domain | doc_count | first_seen | last_seen | risk | note |`
+4. **Rebuild `.master-index.md`**: scan all files across `.memory/.experiences/`, `.memory/.references/`, `.memory/.type-profiles/`, and `.memory/.thinking/patterns/`; also scan all user-imported folders (non-dot-prefixed names in `$NB_WORKSPACES_LIBRARY/`); overwrite `.master-index.md` with complete flat index (topic, type, keywords, file path, source). This restores the cold-start fallback for the three-tier Changelog Consumption Protocol degradation path
+5. **IOC scan**: extract all outbound URLs from `.memory/.references/` files; tally domain counts; write/overwrite `.ioc.md` if any domain appears in ≥ 3 documents; format: `| domain | doc_count | first_seen | last_seen | risk | note |`
 6. **Fix `effectiveness_mark` uniqueness violations**: if multiple files in same topic scope or same notebook-type scope share `effectiveness_mark: true`, keep the one with latest `last_verified_at`, clear others (acquire lock before clearing)
 7. Clear `.inconsistency.log` (all issues resolved by rebuild)
 8. Git commit: `ai-cli-task(library):maintain rebuild index`
@@ -192,8 +203,8 @@ Report stale knowledge without auto-triggering `research`.
 
 **Steps:**
 
-1. For each `.references/<topic>-v*.md`: compute `now − last_verified_at`; flag if result > `staleness_threshold_days`
-2. For each `.experiences/<type>/<notebook>-*.md`: flag `quality_status: provisional` entries older than 90 days with no corresponding `verified` sibling file
+1. For each `.memory/.references/<topic>-v*.md`: compute `now − last_verified_at`; flag if result > `staleness_threshold_days`
+2. For each `.memory/.experiences/<type>/<notebook>-*.md`: flag `quality_status: provisional` entries older than 90 days with no corresponding `verified` sibling file
 3. Print staleness report per file: path, days stale, suggested action (`research --scope gap` or `maintain --rebuild-index`)
 4. Do **not** auto-trigger `research`; remediation is the user's decision
 
@@ -226,9 +237,9 @@ Run `--rebuild-index` → `--compact` → `--check-staleness` in sequence. Also 
 **Changelog line format** (ASCII only — no multi-byte characters):
 
 ```
-2026-02-21T14:32Z | experience  | .experiences/software/auth-refactor-complete.md | quality_status:verified
-2026-02-21T15:10Z | reference   | .references/jwt-auth-v3.md                      | topic:jwt-auth,staleness-refresh
-2026-02-21T16:00Z | referenced  | .references/jwt-auth-v3.md                      | caller:plan,notebook:auth-refactor
+2026-02-21T14:32Z | experience  | .memory/.experiences/software/auth-refactor-complete.md | quality_status:verified
+2026-02-21T15:10Z | reference   | .memory/.references/jwt-auth-v3.md                      | topic:jwt-auth,staleness-refresh
+2026-02-21T16:00Z | referenced  | .memory/.references/jwt-auth-v3.md                      | caller:plan,notebook:auth-refactor
 ```
 
 Supported entry types: `experience`, `reference`, `type-profile`, `pattern`, `referenced`
@@ -237,10 +248,10 @@ Supported entry types: `experience`, `reference`, `type-profile`, `pattern`, `re
 
 | Mode | File types |
 |------|-----------|
-| Append (`---` separator + O_APPEND index) | `raw/<nb>-<step>-<date>.md`; `<nb>-impl.md`; `<nb>-verify.md`; `<nb>-eval.md` |
-| Overwrite (`.tmp → rename`) | `<nb>-complete.md`; `patterns/*.md`; `.type-profiles/*.md`; all `.summary.md`; all `.index.md` |
+| Append (`---` separator + O_APPEND index) | `.memory/.thinking/raw/<nb>-<step>-<date>.md`; `<nb>-impl.md`; `<nb>-verify.md`; `<nb>-eval.md` |
+| Overwrite (`.tmp → rename`) | `<nb>-complete.md`; `.memory/.thinking/patterns/*.md`; `.memory/.type-profiles/*.md`; all `.summary.md`; all `.index.md` |
 
-**Note on `.summary.md` staleness**: `exec`, `verify`, and `check` update `.index.md` when writing partial experience files, but do NOT rebuild `.experiences/<type>/.summary.md` (prose index). That summary is rebuilt by `report` (step 13(f)-(g)). Until `report` runs, the prose summary may not reflect the latest partial entries. Use `library maintain --rebuild-index` to refresh all summaries on demand.
+**Note on `.summary.md` staleness**: `exec`, `verify`, and `check` update `.index.md` when writing partial experience files, but do NOT rebuild `.memory/.experiences/<type>/.summary.md` (prose index). That summary is rebuilt by `report` (step 13(f)-(g)). Until `report` runs, the prose summary may not reflect the latest partial entries. Use `library maintain --rebuild-index` to refresh all summaries on demand.
 
 > See `references/write-protocol.md` for per-directory lock table, hold duration, and stale-lock recovery procedure.
 
@@ -329,7 +340,7 @@ deprecated    (passive; readable as historical reference; skipped by default loa
 - On marking: acquire directory lock → clear existing mark in scope → set new mark → update `.index.md` → release lock
 - `invalidated` → force-clear `effectiveness_mark` immediately
 
-### Pattern Lifecycle (`.thinking/patterns/`)
+### Pattern Lifecycle (`.memory/.thinking/patterns/`)
 
 ```
 draft      written by report distillation from raw/
@@ -344,7 +355,7 @@ deprecated failure_count ≥ 2  (plan cited this pattern → task triggered REPL
 
 `failure_count` and lifecycle state are stored in pattern file frontmatter. `report` updates them in batch (not real-time during plan/exec).
 
-### `.thinking/raw/` Entry Format
+### `.memory/.thinking/raw/` Entry Format
 
 ```yaml
 ---
@@ -366,15 +377,16 @@ quality:
 ...
 ```
 
-**Write rules for `raw/`:**
+**Write rules for `.memory/.thinking/raw/`:**
 
 - File not yet existing: create and write (no lock needed — filename is globally unique)
 - File already exists (same notebook + step + date): O_APPEND with `---` separator (POSIX atomic; no lock)
-- After **first** creation only: O_APPEND one row to `raw/.index.md` (no lock — O_APPEND is atomic):
+- After **first** creation only: O_APPEND one row to `.memory/.thinking/raw/.index.md` (no lock — O_APPEND is atomic):
   ```
   | 2026-02-21T14:32Z | auth-refactor | plan | H | M | H | auth-refactor-plan-2026-02-21.md |
   ```
 - Subsequent same-file appends do NOT update the index (index row already exists; readers glob for detail)
+- **`<private>` tag**: Mark sensitive sections with `<private>...</private>` to exclude them from indexing and search. `maintain --rebuild-index` strips private blocks when building `.master-index.md`. The raw file on disk retains all content.
 
 > See `references/quality-rubric.md` for complete H/M/L rubric definition across all three quality dimensions.
 
@@ -421,7 +433,7 @@ Different source_url + same topic               → both kept; if hashes match �
 
 ## Injection Protection
 
-All external content written to `.library/.references/` MUST be sanitised before storage. Nine active threat categories:
+All external content written to `.library/.memory/.references/` MUST be sanitised before storage. Nine active threat categories:
 
 | # | Category | Detection targets | Risk on match |
 |---|----------|------------------|---------------|
@@ -470,14 +482,28 @@ End of external reference.
 
 ---
 
+## User-Imported Content
+
+Users may place any files or folders (non-dot-prefixed) directly into `$NB_WORKSPACES_LIBRARY/`. The library treats these as trusted first-party content:
+
+- **No injection protection**: user-imported content is not run through the nine-category sanitisation pipeline (it is the user's own material)
+- **Indexed by `maintain --rebuild-index`**: the flat `.master-index.md` includes all user-imported files
+- **Searchable by `library search`**: results from user-imported content are annotated with `source: user-import` to distinguish from system-generated knowledge
+- **Git tracked**: user-imported files are committed normally (no gitignore rule applied)
+- **Naming**: use human-readable folder names without leading dots (e.g., `company-docs/`, `domain-papers/`, `my-notes/`)
+
+User-imported content does not have frontmatter requirements. `library search` indexes by filename and content text only.
+
+---
+
 ## Concurrency
 
 | Lock file | Held by | Typical hold duration |
 |-----------|---------|----------------------|
-| `.references/.lock` | research, exec, maintain | Reference write + index update |
-| `.experiences/.lock` | report, exec, verify, check, maintain | Experience write + index update |
-| `.type-profiles/.lock` | research, report, maintain | Profile write |
-| `.thinking/patterns/.lock` | report, maintain | Pattern distillation (longer hold) |
+| `.memory/.references/.lock` | research, exec, maintain | Reference write + index update |
+| `.memory/.experiences/.lock` | report, exec, verify, check, maintain | Experience write + index update |
+| `.memory/.type-profiles/.lock` | research, report, maintain | Profile write |
+| `.memory/.thinking/patterns/.lock` | report, maintain | Pattern distillation (longer hold) |
 | `.changelog.lock` | Any library writer (write protocol step 4) | Single-line append (very brief) |
 
 `raw/` has **no lock**: file creation is unique by name (no collision); O_APPEND writes to index are POSIX atomic.
@@ -510,13 +536,13 @@ None. `library` does not write `.auto-signal` and does not participate in the au
 - **No task lock required**: `library` does not acquire `.working/.lock` (no task state changes). It does acquire directory-level library locks when writing
 - **`init` responsibility**: `init` creates the `.library/` skeleton on first use: empty `.changelog`, empty-header `.master-index.md`, and `.type-registry.md` initialised from seed types. Sub-commands lazily create sub-directories as needed
 - **`$NB_WORKSPACES_LIBRARY`**: environment variable set to `$NB_WORKSPACES_ROOT/.library/`. If unset, infer at runtime as `$NB_WORKSPACES_ROOT/.library` — fail with clear error if `NB_WORKSPACES_ROOT` is also unset
-- **`report` integration**: `report` distils `.thinking/raw/` into `.thinking/patterns/` after step 13 (experiences). It also batches `failure_count` and pattern lifecycle updates at that point. After writing its own `.auto-signal`, it calls `library maintain --compact` (compact-threshold check only, lightweight)
+- **`report` integration**: `report` distils `.memory/.thinking/raw/` into `.memory/.thinking/patterns/` after step 13 (experiences). It also batches `failure_count` and pattern lifecycle updates at that point. After writing its own `.auto-signal`, it calls `library maintain --compact` (compact-threshold check only, lightweight)
 - **`.gitignore` additions** (appended by `init` on first library setup):
   ```gitignore
   .library/.changelog
   .library/.changelog-archive/.lock
-  .library/.thinking/raw/
-  .library/.thinking/patterns/.lock
+  .library/.memory/.thinking/raw/
+  .library/.memory/.thinking/patterns/.lock
   .library/.inconsistency.log
   .library/.ioc.md
   **/.library-state.json

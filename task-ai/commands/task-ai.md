@@ -53,31 +53,38 @@ $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 │   ├── .changelog-archive/            # 归档（月度快照，git 追踪）
 │   ├── .master-index.md               # 所有库文件扁平索引（冷启动用，git 追踪）
 │   ├── .type-registry.md              # 任务类型注册表（seed + 自动扩展）
-│   ├── .plugin-registry.md            # 插件能力缓存
+│   ├── .plugin-registry.md            # 插件能力缓存（惰性创建，gitignore）
 │   ├── .ioc.md                        # 跨文档域名聚合 IOC 记录（gitignore）
 │   ├── .inconsistency.log             # 索引不一致记录（gitignore）
-│   ├── .type-profiles/                # 共享任务类型方法论
-│   │   ├── .index.md                  # type → 文件指针表
-│   │   └── <type>.md                  # 跨任务域方法论
-│   ├── .experiences/                  # 跨任务经验库（按 type 分类）
-│   │   ├── .index.md                  # type → 子目录指针表
-│   │   ├── .summary.md                # 经验库概览
-│   │   └── <type>/
-│   │       ├── .index.md              # notebook → 文件查找表
-│   │       ├── .summary.md            # 该类型经验概览
-│   │       └── <notebook>-<source>.md # source: complete|impl|verify|eval
-│   ├── .references/                   # 外部参考资料（versioned）
-│   │   ├── .index.md                  # topic → 文件查找表（含版本、时效）
-│   │   ├── .summary.md                # 参考库概览
-│   │   └── <topic>-v<N>-<date>.md     # 版本化外部参考文件
-│   └── .thinking/                     # Thinking CoT 原始记录 + 蒸馏模式
-│       ├── .index.md                  # raw vs patterns 导航
-│       ├── raw/                       # L0 原始 CoT（gitignore）
-│       │   ├── .index.md              # 追加日志索引（O_APPEND，无锁）
-│       │   └── <notebook>-<step>-<date>.md
-│       └── patterns/                  # L1 蒸馏推理模式（git 追踪）
-│           ├── .index.md
-│           └── <problem-type>.md
+│   ├── .memory/                       # 系统管理的知识库
+│   │   ├── .type-profiles/            # 共享任务类型方法论
+│   │   │   ├── .lock
+│   │   │   ├── .index.md              # type → 文件指针表
+│   │   │   └── <type>.md              # 跨任务域方法论
+│   │   ├── .experiences/              # 跨任务经验库（按 type 分类）
+│   │   │   ├── .lock
+│   │   │   ├── .index.md              # type → 子目录指针表
+│   │   │   ├── .summary.md            # 经验库概览
+│   │   │   └── <type>/
+│   │   │       ├── .index.md          # notebook → 文件查找表
+│   │   │       ├── .summary.md        # 该类型经验概览
+│   │   │       └── <notebook>-<source>.md # source: complete|impl|verify|eval
+│   │   ├── .references/               # 外部参考资料（versioned）
+│   │   │   ├── .lock
+│   │   │   ├── .index.md              # topic → 文件查找表（含版本、时效）
+│   │   │   ├── .summary.md            # 参考库概览
+│   │   │   └── <topic>-v<N>-<date>.md # 版本化外部参考文件
+│   │   └── .thinking/                 # Thinking CoT 原始记录 + 蒸馏模式
+│   │       ├── .index.md              # raw vs patterns 导航
+│   │       ├── raw/                   # L0 原始 CoT（gitignore）
+│   │       │   ├── .index.md          # 追加日志索引（O_APPEND，无锁）
+│   │       │   └── <notebook>-<step>-<date>.md
+│   │       └── patterns/              # L1 蒸馏推理模式（git 追踪）
+│   │           ├── .lock
+│   │           ├── .index.md
+│   │           └── <problem-type>.md
+│   └── <user-imported>/               # 用户导入文件夹（非点前缀）
+│       └── ...                        # 任意结构，library search 也会索引
 │
 ├── notebook-1/
 │   ├── [deliverables-dir]/            # 用户自定义名称，存放交付成果
@@ -116,7 +123,7 @@ $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 - `.test/` files use phase prefix: `<YYYY-MM-DD>-<phase>-criteria.md` (test plan) or `<YYYY-MM-DD>-<phase>-results.md` (test outcomes)
 - `.summary.md` is a condensed context file — written by `plan`/`check`/`exec` after each run, read by subsequent steps instead of all history files. Prevents context window overflow as task accumulates history
 - Each history directory (`.analysis/`, `.test/`, `.bugfix/`, `.notes/`) contains a `.summary.md` that condenses all entries in that directory. **Overwritten** (not appended) each time a new entry is added to the directory. The task-level `.summary.md` integrates from these directory summaries rather than reading every individual file
-- Library directories (`.experiences/`, `.references/`) under `$NB_WORKSPACES_LIBRARY` also contain a `.summary.md` index — skills read it first to find relevant files by keyword, avoiding full directory scans
+- Library directories (`.memory/.experiences/`, `.memory/.references/`) under `$NB_WORKSPACES_LIBRARY` also contain a `.summary.md` index — skills read it first to find relevant files by keyword, avoiding full directory scans
 - **Path resolution**: Sub-commands read `NB_WORKSPACES_ROOT` and `NB_WORKSPACES_LIBRARY` env vars at start. When a sub-command receives a `<notebook>` argument, its working directory is `$NB_WORKSPACES_ROOT/<notebook>/.working/` and deliverables directory is `$NB_WORKSPACES_ROOT/<notebook>/[deliverables-dir]/`
 
 ### .summary.md Format
@@ -148,7 +155,7 @@ Writers should keep `.summary.md` under ~200 lines. It is a context window optim
 
 ### Global Directory .summary.md Format
 
-`.experiences/.summary.md` and `.references/.summary.md` serve as keyword indexes for fast file discovery. Skills read the relevant `.summary.md` first, match keywords, then drill into matched files.
+`.memory/.experiences/.summary.md` and `.memory/.references/.summary.md` serve as keyword indexes for fast file discovery. Skills read the relevant `.summary.md` first, match keywords, then drill into matched files.
 
 > **See `commands/references/summary-formats.md`** for the detailed table formats (experiences index, per-type summaries, references index) and filename conventions.
 
@@ -257,7 +264,7 @@ ai-cli-task(<module>):<type> <description>
 | `init` | Task initialization | $NB_WORKSPACES_ROOT/ directory files |
 | `plan` | Plan generation | $NB_WORKSPACES_ROOT/ directory files |
 | `check` | Check evaluation results | $NB_WORKSPACES_ROOT/ directory files |
-| `research` | Reference collection | $NB_WORKSPACES_LIBRARY/.references/ files |
+| `research` | Reference collection | $NB_WORKSPACES_LIBRARY/.memory/.references/ files |
 | `verify` | Test execution and verification | $NB_WORKSPACES_ROOT/ directory files |
 | `annotate` | Annotation processing | $NB_WORKSPACES_ROOT/ directory files |
 | `summarize` | Context summary regeneration | $NB_WORKSPACES_ROOT/ directory files |
@@ -305,8 +312,8 @@ Add to project `.gitignore`:
 **/.working/.lock
 .library/.changelog
 .library/.changelog-archive/.lock
-.library/.thinking/raw/
-.library/.thinking/patterns/.lock
+.library/.memory/.thinking/raw/
+.library/.memory/.thinking/patterns/.lock
 .library/.inconsistency.log
 .library/.ioc.md
 **/.library-state.json
@@ -350,9 +357,9 @@ Three shared directories require locks before writing (all use the same lock pro
 
 | Directory | Lock File | Writers | Scope |
 |-----------|-----------|---------|-------|
-| `$NB_WORKSPACES_LIBRARY/.experiences/<type>/` | `$NB_WORKSPACES_LIBRARY/.experiences/.lock` | `report`, `exec`, `verify`, `check` | Create type dir, write `<notebook>-{complete\|impl\|verify\|eval}.md`, update per-type `.index.md`. For hybrid types (`A\|B`), covers all segments |
-| `$NB_WORKSPACES_LIBRARY/.references/` | `$NB_WORKSPACES_LIBRARY/.references/.lock` | `research`, `exec` | Write `<topic>.md`, update `.index.md` and `.summary.md` |
-| `$NB_WORKSPACES_LIBRARY/.type-profiles/` | `$NB_WORKSPACES_LIBRARY/.type-profiles/.lock` | `research`, `report` | Write `<type>.md` shared profiles |
+| `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/` | `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.lock` | `report`, `exec`, `verify`, `check` | Create type dir, write `<notebook>-{complete\|impl\|verify\|eval}.md`, update per-type `.index.md`. For hybrid types (`A\|B`), covers all segments |
+| `$NB_WORKSPACES_LIBRARY/.memory/.references/` | `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` | `research`, `exec` | Write `<topic>.md`, update `.index.md` and `.summary.md` |
+| `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` | `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` | `research`, `report` | Write `<type>.md` shared profiles |
 
 ### .index.json Safety
 

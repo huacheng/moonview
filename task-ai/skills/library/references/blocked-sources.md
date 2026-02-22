@@ -1,6 +1,6 @@
 # Blocked Sources — Three-Tier Classification
 
-Source tier classification for external content fetched into `.library/.references/`. Applied by `research` and `exec` at fetch time, before any sanitisation. Cross-referenced from `library/SKILL.md` and `references/injection-rules.md`.
+Source tier classification for external content fetched into `.library/.memory/.references/`. Applied by `research` and `exec` at fetch time, before any sanitisation. Cross-referenced from `library/SKILL.md` and `references/injection-rules.md`.
 
 ## Three Tiers
 

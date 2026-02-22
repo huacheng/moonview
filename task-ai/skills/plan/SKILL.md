@@ -40,8 +40,8 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 7. Read `.bugfix/` latest file only if exists (address most recent mid-exec issue from REPLAN)
 8. Read `.test/` latest criteria and results files if exists (incorporate lessons learned)
 9. **Load library context via Changelog Consumption Protocol** (see `library/SKILL.md`): read `.library-state.json` → seek `.changelog` to `changelog_offset` → score new lines → load matched files (experiences, references, patterns) → write updated `.library-state.json` (atomic `.tmp → rename`). On missing file or parse error → `changelog_offset: 0` (cold start). On offset > file size (post-compact) → read `.master-index.md` full-text match first. Steps 10–11 below provide full context for cold-start and unmatched files
-10. Read `$NB_WORKSPACES_LIBRARY/.experiences/<type>/.summary.md` if exists — condensed cross-task experience from completed tasks of the same domain type (apply directory-safe transform: `:` → `-` in type for directory name, e.g., `science:astro` → `science-astro`). For hybrid types (`A|B`), read summary files for **all** pipe-separated segments. If summary references specific entries relevant to current task, read those `$NB_WORKSPACES_LIBRARY/.experiences/<type>/<module>.md` files for detail
-11. **Read** `$NB_WORKSPACES_LIBRARY/.references/.summary.md` if exists — find relevant external reference files by keyword matching against task requirements. Read matched `.references/<topic>.md` files for domain knowledge
+10. Read `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/.summary.md` if exists — condensed cross-task experience from completed tasks of the same domain type (apply directory-safe transform: `:` → `-` in type for directory name, e.g., `science:astro` → `science-astro`). For hybrid types (`A|B`), read summary files for **all** pipe-separated segments. If summary references specific entries relevant to current task, read those `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<module>.md` files for detail
+11. **Read** `$NB_WORKSPACES_LIBRARY/.memory/.references/.summary.md` if exists — find relevant external reference files by keyword matching against task requirements. Read matched `.memory/.references/<topic>.md` files for domain knowledge
 12. Read project codebase for context (relevant files, CLAUDE.md conventions)
 13. Read `.notes/` latest file only if exists (prior research findings and experience)
 14. **If re-planning** (status is `re-planning` or `review`/`executing` transitioning to re-plan): archive existing `.plan.md` — rename to `.plan-superseded.md` (append numeric suffix if already exists, e.g., `.plan-superseded-2.md`). This prevents `exec` from reading outdated steps alongside the new plan
@@ -54,7 +54,7 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 20. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
 21. Write task-level `.summary.md` with condensed context: plan overview, key decisions, requirements summary, known constraints (integrate from directory summaries)
 22. Update `.index.json`: set `type` field (if not already set or if task nature changed), status → `planning` (from `draft`/`planning`/`blocked`) or `re-planning` (from `review`/`executing`/`re-planning`), update timestamp. If the **new** status is `re-planning`, set `phase: needs-check`. For all other **new** statuses, clear `phase` to `""`. Reset `completed_steps` to `0` (new/revised plan invalidates prior progress)
-23. **CoT capture** (optional, encouraged): If this planning session involved complex or novel reasoning, write `.thinking/raw/<notebook>-plan-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND (no lock needed — filename is unique). Append one row to `raw/.index.md` on first creation (O_APPEND). See `library/SKILL.md` `.thinking/raw/` Entry Format and `library/references/quality-rubric.md` for format and H/M/L rubric
+23. **CoT capture** (optional, encouraged): If this planning session involved complex or novel reasoning, write `.memory/.thinking/raw/<notebook>-plan-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND (no lock needed — filename is unique). Append one row to `.memory/.thinking/raw/.index.md` on first creation (O_APPEND). See `library/SKILL.md` `.memory/.thinking/raw/` Entry Format and `library/references/quality-rubric.md` for format and H/M/L rubric
 24. **Git commit**: `ai-cli-task(<notebook>):plan generate implementation plan`
 25. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
 26. Report plan summary to user
@@ -90,12 +90,12 @@ ai-cli-task(<notebook>):plan generate implementation plan
 
 Plan methodology MUST adapt to the task domain. Different domains require different design approaches, tool choices, and milestones.
 
-> **See `init/references/seed-types/<type>.md`** for per-type seed methodology (plan structure, key considerations). Shared profiles in `$NB_WORKSPACES_LIBRARY/.type-profiles/` take precedence when available.
+> **See `init/references/seed-types/<type>.md`** for per-type seed methodology (plan structure, key considerations). Shared profiles in `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` take precedence when available.
 
 ## Notes
 
 - All plan research should consider the full context of the task module (read `.target.md` and `.plan.md`)
 - When researching implementation plans, use the project codebase as context (read relevant project files)
 - **Evidence-based decisions**: Primary domain research is handled by the `research` sub-command (step 2). For plan-specific decisions, use shell commands to verify claims (curl docs/APIs, npm info, etc.) rather than relying solely on internal knowledge
-- **Concurrency**: Plan acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`). Reference writing is handled by the `research` sub-command (which manages its own `.references/.lock`)
+- **Concurrency**: Plan acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/ai-cli-task.md`). Reference writing is handled by the `research` sub-command (which manages its own `.memory/.references/.lock`)
 - **Task-type-aware test design**: `.test/` criteria must use domain-appropriate verification methods (e.g., unit tests for code, SSIM/PSNR for image processing, SNR for audio/DSP, schema validation for data pipelines). Research established best practices for the task domain before writing test criteria. See `check/SKILL.md` Task-Type-Aware Verification section for the full domain reference table

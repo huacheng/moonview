@@ -17,13 +17,13 @@ All sub-commands that write to `$NB_WORKSPACES_LIBRARY/` MUST follow the six-ste
 
 | Directory | Lock file | Writers | Typical hold |
 |-----------|-----------|---------|-------------|
-| `.references/` | `.references/.lock` | `research`, `exec` | Medium (web fetch + write) |
-| `.experiences/` | `.experiences/.lock` | `report`, `exec`, `verify`, `check` | Short (write + index append) |
-| `.type-profiles/` | `.type-profiles/.lock` | `research`, `report` | Short (profile write) |
-| `.thinking/patterns/` | `.thinking/patterns/.lock` | `report` | Long (read raw/ + distil + write) |
+| `.memory/.references/` | `.memory/.references/.lock` | `research`, `exec` | Medium (web fetch + write) |
+| `.memory/.experiences/` | `.memory/.experiences/.lock` | `report`, `exec`, `verify`, `check` | Short (write + index append) |
+| `.memory/.type-profiles/` | `.memory/.type-profiles/.lock` | `research`, `report` | Short (profile write) |
+| `.memory/.thinking/patterns/` | `.memory/.thinking/patterns/.lock` | `report` | Long (read raw/ + distil + write) |
 | `.changelog` | `.changelog.lock` | All library writers (step 4) | Very short (single O_APPEND) |
 
-`raw/` has **no lock file**: filenames are unique by design (`<notebook>-<step>-<date>.md`); index appends use O_APPEND (POSIX atomic). Do not add a lock to `raw/`.
+`raw/` has **no lock file**: filenames are unique by design (`<notebook>-<step>-<date>.md`); index appends use O_APPEND (POSIX atomic). Do not add a lock to `.memory/.thinking/raw/`.
 
 ## Stale-Lock Recovery Procedure
 
@@ -56,20 +56,20 @@ All fields ASCII only. Line format:
 | Field | Values | Example |
 |-------|--------|---------|
 | `type` | `experience`, `reference`, `type-profile`, `pattern`, `referenced` | `reference` |
-| `subpath` | Path relative to `$NB_WORKSPACES_LIBRARY/` | `.references/jwt-auth-v3.md` |
+| `subpath` | Path relative to `$NB_WORKSPACES_LIBRARY/` | `.memory/.references/jwt-auth-v3.md` |
 | `tags` | Key:value pairs, space-separated | `topic:jwt-auth quality_status:verified` |
 
 **`referenced` lines** (written by reader sub-commands when loading a file):
 
 ```
-2026-02-21T16:00Z | referenced | .references/jwt-auth-v3.md | caller:plan notebook:auth-refactor
+2026-02-21T16:00Z | referenced | .memory/.references/jwt-auth-v3.md | caller:plan notebook:auth-refactor
 ```
 
 Used by `maintain` to count usage for `effectiveness_mark` candidate detection.
 
 ## .index.md Row Formats
 
-### `.references/.index.md`
+### `.memory/.references/.index.md`
 
 ```markdown
 | topic | versions | marked_version | source_domain | last_verified | stale | injection_risk |
@@ -78,7 +78,7 @@ Used by `maintain` to count usage for `effectiveness_mark` candidate detection.
 | redis-session | v1 | — | redis.io | 2025-06-01 | yes⚠ | low |
 ```
 
-### `.experiences/<type>/.index.md`
+### `.memory/.experiences/<type>/.index.md`
 
 ```markdown
 | notebook | sources | quality_status | effectiveness_mark | updated |
@@ -87,7 +87,7 @@ Used by `maintain` to count usage for `effectiveness_mark` candidate detection.
 | api-design | impl,eval | provisional | — | 2026-01-15 |
 ```
 
-### `.type-profiles/.index.md`
+### `.memory/.type-profiles/.index.md`
 
 ```markdown
 | type | file | task_count | last_updated |
@@ -96,7 +96,7 @@ Used by `maintain` to count usage for `effectiveness_mark` candidate detection.
 | data-pipeline | data-pipeline.md | 3 | 2026-01-20 |
 ```
 
-### `.thinking/patterns/.index.md`
+### `.memory/.thinking/patterns/.index.md`
 
 ```markdown
 | problem-type | file | state | failure_count | validated_uses | last_updated |
@@ -105,7 +105,7 @@ Used by `maintain` to count usage for `effectiveness_mark` candidate detection.
 | type-mismatch | type-mismatch.md | deprecated | 2 | 1 | 2026-01-05 |
 ```
 
-### `.thinking/raw/.index.md` (append-log format)
+### `.memory/.thinking/raw/.index.md` (append-log format)
 
 ```markdown
 | timestamp | notebook | step | quality_prompt | quality_thinking | quality_output | file |
@@ -123,12 +123,13 @@ Flat index of all library files — used for cold-start full-match when `changel
 # Library Master Index
 <!-- Updated by: init (skeleton), all writers (append), maintain --rebuild-index (rebuild) -->
 
-| path | type | topic/type/problem | quality_status | effectiveness_mark | last_verified |
-|------|----|---------------------|----------------|--------------------|---------------|
-| .references/jwt-auth-v3.md | reference | jwt-auth | active | ✓ | 2026-01-10 |
-| .experiences/software/auth-refactor-complete.md | experience | software | verified | ✓ | 2026-02-01 |
-| .type-profiles/software.md | type-profile | software | — | — | 2026-02-10 |
-| .thinking/patterns/replan-loop.md | pattern | replan-loop | validated | — | 2026-02-15 |
+| path | type | topic/type/problem | quality_status | effectiveness_mark | last_verified | source |
+|------|----|---------------------|----------------|--------------------|---------------|--------|
+| .memory/.references/jwt-auth-v3.md | reference | jwt-auth | active | ✓ | 2026-01-10 | system |
+| .memory/.experiences/software/auth-refactor-complete.md | experience | software | verified | ✓ | 2026-02-01 | system |
+| .memory/.type-profiles/software.md | type-profile | software | — | — | 2026-02-10 | system |
+| .memory/.thinking/patterns/replan-loop.md | pattern | replan-loop | validated | — | 2026-02-15 | system |
+| company-docs/api-spec.md | user-import | — | — | — | — | user-import |
 ```
 
 Writers append one row after each write (step 5 extended for master index). `maintain --rebuild-index` rebuilds it from ground truth.
@@ -137,16 +138,16 @@ Writers append one row after each write (step 5 extended for master index). `mai
 
 | File | Mode | Rationale |
 |------|------|-----------|
-| `raw/<nb>-<step>-<date>.md` | Append | Same-day re-runs in auto mode |
+| `.memory/.thinking/raw/<nb>-<step>-<date>.md` | Append | Same-day re-runs in auto mode |
 | `<nb>-impl.md` | Append | exec produces incremental notes across steps |
 | `<nb>-verify.md` | Append | verify may run multiple passes |
 | `<nb>-eval.md` | Append | check may run at multiple checkpoints |
 | `<nb>-complete.md` | Overwrite | Authoritative final record; one per notebook |
-| `patterns/<problem-type>.md` | Overwrite | Single canonical pattern per problem type |
-| `.type-profiles/<type>.md` | Overwrite | Single authoritative profile; append to refinement-log section |
+| `.memory/.thinking/patterns/<problem-type>.md` | Overwrite | Single canonical pattern per problem type |
+| `.memory/.type-profiles/<type>.md` | Overwrite | Single authoritative profile; append to refinement-log section |
 | `.summary.md` (all) | Overwrite | Always reflects current state of directory |
 | `.index.md` (all except raw) | Overwrite row / append row | Update existing row in-place OR append new row |
-| `raw/.index.md` | Append (O_APPEND) | Log-style; no lock; maintain deduplicates |
+| `.memory/.thinking/raw/.index.md` | Append (O_APPEND) | Log-style; no lock; maintain deduplicates |
 | `.master-index.md` | Append row / rebuild | Append on write; full rebuild on maintain |
 | `.changelog` | Append (O_APPEND via .changelog.lock) | Immutable history |
 

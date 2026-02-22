@@ -73,9 +73,9 @@ Created on first successful delegation. Updated on each new capability discovery
 | domain-audio-mastering | Audio loudness and EQ optimization | exec | dsp | example-audio-master | 2024-01-22 |
 ```
 
-**Write protection**: Acquire `$NB_WORKSPACES_LIBRARY/.references/.lock` before writing. Reuses the existing references lock to avoid proliferating lock files — the registry is a lightweight companion to `.references/`.
+**Write protection**: Acquire `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` before writing. Reuses the existing references lock to avoid proliferating lock files — the registry is a lightweight companion to `.memory/.references/`.
 
-**Re-entrancy rule**: If the calling skill already holds `$NB_WORKSPACES_LIBRARY/.references/.lock` (e.g., `research` during steps 11-14), the registry update MUST be batched — accumulate pending registry writes in memory and flush them before releasing the existing lock. Do NOT attempt a second lock acquisition (same-process re-entrant acquire would self-REJECT). Skills that do NOT hold the references lock (e.g., `exec`, `check`, `verify`) acquire the lock normally for registry writes.
+**Re-entrancy rule**: If the calling skill already holds `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` (e.g., `research` during steps 11-14), the registry update MUST be batched — accumulate pending registry writes in memory and flush them before releasing the existing lock. Do NOT attempt a second lock acquisition (same-process re-entrant acquire would self-REJECT). Skills that do NOT hold the references lock (e.g., `exec`, `check`, `verify`) acquire the lock normally for registry writes.
 
 ## Task Subagent Invocation Template
 
