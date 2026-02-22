@@ -6,14 +6,20 @@
 
 > *"站在月球看地球"* — [老王来了@dlw2023](https://www.youtube.com/@dlw2023)
 
+## 安装
+
+```bash
+claude plugin add huacheng/moonview
+```
+
 ## 插件
 
-### ai-cli-task (v0.5.0)
+### task-ai (v0.0.6)
 
 结构化任务生命周期管理，包含 **14 个技能**，面向 AI 驱动开发。Git 集成的 branch-per-task 工作流，支持项目/笔记本层级、领域感知验证、知识库和自主执行。
 
 ```
-/moonview:ai-cli-task <subcommand> [args]
+/moonview:task-ai <subcommand> [args]
 ```
 
 ## 生命周期
@@ -55,6 +61,33 @@ draft → planning → review → executing → complete
 
 8 个状态，经过验证的转换规则。终态：`complete`、`cancelled`。
 
+## 快速开始
+
+```bash
+# 1. 在项目下初始化笔记本
+/moonview:task-ai init my-project auth-refactor --title "重构认证为 JWT"
+
+# 2. 在 .target.md 中编写需求，然后让 research 深化
+/moonview:task-ai research my-project/auth-refactor --caller target
+
+# 3. 生成计划
+/moonview:task-ai plan auth-refactor --generate
+
+# 4. 验证 → 审查计划质量
+/moonview:task-ai verify auth-refactor
+/moonview:task-ai check auth-refactor --checkpoint post-plan
+
+# 5. 执行计划
+/moonview:task-ai exec auth-refactor
+
+# 6. 合并到 main + 生成报告
+/moonview:task-ai merge auth-refactor
+/moonview:task-ai report auth-refactor
+
+# 或者自动运行完整生命周期：
+/moonview:task-ai auto auth-refactor --start
+```
+
 ## 特性
 
 - **项目层级** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` 两级组织结构
@@ -67,40 +100,6 @@ draft → planning → review → executing → complete
 - **六视角审计** — check 从 6 个独立视角评估计划和实施
 - **研究情报** — 每个阶段都可独立调用，用于领域知识、需求深化、测试方法论
 - **并发保护** — 基于锁文件的互斥，6 级锁优先级排序，过期锁恢复
-
-## 安装
-
-```bash
-# 从市场安装
-claude plugin add huacheng/moonview
-```
-
-## 快速开始
-
-```bash
-# 1. 在项目下初始化笔记本
-/moonview:ai-cli-task init my-project auth-refactor --title "重构认证为 JWT"
-
-# 2. 在 .target.md 中编写需求，然后让 research 深化
-/moonview:research my-project/auth-refactor --caller target
-
-# 3. 生成计划
-/moonview:plan auth-refactor --generate
-
-# 4. 验证 → 审查计划质量
-/moonview:verify auth-refactor
-/moonview:check auth-refactor --checkpoint post-plan
-
-# 5. 执行计划
-/moonview:exec auth-refactor
-
-# 6. 合并到 main + 生成报告
-/moonview:merge auth-refactor
-/moonview:report auth-refactor
-
-# 或者自动运行完整生命周期：
-/moonview:auto auth-refactor --start
-```
 
 ## 目录结构
 

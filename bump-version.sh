@@ -16,8 +16,8 @@ REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 FILES=(
   "$REPO_ROOT/.claude-plugin/marketplace.json"
   "$REPO_ROOT/.claude-plugin/plugin.json"
-  "$REPO_ROOT/plugins/ai-cli-task/plugin.json"
-  "$REPO_ROOT/plugins/ai-cli-task/.claude-plugin/plugin.json"
+  "$REPO_ROOT/plugins/task-ai/plugin.json"
+  "$REPO_ROOT/plugins/task-ai/.claude-plugin/plugin.json"
 )
 
 for f in "${FILES[@]}"; do

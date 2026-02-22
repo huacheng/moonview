@@ -6,14 +6,20 @@ A Claude Code plugin marketplace for structured task lifecycle management.
 
 > *"Standing on the moon, looking at Earth"* — [老王来了@dlw2023](https://www.youtube.com/@dlw2023)
 
+## Installation
+
+```bash
+claude plugin add huacheng/moonview
+```
+
 ## Plugins
 
-### ai-cli-task (v0.5.0)
+### task-ai (v0.0.6)
 
 Structured task lifecycle management with **14 skills** for AI-driven development. Git-integrated branch-per-task workflow with project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution.
 
 ```
-/moonview:ai-cli-task <subcommand> [args]
+/moonview:task-ai <subcommand> [args]
 ```
 
 ## Lifecycle
@@ -55,6 +61,33 @@ draft → planning → review → executing → complete
 
 8 statuses with validated transitions. Terminal states: `complete`, `cancelled`.
 
+## Quick Start
+
+```bash
+# 1. Initialize a notebook under a project
+/moonview:task-ai init my-project auth-refactor --title "Refactor auth to JWT"
+
+# 2. Write requirements in .target.md, then let research deepen them
+/moonview:task-ai research my-project/auth-refactor --caller target
+
+# 3. Generate plan
+/moonview:task-ai plan auth-refactor --generate
+
+# 4. Verify → check plan quality
+/moonview:task-ai verify auth-refactor
+/moonview:task-ai check auth-refactor --checkpoint post-plan
+
+# 5. Execute the plan
+/moonview:task-ai exec auth-refactor
+
+# 6. Merge to main + generate report
+/moonview:task-ai merge auth-refactor
+/moonview:task-ai report auth-refactor
+
+# Or run the full lifecycle automatically:
+/moonview:task-ai auto auth-refactor --start
+```
+
 ## Features
 
 - **Project hierarchy** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` two-level organization
@@ -67,40 +100,6 @@ draft → planning → review → executing → complete
 - **Six-perspective audit** — check skill evaluates plans and implementations from 6 independent viewpoints
 - **Research intelligence** — standalone callable at every phase for domain knowledge, requirement deepening, testing methodology
 - **Concurrency protection** — lockfile-based mutual exclusion with 6-priority lock ordering and stale lock recovery
-
-## Installation
-
-```bash
-# Install from marketplace
-claude plugin add huacheng/moonview
-```
-
-## Quick Start
-
-```bash
-# 1. Initialize a notebook under a project
-/moonview:ai-cli-task init my-project auth-refactor --title "Refactor auth to JWT"
-
-# 2. Write requirements in .target.md, then let research deepen them
-/moonview:research my-project/auth-refactor --caller target
-
-# 3. Generate plan
-/moonview:plan auth-refactor --generate
-
-# 4. Verify → check plan quality
-/moonview:verify auth-refactor
-/moonview:check auth-refactor --checkpoint post-plan
-
-# 5. Execute the plan
-/moonview:exec auth-refactor
-
-# 6. Merge to main + generate report
-/moonview:merge auth-refactor
-/moonview:report auth-refactor
-
-# Or run the full lifecycle automatically:
-/moonview:auto auth-refactor --start
-```
 
 ## Directory Structure
 

@@ -1,0 +1,20 @@
+{
+  "name": "task-ai",
+  "version": "0.0.6",
+  "description": "Structured task lifecycle management with 14 skills for AI-driven development — project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution",
+  "author": {
+    "name": "huacheng"
+  },
+  "repository": "https://github.com/huacheng/moonview",
+  "homepage": "https://github.com/huacheng/moonview#task-ai",
+  "license": "MIT",
+  "keywords": [
+    "task-management",
+    "annotation",
+    "plan",
+    "execution",
+    "ai-cli-online"
+  ],
+  "commands": "./commands/",
+  "skills": "./skills/"
+}
