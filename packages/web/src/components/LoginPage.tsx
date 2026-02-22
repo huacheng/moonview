@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useStore } from '../store';
 
 interface LoginPageProps {
   onLogin: (token: string) => void;
@@ -6,29 +7,22 @@ interface LoginPageProps {
   loading: boolean;
 }
 
-/** Extract retryAfter seconds from error message like "Locked for 60s." */
-function parseRetryAfter(error: string | null): number {
-  if (!error) return 0;
-  const m = error.match(/(\d+)s[.\s]/);
-  return m ? parseInt(m[1], 10) : 0;
-}
-
 export function LoginPage({ onLogin, error, loading }: LoginPageProps) {
   const [token, setToken] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const authRetryAfter = useStore(s => s.authRetryAfter);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Start countdown when error contains retry time
+  // Start countdown from server-provided retryAfter
   useEffect(() => {
-    const secs = parseRetryAfter(error);
-    if (secs > 0) {
-      setCountdown(secs);
+    if (authRetryAfter > 0) {
+      setCountdown(authRetryAfter);
     }
-  }, [error]);
+  }, [authRetryAfter]);
 
   // Tick countdown
   useEffect(() => {
@@ -75,7 +69,7 @@ export function LoginPage({ onLogin, error, loading }: LoginPageProps) {
             />
           </div>
 
-          {error && <div className="login-error">{locked ? `${error} (${countdown}s)` : error}</div>}
+          {error && <div className="login-error">{error}</div>}
 
           <button
             className="login-btn"

@@ -17,6 +17,7 @@ export interface NotebookStore {
   authToken: string | null;
   authRequired: boolean | null;
   authError: string | null;
+  authRetryAfter: number;
   authLoading: boolean;
 
   // ── Notebook state ─────────────────────────────────────────────────────

@@ -2,12 +2,13 @@ import type { StateCreator } from 'zustand';
 import type { NotebookStore } from './types';
 
 export const createAuthSlice: StateCreator<NotebookStore, [], [], Pick<NotebookStore,
-  | 'authToken' | 'authRequired' | 'authError' | 'authLoading'
+  | 'authToken' | 'authRequired' | 'authError' | 'authRetryAfter' | 'authLoading'
   | 'checkAuthStatus' | 'login' | 'logout'
 >> = (set, get) => ({
   authToken: localStorage.getItem('nb-auth-token'),
   authRequired: null,
   authError: null,
+  authRetryAfter: 0,
   authLoading: false,
 
   async checkAuthStatus() {
@@ -44,12 +45,12 @@ export const createAuthSlice: StateCreator<NotebookStore, [], [], Pick<NotebookS
         body: JSON.stringify({ token }),
       });
       if (!res.ok) {
-        const data = (await res.json()) as { error: string };
-        set({ authError: data.error, authLoading: false });
+        const data = (await res.json()) as { error: string; retryAfter?: number };
+        set({ authError: data.error, authRetryAfter: data.retryAfter ?? 0, authLoading: false });
         return;
       }
       localStorage.setItem('nb-auth-token', token);
-      set({ authToken: token, authError: null, authLoading: false });
+      set({ authToken: token, authError: null, authRetryAfter: 0, authLoading: false });
     } catch {
       set({ authError: 'Failed to connect to server.', authLoading: false });
     }
