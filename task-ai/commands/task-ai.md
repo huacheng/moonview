@@ -296,6 +296,16 @@ Every sub-command that participates in the automation loop (plan, check, exec, m
 
 - The `next` field follows the signal routing table documented in the `auto` sub-command.
 - The `checkpoint` field provides context for the next command (e.g., `"post-plan"`, `"mid-exec"`, `"post-exec"`) when the `next` command needs it. Optional — omit when not applicable. If auto mode is not active, the file is harmless (gitignored, ephemeral). This fire-and-forget pattern avoids each skill needing to detect auto mode.
+
+**Result value format convention**: The `result` field uses two distinct formats depending on the skill's role:
+
+| Format | Used By | Examples | Rationale |
+|--------|---------|---------|-----------|
+| `UPPERCASE` | `check` (judgment skills) | `PASS`, `ACCEPT`, `NEEDS_FIX`, `REPLAN`, `BLOCKED` | Verdicts that drive state transitions — emphasized as formal decisions |
+| `(lowercase)` | `plan`, `exec`, `verify`, `research`, `report`, `annotate` (action skills) | `(generated)`, `(done)`, `(pass)`, `(collected)`, `(processed)` | Outcomes wrapped in parentheses — informational status without state-changing authority |
+| `lowercase` | `merge` (git operations) | `success`, `conflict` | Git-style bare results — merge outcomes are binary and self-descriptive |
+
+The auto daemon's signal validation whitelist (see `auto/SKILL.md`) accepts all three formats. New skills SHOULD follow this convention: judgment → UPPERCASE, action → (lowercase), git → lowercase.
 - **Atomic write**: `.auto-signal` MUST be written atomically — write to `.auto-signal.tmp` first, then `rename` to `.auto-signal`. POSIX `rename` is atomic, preventing the daemon from reading partially written JSON.
 
 **Worktree note**: In worktree mode, `.auto-signal` MUST be written to the **main worktree's** `$NB_WORKSPACES_ROOT/<notebook>/.working/` directory (not the task worktree copy) to survive worktree removal during merge cleanup.
@@ -343,7 +353,7 @@ Validation is performed by resolving the absolute path and confirming it starts 
 
 ### Concurrency Protection
 
-Without worktree mode, only one task should be actively operated at a time. Sub-commands that modify state (`plan`, `exec`, `check`, `merge`) MUST check for an active lockfile (`$NB_WORKSPACES_ROOT/<notebook>/.working/.lock`) before proceeding:
+Without worktree mode, only one task should be actively operated at a time. Sub-commands that modify task module files (`plan`, `exec`, `check`, `merge`, `research`, `annotate`, `cancel`) MUST check for an active lockfile (`$NB_WORKSPACES_ROOT/<notebook>/.working/.lock`) before proceeding:
 
 1. **Acquire**: Attempt to create `$NB_WORKSPACES_ROOT/<notebook>/.working/.lock` with `O_CREAT | O_EXCL` (atomic create-if-not-exists). Write `{ session, pid, timestamp }` to identify the holder
 2. **If lock exists**: Read lock content, check if holding process is still alive (kill -0). If dead → remove stale lock and retry. If alive → REJECT with error identifying the holding session. No retry — the caller (user or auto) decides whether to retry
@@ -358,7 +368,7 @@ Three shared directories require locks before writing (all use the same lock pro
 | Directory | Lock File | Writers | Scope |
 |-----------|-----------|---------|-------|
 | `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/` | `$NB_WORKSPACES_LIBRARY/.memory/.experiences/.lock` | `report`, `exec`, `verify`, `check` | Create type dir, write `<notebook>-{complete\|impl\|verify\|eval}.md`, update per-type `.index.md`. For hybrid types (`A\|B`), covers all segments |
-| `$NB_WORKSPACES_LIBRARY/.memory/.references/` | `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` | `research`, `exec` | Write `<topic>.md`, update `.index.md` and `.summary.md` |
+| `$NB_WORKSPACES_LIBRARY/.memory/.references/` | `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock` | `research`, `exec`, `check` | Write `<topic>.md`, update `.index.md` and `.summary.md`; `check` updates `failure_count` on REPLAN |
 | `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` | `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/.lock` | `research`, `report` | Write `<type>.md` shared profiles |
 
 ### .index.json Safety
@@ -379,7 +389,7 @@ Lifecycle skills can discover and delegate to system-installed external plugins 
 
 Sub-commands have different cognitive demands. Each SKILL.md frontmatter declares `model_tier` (heavy/medium/light) and `auto_delegatable` (true/false) to enable the auto loop to dispatch lighter sub-commands to cheaper/faster model tiers via Task subagent.
 
-> **See `commands/references/model-routing.md`** for tier definitions, the full routing table for all 13 skills, and the auto mode delegation protocol.
+> **See `commands/references/model-routing.md`** for tier definitions, the full routing table for all 14 skills, and the auto mode delegation protocol.
 
 ### Lifecycle Hooks (Extension Point)
 

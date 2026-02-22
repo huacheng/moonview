@@ -27,6 +27,7 @@ Sub-commands have different cognitive demands. The `model_tier` and `auto_delega
 | **init** | light | true | Mechanical file creation + branch setup |
 | **list** | light | true | Pure read-only query; no file writes |
 | **cancel** | light | true | Simple status update + cleanup |
+| **library** | light | true | Read-only queries (search/list/status) or mechanical maintenance; output is self-contained |
 
 ## Auto Mode Delegation Protocol
 

@@ -4,34 +4,32 @@ Claude Code may stall mid-execution (e.g., context window overflow prompt, waiti
 
 ## Heartbeat Polling
 
-The daemon runs a periodic heartbeat (every 60 seconds) while an auto loop is active:
+The daemon runs a periodic heartbeat (every 60 seconds) while an auto loop is active. Detection is based on the **stream-json output** from the `ClaudeProcess` (`claude -p --output-format stream-json`):
 
-1. `tmux capture-pane -t '=${name}:' -p` — capture current terminal output
-2. Compare with previous capture (store last capture hash)
-3. Track consecutive unchanged captures as `stall_count`
+1. Track the timestamp of the last received stream-json message (any type: `assistant`, `tool_use`, `tool_result`, `result`, etc.)
+2. Compute `idle_seconds = now - last_message_timestamp`
+3. Track consecutive heartbeat polls where `idle_seconds >= 60` as `stall_count`
 
 ## Stall Determination
 
-| `stall_count` | Terminal Output Status | Verdict |
-|---------------|----------------------|---------|
+| `stall_count` | Stream Status | Verdict |
+|---------------|--------------|---------|
 | < 3 | — | Normal (Claude may be thinking/working) |
-| >= 3 | Output unchanged for >= 3 polls | Stall suspected -> run pattern match |
+| >= 3 | No stream-json output for >= 3 polls (>= 3 minutes) | Stall suspected → run pattern match |
 
-A stall is only suspected after **3 consecutive unchanged captures** (>= 3 minutes at 60s interval). This avoids false positives from long-running steps.
+A stall is only suspected after **3 consecutive idle heartbeats** (>= 3 minutes at 60s interval). This avoids false positives from long-running steps.
 
 ## Pattern Matching Recovery
 
-When stall is suspected, first verify the **foreground process** is Claude itself — run `tmux list-panes -t '=${name}:' -F '#{pane_current_command}'` and confirm the result is `claude` (or `node` for Claude Code). If the foreground process is a child process (e.g., `python`, `npm`, `gcc`), do NOT apply pattern matching recovery — the output belongs to a subprocess, not a stall. Only proceed with pattern matching when Claude is the foreground process.
-
-Scan the captured pane output for known stall patterns:
+When stall is suspected, check the **last stream-json messages** for known stall patterns:
 
 | Pattern | Detection | Recovery Action |
 |---------|-----------|-----------------|
-| Continuation prompt | `continue`, `Continue?`, `press enter` (case-insensitive) | Send `continue\n` to PTY |
-| Yes/No prompt | `(y/n)`, `(Y/N)`, `[y/N]`, `[Y/n]` | Send `y\n` to PTY |
-| Proceed prompt | `Do you want to proceed`, `Shall I continue` | Send `yes\n` to PTY |
-| Shell prompt visible | `$`, `>`, `%` at end of output (no active command) | Claude session ended unexpectedly -> restart auto session (see Server Recovery in main SKILL.md) |
-| **Quota exhausted** | `rate limit`, `quota exceeded`, `usage limit`, `token limit`, `try again later` (case-insensitive) | **NOT a stall** — reset `stall_count` to 0, enter quota-wait mode (see `references/context-quota.md`) |
+| Continuation prompt | Last `assistant` message contains `continue`, `Continue?`, `press enter` (case-insensitive) | Send `{"type":"human","message":"continue"}` via stream-json stdin |
+| Yes/No prompt | Last `assistant` message contains `(y/n)`, `(Y/N)`, `[y/N]`, `[Y/n]` | Send `{"type":"human","message":"y"}` via stream-json stdin |
+| Proceed prompt | Last `assistant` message contains `Do you want to proceed`, `Shall I continue` | Send `{"type":"human","message":"yes"}` via stream-json stdin |
+| Process exited | `ClaudeProcess` emits `close` event or stream ends | Claude session ended unexpectedly → restart auto session (see Server Recovery in main SKILL.md) |
+| **Quota exhausted** | Last `assistant` or `system` message contains `rate limit`, `quota exceeded`, `usage limit`, `token limit`, `try again later` (case-insensitive) | **NOT a stall** — reset `stall_count` to 0, enter quota-wait mode (see `references/context-quota.md`) |
 | No recognizable pattern | — | Log warning, increment `stall_count`, continue polling |
 
 ## Recovery Limits

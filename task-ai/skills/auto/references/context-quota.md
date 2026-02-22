@@ -14,11 +14,13 @@ When Claude's API quota (token usage / rate limit) is exhausted mid-auto-loop, t
 
 ### Daemon Behavior
 
-1. **Detection**: Heartbeat captures terminal output containing quota-related messages (`rate limit`, `quota exceeded`, `usage limit`, etc.)
+Detection is based on the **stream-json output** from `ClaudeProcess`:
+
+1. **Detection**: Monitor stream-json messages for quota-related content (`rate limit`, `quota exceeded`, `usage limit`, etc.) in `assistant` or `system` message types
 2. **Enter quota-wait mode**: Reset `stall_count` to 0, pause stall detection timers
 3. **Suspend timeout**: Quota-wait time does **NOT** count toward `timeoutMinutes`. The daemon pauses the timeout clock while in quota-wait mode
-4. **Continue heartbeat**: Keep polling at 60s interval, but only check for quota recovery (Claude resumes output) — do not apply stall determination logic
-5. **Exit quota-wait**: When heartbeat detects new output (Claude resumed), restore normal monitoring and resume timeout clock
+4. **Continue heartbeat**: Keep polling at 60s interval, but only check for quota recovery (new stream-json messages arriving) — do not apply stall determination logic
+5. **Exit quota-wait**: When heartbeat detects new stream-json output (Claude resumed), restore normal monitoring and resume timeout clock
 
 ### Claude Behavior
 
