@@ -361,7 +361,8 @@ export class SessionManager {
    *   - type "assistant"    → content blocks (text, thinking, tool_use)
    *   - type "result"       → final result text + is_error + definitive completion
    *   - type "tool_result"  → output of a tool invocation
-   *   - type "stream_event" → streaming deltas (ignored; we use complete "assistant" blocks)
+   *   - type "stream_event" → streaming deltas (forwarded as cell_stream for real-time rendering)
+   *   - type "content_block_delta" → direct streaming deltas (forwarded as cell_stream)
    *   - type "system"       → system messages (ignored)
    */
   private handleJsonlMessage(session: NotebookSession, raw: unknown): void {
@@ -472,8 +473,36 @@ export class SessionManager {
         break;
       }
 
+      case 'content_block_delta':
+      case 'stream_event': {
+        // stream_event may wrap the actual delta; content_block_delta is direct.
+        const payload = msg.type === 'stream_event' ? (msg as any).event : msg;
+        if (payload?.type !== 'content_block_delta') break;
+
+        const cellId = findRunningCellId(session.notebook);
+        if (!cellId) break;
+
+        const delta = payload.delta;
+        if (delta?.type === 'text_delta' && delta.text) {
+          this.broadcast(session, {
+            type: 'cell_stream',
+            cell_id: cellId,
+            delta: delta.text,
+            block_type: 'text',
+          } as any);
+        } else if (delta?.type === 'thinking_delta' && delta.thinking) {
+          this.broadcast(session, {
+            type: 'cell_stream',
+            cell_id: cellId,
+            delta: delta.thinking,
+            block_type: 'thinking',
+          } as any);
+        }
+        break;
+      }
+
       default:
-        // stream_event, system, and other message types are silently ignored.
+        // system and other message types are silently ignored.
         break;
     }
   }
