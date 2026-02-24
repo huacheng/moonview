@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# /moonview:check implementation
+# Usage: check.sh <notebook> [--checkpoint post-plan|mid-exec|post-exec]
+
+set -uo pipefail
+
+NOTEBOOK="${1:-}"
+CHECKPOINT="post-plan"
+
+if [[ -z "$NOTEBOOK" ]]; then
+    echo "[ERROR] Notebook name is required." >&2
+    exit 1
+fi
+
+shift || true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --checkpoint) CHECKPOINT="$2"; shift 2 ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
+NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
+WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
+INDEX_JSON="$WORK_DIR/.index.json"
+ANALYSIS_DIR="$WORK_DIR/../.analysis"
+mkdir -p "$ANALYSIS_DIR"
+
+if [[ ! -d "$WORK_DIR" ]]; then
+    echo "[ERROR] Working directory not found." >&2
+    exit 1
+fi
+
+# 1. Decision Logic (Simulated for plumbing)
+# In real AI agent run, this would be a reasoned verdict.
+VERDICT="PASS"
+[[ "$CHECKPOINT" == "post-exec" ]] && VERDICT="ACCEPT"
+
+echo "Checking $NOTEBOOK at $CHECKPOINT... Verdict: $VERDICT"
+
+# 2. State Transitions
+case "$VERDICT" in
+  PASS)
+    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='review'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    ;;
+  ACCEPT)
+    # ACCEPT keeps 'executing' status but signals 'merge'
+    ;;
+  REPLAN)
+    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='re-planning'; d['phase']='needs-plan'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    ;;
+  BLOCKED)
+    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='blocked'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    ;;
+esac
+
+# 3. Output Analysis File
+DATE=$(date +%Y-%m-%d)
+ANALYSIS_FILE="$ANALYSIS_DIR/$DATE-$CHECKPOINT-${VERDICT,,}.md"
+cat > "$ANALYSIS_FILE" <<EOF
+# Evaluation: $CHECKPOINT · $DATE
+- Verdict: $VERDICT
+- Rationale: Simulated plumbing pass.
+EOF
+
+echo "Check completed. Analysis written to $ANALYSIS_FILE."
