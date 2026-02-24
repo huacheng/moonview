@@ -29,6 +29,7 @@ L2_SCRIPTS=(
   library-health-audit.sh
   library-regression-fixes.sh
   init-functional.sh
+  research-functional.sh
   signal-field-names.py
   injection-category-count.sh
   plugin-slot-consistency.py
