@@ -182,6 +182,7 @@ export const NotebookMetadataSchema = z.object({
   project_id: z.string().optional(),
   worktree_path: z.string().optional(),
   branch: z.string().optional(),
+  agent: z.enum(['claude', 'gemini']).default('claude'),
 });
 
 // ─── Notebook (顶层文档) ───
@@ -393,7 +394,7 @@ export const FileOpenMetaSchema = z.object({
   session_id: z.string(),
   size: z.number(),
   mtime: z.number(),
-  format: z.enum(['text', 'html', 'pdf-binary', 'unsupported']),
+  format: z.enum(['text', 'html', 'pdf-binary', 'docx-binary', 'xlsx-binary', 'pptx-binary', 'unsupported']),
 });
 
 export const FileChunkSchema = z.object({

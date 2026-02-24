@@ -1,9 +1,11 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import DOMPurify from 'dompurify';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
+import { renderAsync } from 'docx-preview';
+import * as XLSX from 'xlsx';
 import type { FileFormat } from '../hooks/useFileStream';
 import type { FileAnnotations, FileAnnotation } from '../types/fileAnnotations';
 import { uid, buildAnnotationText } from '../types/fileAnnotations';
@@ -13,16 +15,106 @@ import { FileAnnotationDropdown } from './FileAnnotationDropdown';
 
 import { isJsonFile, formatJsonContent } from '../utils/jsonFormat';
 
-// Set PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+// Set PDF.js worker — served from public/ to avoid pnpm symlink issues
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+// ── Lazy PDF Page — only renders when near viewport ───────────────────────
+const PAGE_PLACEHOLDER_HEIGHT = 842; // A4 height in px (approx)
+
+function LazyPage({ pageNumber }: { pageNumber: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      { rootMargin: '2500px' }, // pre-render ~3 pages ahead
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={visible ? undefined : { minHeight: PAGE_PLACEHOLDER_HEIGHT }}>
+      {visible && <Page pageNumber={pageNumber} renderTextLayer={true} renderAnnotationLayer={false} />}
+    </div>
+  );
+}
+
+// ── DOCX Renderer ─────────────────────────────────────────────────────────
+function DocxRenderer({ buffer }: { buffer: Uint8Array }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.innerHTML = '';
+    renderAsync(buffer.buffer, ref.current, undefined, { className: 'fv-docx', inWrapper: true });
+  }, [buffer]);
+  return <div ref={ref} className="fv-render__docx-container" />;
+}
+
+// ── XLSX Renderer ─────────────────────────────────────────────────────────
+function XlsxRenderer({ buffer }: { buffer: Uint8Array }) {
+  const [sheets, setSheets] = useState<string[]>([]);
+  const [activeSheet, setActiveSheet] = useState(0);
+  const [html, setHtml] = useState('');
+
+  useEffect(() => {
+    const wb = XLSX.read(buffer, { type: 'array' });
+    setSheets(wb.SheetNames);
+    if (wb.SheetNames.length > 0) {
+      setActiveSheet(0);
+      setHtml(XLSX.utils.sheet_to_html(wb.Sheets[wb.SheetNames[0]]));
+    }
+  }, [buffer]);
+
+  useEffect(() => {
+    if (sheets.length === 0) return;
+    const wb = XLSX.read(buffer, { type: 'array' });
+    setHtml(XLSX.utils.sheet_to_html(wb.Sheets[sheets[activeSheet]]));
+  }, [activeSheet, sheets, buffer]);
+
+  return (
+    <div className="fv-render__xlsx">
+      {sheets.length > 1 && (
+        <div className="fv-render__xlsx-tabs">
+          {sheets.map((name, i) => (
+            <button key={name} className={i === activeSheet ? 'active' : ''} onClick={() => setActiveSheet(i)}>
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="fv-render__xlsx-content" dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
+
+// ── PPTX Placeholder ──────────────────────────────────────────────────────
+function PptxPlaceholder({ buffer, filename }: { buffer: Uint8Array; filename: string }) {
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([buffer.slice().buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [buffer, filename]);
+
+  return (
+    <div className="fv-render__pptx-placeholder">
+      <p>PPTX preview is not available in the browser.</p>
+      <button onClick={handleDownload}>Download {filename}</button>
+    </div>
+  );
+}
 
 interface FileViewerRenderProps {
   format: FileFormat;
   content: string;
-  pdfBuffer: Uint8Array | null;
+  binaryBuffer: Uint8Array | null;
   filename: string;
   annotations: FileAnnotations;
   filePath: string;
@@ -31,13 +123,26 @@ interface FileViewerRenderProps {
 }
 
 export function FileViewerRender({
-  format, content, pdfBuffer, filename, annotations, filePath, onAnnotationsChange, onSendToPrompt,
+  format, content, binaryBuffer, filename, annotations, filePath, onAnnotationsChange, onSendToPrompt,
 }: FileViewerRenderProps) {
   const [float, setFloat] = useState<{ x: number; y: number; text: string } | null>(null);
   const [pdfPages, setPdfPages] = useState(0);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMd = filename.endsWith('.md');
   const isJson = isJsonFile(filename);
+
+  // Copy buffer for PDF.js — postMessage transfers ArrayBuffer ownership,
+  // so we must give it a fresh copy each time to avoid "detached" errors on re-render.
+  const pdfFile = useMemo(() => {
+    if (format !== 'pdf-binary' || !binaryBuffer) return null;
+    return { data: binaryBuffer.slice().buffer };
+  }, [format, binaryBuffer]);
+
+  useEffect(() => {
+    setPdfPages(0);
+    setPdfError(null);
+  }, [binaryBuffer]);
 
   const addAnnotation = useCallback((type: FileAnnotation['type'], selectedText: string, defaultContent?: string) => {
     const ann: FileAnnotation = {
@@ -135,17 +240,25 @@ export function FileViewerRender({
           <p>This file format is not supported for preview.</p>
         </div>
       )}
-      {format === 'pdf-binary' && pdfBuffer && (
-        <Document
-          file={{ data: pdfBuffer }}
-          onLoadSuccess={(pdf: { numPages: number }) => setPdfPages(pdf.numPages)}
-          className="fv-render__pdf"
-        >
-          {Array.from({ length: pdfPages }, (_, i) => (
-            <Page key={i + 1} pageNumber={i + 1} renderTextLayer={true} renderAnnotationLayer={false} />
-          ))}
-        </Document>
+      {format === 'pdf-binary' && pdfFile && (
+        <div className="fv-render__pdf-wrapper">
+          {pdfError && <div className="fv-render__pdf-error">Failed to load PDF: {pdfError}</div>}
+          <Document
+            file={pdfFile}
+            onLoadSuccess={(pdf: { numPages: number }) => setPdfPages(pdf.numPages)}
+            onLoadError={(err: Error) => setPdfError(err.message)}
+            loading={<div className="fv-render__pdf-loading">Loading PDF…</div>}
+            className="fv-render__pdf"
+          >
+            {Array.from({ length: pdfPages }, (_, i) => (
+              <LazyPage key={i + 1} pageNumber={i + 1} />
+            ))}
+          </Document>
+        </div>
       )}
+      {format === 'docx-binary' && binaryBuffer && <DocxRenderer buffer={binaryBuffer} />}
+      {format === 'xlsx-binary' && binaryBuffer && <XlsxRenderer buffer={binaryBuffer} />}
+      {format === 'pptx-binary' && binaryBuffer && <PptxPlaceholder buffer={binaryBuffer} filename={filename} />}
 
       {/* Inline annotation cards */}
       {annotations.items.length > 0 && (

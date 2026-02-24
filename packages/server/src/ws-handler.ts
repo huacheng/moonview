@@ -1,9 +1,6 @@
 import { type WebSocketServer, type WebSocket } from 'ws';
 import crypto from 'crypto';
 import fs from 'fs/promises';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
 import {
   WSClientMessageSchema,
   type Notebook,
@@ -15,8 +12,6 @@ import { authEnabled } from './auth.js';
 import { validateWorkspacePath } from './workspace-files.js';
 import { exportToHtml } from './export.js';
 import { getLibraryDir } from './workspace.js';
-
-const execAsync = promisify(exec);
 
 function sendToClient(ws: WebSocket, msg: object): void {
   if (ws.readyState === ws.OPEN) {
@@ -233,12 +228,27 @@ export function setupWebSocket(
         case 'file-open': {
           const { session_id, path: filePath, source } = msg;
           const session = sessionManager.getSession(session_id);
-          if (!session) {
+          if (!session && source !== 'library') {
             sendToClient(ws, { type: 'file-open-error', session_id, error: 'Session not found' });
             break;
           }
           try {
-            const basedir = source === 'library' ? getLibraryDir() : session.cwd;
+            let basedir: string;
+            if (source === 'library') {
+              basedir = getLibraryDir();
+            } else if (source === 'deliverables') {
+              // Deliverables are in project_root/.deliverables
+              const projectId = session?.notebook.metadata.project_id;
+              const project = projectId ? db.getProject(projectId) : null;
+              if (!project) {
+                sendToClient(ws, { type: 'file-open-error', session_id, error: 'Project not found for deliverables' });
+                break;
+              }
+              basedir = project.path;
+            } else {
+              basedir = session!.cwd;
+            }
+
             const safePath = await validateWorkspacePath(filePath, basedir);
             const stat = await fs.stat(safePath);
             const ext = safePath.split('.').pop()?.toLowerCase() ?? '';
@@ -246,20 +256,16 @@ export function setupWebSocket(
             const TEXT_EXTS = new Set(['md', 'txt', 'json', 'yaml', 'yml', 'sh', 'py', 'js', 'ts',
               'tsx', 'jsx', 'css', 'htm', 'html', 'csv', 'xml', 'toml', 'ini', 'env', 'log']);
 
-            let format: 'text' | 'html' | 'pdf-binary' | 'unsupported';
-            let contentPath = safePath;
+            const BINARY_FORMAT: Record<string, string> = {
+              pdf: 'pdf-binary', docx: 'docx-binary', xlsx: 'xlsx-binary', pptx: 'pptx-binary',
+            };
+
+            let format: string;
 
             if (TEXT_EXTS.has(ext)) {
               format = 'text';
-            } else if (ext === 'pdf') {
-              format = 'pdf-binary';
-            } else if (ext === 'docx' || ext === 'pptx') {
-              const outDir = `/tmp/nb-render-${session_id}`;
-              await fs.mkdir(outDir, { recursive: true });
-              await execAsync(`libreoffice --headless --convert-to html --outdir "${outDir}" "${safePath}"`);
-              const basename = path.basename(safePath).replace(/\.[^.]+$/, '.html');
-              contentPath = path.join(outDir, basename);
-              format = 'html';
+            } else if (BINARY_FORMAT[ext]) {
+              format = BINARY_FORMAT[ext];
             } else {
               format = 'unsupported';
             }
@@ -271,10 +277,10 @@ export function setupWebSocket(
               break;
             }
 
-            const fileContent = await fs.readFile(contentPath);
+            const fileContent = await fs.readFile(safePath);
             const CHUNK_SIZE = 16384;
 
-            if (format === 'pdf-binary') {
+            if (format.endsWith('-binary')) {
               const b64 = fileContent.toString('base64');
               for (let i = 0; i < b64.length; i += CHUNK_SIZE) {
                 sendToClient(ws, { type: 'file-chunk', session_id, data: b64.slice(i, i + CHUNK_SIZE), encoding: 'base64' });
@@ -294,25 +300,30 @@ export function setupWebSocket(
         }
 
         case 'file-save': {
-          const { session_id, path: filePath, source, content, format } = msg;
+          const { session_id, path: filePath, source, content } = msg;
           const session = sessionManager.getSession(session_id);
-          if (!session) {
+          if (!session && source !== 'library') {
             sendToClient(ws, { type: 'file-save-error', session_id, error: 'Session not found' });
             break;
           }
           try {
-            const basedir = source === 'library' ? getLibraryDir() : session.cwd;
-            const safePath = await validateWorkspacePath(filePath, basedir);
-            const ext = safePath.split('.').pop()?.toLowerCase() ?? '';
-
-            if ((ext === 'docx' || ext === 'pptx') && format === 'html') {
-              const tmpHtml = `/tmp/nb-save-${session_id}-${Date.now()}.html`;
-              await fs.writeFile(tmpHtml, content, 'utf-8');
-              await execAsync(`libreoffice --headless --convert-to ${ext} --outdir "${path.dirname(safePath)}" "${tmpHtml}"`);
-              await fs.unlink(tmpHtml).catch(() => {});
+            let basedir: string;
+            if (source === 'library') {
+              basedir = getLibraryDir();
+            } else if (source === 'deliverables') {
+              const projectId = session?.notebook.metadata.project_id;
+              const project = projectId ? db.getProject(projectId) : null;
+              if (!project) {
+                sendToClient(ws, { type: 'file-save-error', session_id, error: 'Project not found for deliverables' });
+                break;
+              }
+              basedir = project.path;
             } else {
-              await fs.writeFile(safePath, content, 'utf-8');
+              basedir = session!.cwd;
             }
+
+            const safePath = await validateWorkspacePath(filePath, basedir);
+            await fs.writeFile(safePath, content, 'utf-8');
 
             const stat = await fs.stat(safePath);
             sendToClient(ws, { type: 'file-save-ok', session_id, mtime: stat.mtimeMs });

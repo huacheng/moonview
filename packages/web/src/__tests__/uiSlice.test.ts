@@ -3,8 +3,7 @@
  *
  * Tests:
  * - leftSidebarSplitRatio default and clamping
- * - setOpenFile with all three sources + null close
- * - filesPanelOpen / toggleFilesPanel removed
+ * - openFileTab / closeFileTab / setActiveFileTab / deactivateFileTab / closeAllFileTabs
  * - fileViewerMaximized toggle
  * - rightPanelOpen toggle
  */
@@ -68,36 +67,106 @@ describe('leftSidebarSplitRatio', () => {
   });
 });
 
-// ── openFile with deliverables source ──────────────────────────────────────
+// ── Multi-file tab management ─────────────────────────────────────────────
 
-describe('setOpenFile', () => {
-  it('accepts deliverables source', () => {
+describe('openFileTab', () => {
+  it('adds a file tab and activates it', () => {
     const { state, getAction } = createTestSlice();
-    getAction('setOpenFile')({ path: 'report.pdf', source: 'deliverables', sessionId: 's1' });
-    expect(state.openFile).toEqual({
-      path: 'report.pdf',
-      source: 'deliverables',
-      sessionId: 's1',
+    getAction('openFileTab')({ path: 'report.pdf', source: 'deliverables', sessionId: 's1' });
+    expect(state.openFiles).toEqual({
+      'deliverables::report.pdf': { path: 'report.pdf', source: 'deliverables', sessionId: 's1', loading: true },
     });
+    expect(state.activeFileTabId).toBe('deliverables::report.pdf');
   });
 
-  it('still accepts workspace source', () => {
+  it('accepts workspace source', () => {
     const { state, getAction } = createTestSlice();
-    getAction('setOpenFile')({ path: 'file.txt', source: 'workspace', sessionId: 's1' });
-    expect(state.openFile?.source).toBe('workspace');
+    getAction('openFileTab')({ path: 'file.txt', source: 'workspace', sessionId: 's1' });
+    expect(state.openFiles['workspace::file.txt']?.source).toBe('workspace');
+    expect(state.activeFileTabId).toBe('workspace::file.txt');
   });
 
-  it('still accepts library source', () => {
+  it('accepts library source', () => {
     const { state, getAction } = createTestSlice();
-    getAction('setOpenFile')({ path: 'ref.pdf', source: 'library', sessionId: 's1' });
-    expect(state.openFile?.source).toBe('library');
+    getAction('openFileTab')({ path: 'ref.pdf', source: 'library', sessionId: 's1' });
+    expect(state.openFiles['library::ref.pdf']?.source).toBe('library');
   });
 
-  it('accepts null to close file viewer', () => {
+  it('re-opening same file activates existing tab without duplicating', () => {
     const { state, getAction } = createTestSlice();
-    getAction('setOpenFile')({ path: 'x', source: 'workspace', sessionId: 's1' });
-    getAction('setOpenFile')(null);
-    expect(state.openFile).toBeNull();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('openFileTab')({ path: 'b.txt', source: 'workspace', sessionId: 's1' });
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    expect(Object.keys(state.openFiles)).toHaveLength(2);
+    expect(state.activeFileTabId).toBe('workspace::a.txt');
+  });
+
+  it('opens multiple files as separate tabs', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('openFileTab')({ path: 'b.txt', source: 'workspace', sessionId: 's1' });
+    expect(Object.keys(state.openFiles)).toHaveLength(2);
+    expect(state.activeFileTabId).toBe('workspace::b.txt');
+  });
+});
+
+describe('closeFileTab', () => {
+  it('removes tab and auto-selects next', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('openFileTab')({ path: 'b.txt', source: 'workspace', sessionId: 's1' });
+    // active is b, close b → a becomes active
+    getAction('closeFileTab')('workspace::b.txt');
+    expect(Object.keys(state.openFiles)).toHaveLength(1);
+    expect(state.activeFileTabId).toBe('workspace::a.txt');
+  });
+
+  it('sets activeFileTabId to null when last tab is closed', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('closeFileTab')('workspace::a.txt');
+    expect(Object.keys(state.openFiles)).toHaveLength(0);
+    expect(state.activeFileTabId).toBeNull();
+  });
+
+  it('keeps activeFileTabId unchanged when closing inactive tab', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('openFileTab')({ path: 'b.txt', source: 'workspace', sessionId: 's1' });
+    // active is b, close a → b stays active
+    getAction('closeFileTab')('workspace::a.txt');
+    expect(state.activeFileTabId).toBe('workspace::b.txt');
+  });
+});
+
+describe('setActiveFileTab', () => {
+  it('switches active tab', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('openFileTab')({ path: 'b.txt', source: 'workspace', sessionId: 's1' });
+    getAction('setActiveFileTab')('workspace::a.txt');
+    expect(state.activeFileTabId).toBe('workspace::a.txt');
+  });
+});
+
+describe('deactivateFileTab', () => {
+  it('sets activeFileTabId to null without removing tabs', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('deactivateFileTab')();
+    expect(state.activeFileTabId).toBeNull();
+    expect(Object.keys(state.openFiles)).toHaveLength(1);
+  });
+});
+
+describe('closeAllFileTabs', () => {
+  it('clears all tabs and deactivates', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    getAction('openFileTab')({ path: 'b.txt', source: 'workspace', sessionId: 's1' });
+    getAction('closeAllFileTabs')();
+    expect(state.openFiles).toEqual({});
+    expect(state.activeFileTabId).toBeNull();
   });
 });
 
@@ -144,8 +213,89 @@ describe('interaction contract regression', () => {
     expect(state.rightPanelOpen).toBe(true);
   });
 
-  it('openFile defaults to null', () => {
+  it('openFiles defaults to empty and activeFileTabId defaults to null', () => {
     const { state } = createTestSlice();
-    expect(state.openFile).toBeNull();
+    expect(state.openFiles).toEqual({});
+    expect(state.activeFileTabId).toBeNull();
+  });
+});
+
+// ── Library empty sessionId tab ─────────────────────────────────────────
+
+describe('library empty sessionId tab', () => {
+  it('opens a library file tab with empty sessionId', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'ref.pdf', source: 'library', sessionId: '' });
+    expect(state.openFiles['library::ref.pdf']).toBeDefined();
+    expect(state.openFiles['library::ref.pdf'].sessionId).toBe('');
+    expect(state.activeFileTabId).toBe('library::ref.pdf');
+  });
+});
+
+// ── sidebarWidth / rightPanelWidth ──────────────────────────────────────
+
+describe('sidebarWidth', () => {
+  it('defaults to 272', () => {
+    const { state } = createTestSlice();
+    expect(state.sidebarWidth).toBe(272);
+  });
+
+  it('setSidebarWidth sets to valid value', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setSidebarWidth')(350);
+    expect(state.sidebarWidth).toBe(350);
+  });
+
+  it('clamps below 180 to 180', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setSidebarWidth')(100);
+    expect(state.sidebarWidth).toBe(180);
+  });
+
+  it('clamps above 500 to 500', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setSidebarWidth')(600);
+    expect(state.sidebarWidth).toBe(500);
+  });
+
+  it('accepts boundary values exactly', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setSidebarWidth')(180);
+    expect(state.sidebarWidth).toBe(180);
+    getAction('setSidebarWidth')(500);
+    expect(state.sidebarWidth).toBe(500);
+  });
+});
+
+describe('rightPanelWidth', () => {
+  it('defaults to 300', () => {
+    const { state } = createTestSlice();
+    expect(state.rightPanelWidth).toBe(300);
+  });
+
+  it('setRightPanelWidth sets to valid value', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setRightPanelWidth')(400);
+    expect(state.rightPanelWidth).toBe(400);
+  });
+
+  it('clamps below 180 to 180', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setRightPanelWidth')(50);
+    expect(state.rightPanelWidth).toBe(180);
+  });
+
+  it('clamps above 500 to 500', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setRightPanelWidth')(999);
+    expect(state.rightPanelWidth).toBe(500);
+  });
+
+  it('accepts boundary values exactly', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setRightPanelWidth')(180);
+    expect(state.rightPanelWidth).toBe(180);
+    getAction('setRightPanelWidth')(500);
+    expect(state.rightPanelWidth).toBe(500);
   });
 });

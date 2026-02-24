@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { cacheSet, cacheGet, TTL } from '../utils/localCache';
 
-export type FileFormat = 'text' | 'html' | 'pdf-binary' | 'unsupported';
+export type FileFormat = 'text' | 'html' | 'pdf-binary' | 'docx-binary' | 'xlsx-binary' | 'pptx-binary' | 'unsupported';
 
 export interface FileStreamState {
-  status: 'idle' | 'loading' | 'complete' | 'error';
+  status: 'idle' | 'loading' | 'converting' | 'complete' | 'error';
   format: FileFormat | null;
   content: string;
-  pdfBuffer: Uint8Array | null;
+  binaryBuffer: Uint8Array | null;
   mtime: number;
   error: string | null;
 }
@@ -17,7 +17,7 @@ const INITIAL_STATE: FileStreamState = {
   status: 'idle',
   format: null,
   content: '',
-  pdfBuffer: null,
+  binaryBuffer: null,
   mtime: 0,
   error: null,
 };
@@ -43,7 +43,7 @@ export function useFileStream(
   const flushState = useCallback(() => {
     setState((prev) => ({
       ...prev,
-      content: formatRef.current !== 'pdf-binary' ? contentRef.current : prev.content,
+      content: formatRef.current?.endsWith('-binary') ? prev.content : contentRef.current,
     }));
   }, []);
 
@@ -56,7 +56,9 @@ export function useFileStream(
   }, [flushState]);
 
   useEffect(() => {
-    if (!sessionId || !notebookId || !filePath || !ws || wsStatus !== 'connected') return;
+    if (!filePath || !ws || wsStatus !== 'connected') return;
+    if (!sessionId && source !== 'library') return;
+    const effectiveSessionId = sessionId || '__library__';
 
     contentRef.current = '';
     b64Ref.current = '';
@@ -64,24 +66,27 @@ export function useFileStream(
     skipStreamRef.current = false;
     setState({ ...INITIAL_STATE, status: 'loading' });
 
-    // Check localStorage cache
-    const cacheKey = `file-content-${notebookId}-${filePath}`;
+    // Check localStorage cache (text and binary both cached as strings)
+    const cacheKey = `file-content-${notebookId ?? effectiveSessionId}-${filePath}`;
     let cachedMtime = 0;
     let cachedContent = '';
     let cachedFormat: FileFormat | null = null;
-    const cached = cacheGet<{ content: string; mtime: number; format: FileFormat }>(cacheKey, TTL.FILE_CONTENT);
+    const ttl = filePath.match(/\.(pdf|docx|xlsx|pptx)$/i) ? TTL.BINARY_CONTENT : TTL.FILE_CONTENT;
+    const cached = cacheGet<{ content: string; mtime: number; format: FileFormat }>(cacheKey, ttl);
     if (cached) {
       cachedMtime = cached.mtime;
       cachedContent = cached.content;
       cachedFormat = cached.format;
       formatRef.current = cached.format;
-      contentRef.current = cached.content;
-      // Render cached content immediately while waiting for server
+      if (!cached.format.endsWith('-binary')) {
+        contentRef.current = cached.content;
+      }
+      // Render cached content immediately while waiting for server mtime check
       setState({
         status: 'loading',
         format: cached.format,
-        content: cached.content,
-        pdfBuffer: null,
+        content: cached.format.endsWith('-binary') ? '' : cached.content,
+        binaryBuffer: null,
         mtime: cached.mtime,
         error: null,
       });
@@ -90,16 +95,28 @@ export function useFileStream(
     function handleMessage(event: MessageEvent) {
       let msg: { type: string; session_id?: string; [key: string]: unknown };
       try { msg = JSON.parse(event.data as string); } catch { return; }
-      if (msg.session_id !== sessionId) return;
+      if (msg.session_id !== effectiveSessionId) return;
 
       switch (msg.type) {
+        case 'file-open-converting': {
+          setState((prev) => ({ ...prev, status: 'converting' }));
+          break;
+        }
         case 'file-open-meta': {
           const { mtime, format } = msg as unknown as { mtime: number; format: FileFormat };
           formatRef.current = format;
           // If mtime matches cache, skip streaming — use cached content
           if (mtime === cachedMtime && cachedContent && cachedFormat === format) {
             skipStreamRef.current = true;
-            setState({ status: 'complete', format, content: cachedContent, pdfBuffer: null, mtime, error: null });
+            if (format.endsWith('-binary')) {
+              // Decode cached base64 → Uint8Array
+              const bin = window.atob(cachedContent);
+              const buf = new Uint8Array(bin.length);
+              for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+              setState({ status: 'complete', format, content: '', binaryBuffer: buf, mtime, error: null });
+            } else {
+              setState({ status: 'complete', format, content: cachedContent, binaryBuffer: null, mtime, error: null });
+            }
           } else {
             contentRef.current = '';
             b64Ref.current = '';
@@ -122,14 +139,24 @@ export function useFileStream(
           if (throttleRef.current !== null) { clearTimeout(throttleRef.current); throttleRef.current = null; }
           const fmt = formatRef.current;
           const mtime = (msg as unknown as { mtime: number }).mtime;
-          if (fmt === 'pdf-binary') {
-            const binary = atob(b64Ref.current);
-            const buffer = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
-            setState({ status: 'complete', format: fmt, content: '', pdfBuffer: buffer, mtime, error: null });
+          if (fmt?.endsWith('-binary')) {
+            try {
+              const b64 = b64Ref.current;
+              const binaryString = window.atob(b64);
+              const len = binaryString.length;
+              const buffer = new Uint8Array(len);
+              for (let i = 0; i < len; i++) {
+                buffer[i] = binaryString.charCodeAt(i);
+              }
+              // Cache base64 string for next open (avoids re-download)
+              cacheSet(cacheKey, { content: b64, mtime, format: fmt });
+              setState({ status: 'complete', format: fmt, content: '', binaryBuffer: buffer, mtime, error: null });
+            } catch (err) {
+              setState((prev) => ({ ...prev, status: 'error', error: `Failed to decode binary data: ${String(err)}` }));
+            }
           } else {
             cacheSet(cacheKey, { content: contentRef.current, mtime, format: fmt });
-            setState({ status: 'complete', format: fmt ?? 'text', content: contentRef.current, pdfBuffer: null, mtime, error: null });
+            setState({ status: 'complete', format: fmt ?? 'text', content: contentRef.current, binaryBuffer: null, mtime, error: null });
           }
           break;
         }
@@ -141,7 +168,7 @@ export function useFileStream(
     }
 
     ws.addEventListener('message', handleMessage);
-    ws.send(JSON.stringify({ type: 'file-open', session_id: sessionId, path: filePath, source }));
+    ws.send(JSON.stringify({ type: 'file-open', session_id: effectiveSessionId, path: filePath, source }));
 
     return () => {
       ws.removeEventListener('message', handleMessage);

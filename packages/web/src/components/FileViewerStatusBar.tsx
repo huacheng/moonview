@@ -1,4 +1,4 @@
-export type FileFormat = 'text' | 'html' | 'pdf-binary' | 'unsupported';
+export type FileFormat = 'text' | 'html' | 'pdf-binary' | 'docx-binary' | 'xlsx-binary' | 'pptx-binary' | 'unsupported';
 
 interface FileViewerStatusBarProps {
   filename: string;
@@ -11,11 +11,11 @@ interface FileViewerStatusBarProps {
 }
 
 const FORMAT_LABEL: Partial<Record<FileFormat, string>> = {
-  text: 'Text', html: 'HTML', 'pdf-binary': 'PDF', unsupported: '—',
+  text: 'Text', html: 'HTML', 'pdf-binary': 'PDF', 'docx-binary': 'DOCX', 'xlsx-binary': 'XLSX', 'pptx-binary': 'PPTX', unsupported: '—',
 };
 
 export function FileViewerStatusBar({ filename, format, mode, maximized, onToggleMode, onToggleMaximize, onClose }: FileViewerStatusBarProps) {
-  const canEdit = format !== null && format !== 'pdf-binary' && format !== 'unsupported';
+  const canEdit = format !== null && !format.endsWith('-binary') && format !== 'unsupported';
   return (
     <div className="fv-statusbar">
       <span className="fv-statusbar__name" title={filename}>{filename}</span>

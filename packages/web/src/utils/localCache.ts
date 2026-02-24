@@ -9,6 +9,7 @@ const DEFAULT_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const TTL = {
   NOTEBOOK: 7 * 24 * 60 * 60 * 1000,    // 7 days
   FILE_CONTENT: 3 * 24 * 60 * 60 * 1000, // 3 days
+  BINARY_CONTENT: 24 * 60 * 60 * 1000,  // 24 hours (PDF/DOCX/XLSX/PPTX)
   SCROLL: 7 * 24 * 60 * 60 * 1000,       // 7 days
   TITLE: 7 * 24 * 60 * 60 * 1000,        // 7 days
   LAST_NOTEBOOK: 30 * 24 * 60 * 60 * 1000, // 30 days

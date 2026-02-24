@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { useFileStream } from '../hooks/useFileStream';
 import { useAnnotationPersistence } from '../hooks/useAnnotationPersistence';
@@ -9,10 +9,13 @@ import { FileViewerRender } from './FileViewerRender';
 import { FileViewerEditor } from './FileViewerEditor';
 
 export function FileViewer() {
-  const openFile = useStore((s) => s.openFile);
+  const openFiles = useStore((s) => s.openFiles);
+  const activeFileTabId = useStore((s) => s.activeFileTabId);
+  const activeFile = activeFileTabId ? openFiles[activeFileTabId] ?? null : null;
   const fileViewerMaximized = useStore((s) => s.fileViewerMaximized);
-  const setOpenFile = useStore((s) => s.setOpenFile);
+  const closeFileTab = useStore((s) => s.closeFileTab);
   const toggleFileViewerMaximized = useStore((s) => s.toggleFileViewerMaximized);
+  const setFileTabLoading = useStore((s) => s.setFileTabLoading);
   const activeNotebookId = useStore((s) => s.activeNotebookId);
   const submitPrompt = useStore((s) => s.submitPrompt);
 
@@ -21,25 +24,41 @@ export function FileViewer() {
   const annLoadedRef = useRef(false);
 
   const fileState = useFileStream(
-    openFile?.sessionId ?? null,
+    activeFile?.sessionId ?? null,
     activeNotebookId,
-    openFile?.path ?? null,
-    openFile?.source ?? 'workspace',
+    activeFile?.path ?? null,
+    activeFile?.source ?? 'workspace',
   );
 
   useAnnotationPersistence({
-    sessionId: openFile?.sessionId ?? '',
+    sessionId: activeFile?.sessionId ?? '',
     notebookId: activeNotebookId ?? '',
-    filePath: openFile?.path ?? '',
+    filePath: activeFile?.path ?? '',
     annotations,
     annLoadedRef,
     setAnnotations,
   });
 
-  if (!openFile) return null;
+  // Sync loading state to store so tabs can show spinner
+  useEffect(() => {
+    if (!activeFileTabId) return;
+    const isLoading = fileState.status === 'loading' || fileState.status === 'converting';
+    setFileTabLoading(activeFileTabId, isLoading);
+  }, [activeFileTabId, fileState.status, setFileTabLoading]);
 
-  const filename = openFile.path.split('/').pop() ?? openFile.path;
-  const canEdit = fileState.format !== null && fileState.format !== 'pdf-binary' && fileState.format !== 'unsupported';
+  // Auto-close with alert when file format is unsupported
+  useEffect(() => {
+    if (fileState.status === 'complete' && fileState.format === 'unsupported' && activeFile && activeFileTabId) {
+      const name = activeFile.path.split('/').pop() ?? activeFile.path;
+      alert(`不支持预览此文件格式: ${name}`);
+      closeFileTab(activeFileTabId);
+    }
+  }, [fileState.status, fileState.format, activeFile, activeFileTabId, closeFileTab]);
+
+  if (!activeFile) return null;
+
+  const filename = activeFile.path.split('/').pop() ?? activeFile.path;
+  const canEdit = fileState.format !== null && !fileState.format.endsWith('-binary') && fileState.format !== 'unsupported';
 
   return (
     <div className="file-viewer">
@@ -50,18 +69,19 @@ export function FileViewer() {
         maximized={fileViewerMaximized}
         onToggleMode={() => { if (canEdit) setMode((m) => m === 'render' ? 'edit' : 'render'); }}
         onToggleMaximize={toggleFileViewerMaximized}
-        onClose={() => setOpenFile(null)}
+        onClose={() => closeFileTab(activeFileTabId!)}
       />
       {fileState.status === 'loading' && <div className="fv-loading">Loading…</div>}
+      {fileState.status === 'converting' && <div className="fv-loading">Converting document…</div>}
       {fileState.status === 'error' && <div className="fv-error">Error: {fileState.error}</div>}
       {fileState.status === 'complete' && mode === 'render' && (
         <FileViewerRender
           format={fileState.format!}
           content={fileState.content}
-          pdfBuffer={fileState.pdfBuffer}
+          binaryBuffer={fileState.binaryBuffer}
           filename={filename}
           annotations={annotations}
-          filePath={openFile.path}
+          filePath={activeFile.path}
           onAnnotationsChange={setAnnotations}
           onSendToPrompt={submitPrompt}
         />
@@ -70,9 +90,9 @@ export function FileViewer() {
         <FileViewerEditor
           content={fileState.content}
           format={fileState.format === 'html' ? 'html' : 'text'}
-          sessionId={openFile.sessionId}
-          filePath={openFile.path}
-          source={openFile.source}
+          sessionId={activeFile.sessionId}
+          filePath={activeFile.path}
+          source={activeFile.source}
         />
       )}
     </div>
