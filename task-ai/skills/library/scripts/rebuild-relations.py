@@ -4,14 +4,33 @@ import json
 import re
 from pathlib import Path
 
+# 复用鲁棒的解析器
+def parse_frontmatter(content):
+    fm = {}
+    match = re.search(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL | re.MULTILINE)
+    if not match: return fm
+    lines = match.group(1).split('\n')
+    current_key = None
+    for line in lines:
+        stripped = line.strip()
+        if not stripped: continue
+        if ':' in line and not stripped.startswith('-'):
+            k, v = line.split(':', 1)
+            current_key = k.strip()
+            val = v.strip().strip('"').strip("'")
+            fm[current_key] = val if val else []
+        elif stripped.startswith('-') and current_key:
+            val = stripped[1:].strip().strip('"').strip("'")
+            if isinstance(fm.get(current_key), list):
+                fm[current_key].append(val)
+    return fm
+
 def rebuild_relations():
     lib_path = Path(os.getenv('NB_WORKSPACES_LIBRARY', os.getenv('NB_WORKSPACES_ROOT', '.') + '/.library'))
     changelog_path = lib_path / '.changelog'
     relations_path = lib_path / '.relations.jsonl'
     
-    if not lib_path.exists():
-        print(f"Error: Library path {lib_path} does not exist.")
-        return
+    if not lib_path.exists(): return
 
     relations = []
 
@@ -25,41 +44,28 @@ def rebuild_relations():
                     detail = parts[3]
                     match = re.search(r'source:(task-[a-zA-Z0-9_-]+)', detail)
                     if match:
-                        notebook = match.group(1)
-                        relations.append({
-                            "s": source_file,
-                            "p": "used-by",
-                            "o": f"notebook:{notebook}",
-                            "w": 5
-                        })
+                        relations.append({"s": source_file, "p": "used-by", "o": f"notebook:{match.group(1)}", "w": 5})
 
-    # 2. Parse Markdown Frontmatter
+    # 2. Parse Markdown for links (using robust parser)
     memory_path = lib_path / '.memory'
     if memory_path.exists():
         for p in memory_path.rglob('*.md'):
-            if p.name.startswith('.'): continue
-            
+            if p.name.startswith('.') or p.name == '.index.md': continue
             try:
-                content = p.read_text(encoding='utf-8', errors='ignore')
-                match = re.search(r'related_references:\s*\[(.*?)\]', content)
-                if match:
-                    targets = [t.strip().strip('"').strip("'") for t in match.group(1).split(',')]
-                    for t in targets:
-                        relations.append({
-                            "s": str(p.relative_to(lib_path)),
-                            "p": "related-to",
-                            "o": t,
-                            "w": 1
-                        })
-            except Exception as e:
-                print(f"Error processing {p}: {e}")
+                fm = parse_frontmatter(p.read_text(encoding='utf-8'))
+                related = fm.get('related_references', [])
+                if isinstance(related, str):
+                    related = [t.strip() for t in related.replace('[', '').replace(']', '').split(',')]
+                
+                for t in related:
+                    if t:
+                        relations.append({"s": str(p.relative_to(lib_path)), "p": "related-to", "o": t, "w": 1})
+            except Exception: pass
 
-    # Write JSONL
     with open(relations_path, 'w', encoding='utf-8') as f:
         for rel in relations:
             f.write(json.dumps(rel) + '\n')
-            
-    print(f"Generated {len(relations)} relations in {relations_path}")
+    print(f"Generated {len(relations)} relations.")
 
 if __name__ == "__main__":
     rebuild_relations()
