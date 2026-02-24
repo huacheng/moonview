@@ -4,6 +4,7 @@ import { fetchGitLog, fetchGitDiff, fetchGitBranches } from '../api/git';
 import type { CommitInfo, RefInfo } from '../api/git';
 import { computeLanes, LANE_COLORS } from '../utils/gitGraph';
 import type { LaneNode, Connection } from '../utils/gitGraph';
+import { cacheSet, cacheGet, TTL } from '../utils/localCache';
 
 // ---------------------------------------------------------------------------
 // localStorage cache for git history
@@ -22,21 +23,11 @@ function gitCacheKey(projectId: string): string {
 }
 
 function loadGitCache(projectId: string): GitCache | null {
-  try {
-    const raw = localStorage.getItem(gitCacheKey(projectId));
-    if (!raw) return null;
-    return JSON.parse(raw) as GitCache;
-  } catch {
-    return null;
-  }
+  return cacheGet<GitCache>(gitCacheKey(projectId), TTL.GIT_HISTORY);
 }
 
 function saveGitCache(projectId: string, cache: GitCache): void {
-  try {
-    localStorage.setItem(gitCacheKey(projectId), JSON.stringify(cache));
-  } catch {
-    // quota exceeded — silently ignore
-  }
+  cacheSet(gitCacheKey(projectId), cache);
 }
 
 /** Format ISO date to compact relative time */

@@ -11,6 +11,8 @@ import { FileSelectionFloat } from './FileSelectionFloat';
 import { FileAnnotationCard } from './FileAnnotationCard';
 import { FileAnnotationDropdown } from './FileAnnotationDropdown';
 
+import { isJsonFile, formatJsonContent } from '../utils/jsonFormat';
+
 // Set PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -35,6 +37,7 @@ export function FileViewerRender({
   const [pdfPages, setPdfPages] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMd = filename.endsWith('.md');
+  const isJson = isJsonFile(filename);
 
   const addAnnotation = useCallback((type: FileAnnotation['type'], selectedText: string, defaultContent?: string) => {
     const ann: FileAnnotation = {
@@ -115,7 +118,10 @@ export function FileViewerRender({
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
       )}
-      {format === 'text' && !isMd && (
+      {format === 'text' && !isMd && isJson && (
+        <pre className="fv-render__json">{formatJsonContent(content)}</pre>
+      )}
+      {format === 'text' && !isMd && !isJson && (
         <pre className="fv-render__text">{content}</pre>
       )}
       {format === 'html' && (

@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
+import { cacheSet, cacheGet, cacheRemove, TTL } from '../utils/localCache';
 
 export function useDraft(cellId: string, initialValue: string) {
   const storageKey = `nb-draft-${cellId}`;
   const [draft, setDraft] = useState<string>(
-    () => localStorage.getItem(storageKey) ?? initialValue,
+    () => cacheGet<string>(storageKey, TTL.DRAFT) ?? initialValue,
   );
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      localStorage.setItem(storageKey, draft);
+      cacheSet(storageKey, draft);
     }, 50);
     return () => clearTimeout(timer);
   }, [draft, storageKey]);
 
   function clearDraft() {
-    localStorage.removeItem(storageKey);
+    cacheRemove(storageKey);
   }
 
   return { draft, setDraft, clearDraft };

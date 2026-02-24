@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
-import { useStore } from '../store';
+import { cacheSet, cacheGet, TTL } from '../utils/localCache';
 
 // Compute a POSIX-style relative path from `fromDir` to `toFile`.
 // Both arguments must be absolute Unix paths.
@@ -36,9 +36,13 @@ const EXT_TYPE: Record<string, string> = {
   csv: 'csv', html: 'html', css: 'css', yaml: 'yml', yml: 'yml',
   png: 'img', jpg: 'img', jpeg: 'img', gif: 'img', svg: 'img', webp: 'img',
   pdf: 'pdf', zip: 'zip', tar: 'zip', gz: 'zip',
+  docx: 'doc', doc: 'doc', rtf: 'doc',
+  pptx: 'ppt', ppt: 'ppt',
+  xlsx: 'xls', xls: 'xls',
 };
 
 function fileType(name: string): string {
+  if (name.endsWith('.notebook.json')) return 'nb';
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   return EXT_TYPE[ext] ?? (ext.slice(0, 4) || '···');
 }
@@ -104,6 +108,36 @@ function IconFile() {
   );
 }
 
+/* ── File type badge icons (VS Code–inspired) ── */
+
+const FILE_ICON_CONFIG: Record<string, { label: string; cls: string }> = {
+  nb:   { label: 'NB',  cls: 'fp-ti-nb' },
+  pdf:  { label: 'PDF', cls: 'fp-ti-pdf' },
+  doc:  { label: 'W',   cls: 'fp-ti-doc' },
+  ppt:  { label: 'P',   cls: 'fp-ti-ppt' },
+  xls:  { label: 'X',   cls: 'fp-ti-xls' },
+  py:   { label: 'PY',  cls: 'fp-ti-py' },
+  js:   { label: 'JS',  cls: 'fp-ti-js' },
+  ts:   { label: 'TS',  cls: 'fp-ti-ts' },
+  json: { label: '{ }', cls: 'fp-ti-json' },
+  html: { label: '</>',  cls: 'fp-ti-html' },
+  css:  { label: '#',   cls: 'fp-ti-css' },
+  md:   { label: 'MD',  cls: 'fp-ti-md' },
+  txt:  { label: 'TXT', cls: 'fp-ti-txt' },
+  sh:   { label: '$_',  cls: 'fp-ti-sh' },
+  yml:  { label: 'YML', cls: 'fp-ti-yml' },
+  csv:  { label: 'CSV', cls: 'fp-ti-csv' },
+  img:  { label: 'IMG', cls: 'fp-ti-img' },
+  zip:  { label: 'ZIP', cls: 'fp-ti-zip' },
+};
+
+export function FileIcon({ name }: { name: string }) {
+  const t = fileType(name);
+  const cfg = FILE_ICON_CONFIG[t];
+  if (cfg) return <span className={`fp-type-icon ${cfg.cls}`} aria-hidden="true">{cfg.label}</span>;
+  return <IconFile />;
+}
+
 function IconFolder() {
   return (
     <svg width="13" height="12" viewBox="0 0 13 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="fp-entry-icon fp-entry-icon-dir" aria-hidden="true">
@@ -159,7 +193,7 @@ function TypeBadge({ name }: { name: string }) {
 
 // ── Unified FileSection ────────────────────────────────────────────────────
 
-interface FileSectionProps {
+export interface FileSectionProps {
   baseUrl: string;
   authToken: string | null;
   showDownloadAll?: boolean;
@@ -167,17 +201,23 @@ interface FileSectionProps {
   /** If provided, drag paths are computed relative to this directory (library mode). */
   workspaceDir?: string | null;
   onFileClick?: (subPath: string, filename: string) => void;
+  /** Initial sub-path to display (default: '.'). */
+  initialPath?: string;
+  /** Files matching this filter are NOT draggable (e.g. notebook files in sidebar). */
+  noDragFilter?: (filename: string) => boolean;
 }
 
-function FileSection({
+export function FileSection({
   baseUrl,
   authToken,
   showDownloadAll = false,
   dropLabel = 'Drop to upload',
   workspaceDir,
   onFileClick,
+  initialPath = '.',
+  noDragFilter,
 }: FileSectionProps) {
-  const [subPath, setSubPath] = useState('.');
+  const [subPath, setSubPath] = useState(initialPath);
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [currentDirPath, setCurrentDirPath] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -196,7 +236,19 @@ function FileSection({
   }, [creating]);
 
   const fetchFiles = useCallback(async (path: string, silent = false) => {
-    if (!silent) setLoading(true);
+    const cacheKey = `nb-filelist-${baseUrl}-${path}`;
+
+    // On non-silent loads, try cache first to avoid loading flash
+    if (!silent) {
+      const cached = cacheGet<ListResult>(cacheKey, TTL.FILE_LIST);
+      if (cached) {
+        setFiles(cached.files);
+        setCurrentDirPath(cached.dirPath);
+        // Don't set loading — render cached data immediately, fetch in background
+      } else {
+        setLoading(true);
+      }
+    }
     setError(null);
     try {
       const h: Record<string, string> = {};
@@ -209,11 +261,12 @@ function FileSection({
       const result = (await res.json()) as ListResult;
       setFiles(result.files);
       setCurrentDirPath(result.dirPath);
+      cacheSet(cacheKey, result);
     } catch (err) { if (!silent) setError(String(err)); }
     finally { if (!silent) setLoading(false); }
   }, [baseUrl, authToken]);
 
-  useEffect(() => { setSubPath('.'); fetchFiles('.'); }, [baseUrl]); // eslint-disable-line
+  useEffect(() => { setSubPath(initialPath); fetchFiles(initialPath); }, [baseUrl]); // eslint-disable-line
 
   const prevPath = useRef<string | null>(null);
   useEffect(() => {
@@ -225,7 +278,7 @@ function FileSection({
     autoRefreshRef.current = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       fetchFiles(subPath, true);
-    }, 3000);
+    }, 10_000);
     return () => { if (autoRefreshRef.current) clearInterval(autoRefreshRef.current); };
   }, [subPath, fetchFiles]);
 
@@ -317,12 +370,16 @@ function FileSection({
   }
 
   function navigateUp() {
-    if (subPath === '.') return;
+    if (subPath === initialPath || subPath === '.') return;
     const parts = subPath.split('/'); parts.pop();
-    setSubPath(parts.length === 0 ? '.' : parts.join('/'));
+    setSubPath(parts.length === 0 ? initialPath : parts.join('/'));
   }
 
-  const pathParts = subPath === '.' ? [] : subPath.split('/');
+  // Strip initialPath prefix from breadcrumbs so internal dirs like .working are hidden
+  const displayPath = initialPath !== '.' && subPath.startsWith(initialPath)
+    ? subPath.slice(initialPath.length).replace(/^\//, '') || '.'
+    : subPath;
+  const pathParts = displayPath === '.' ? [] : displayPath.split('/');
 
   return (
     <div className="fp-section-body">
@@ -330,18 +387,23 @@ function FileSection({
       <div className="fp-toolbar">
         <div className="fp-crumbs">
           <button
-            className={`fp-crumb${subPath === '.' ? ' fp-crumb-active' : ''}`}
-            onClick={() => setSubPath('.')} title="Root"
+            className={`fp-crumb${displayPath === '.' ? ' fp-crumb-active' : ''}`}
+            onClick={() => setSubPath(initialPath)} title="Root"
           >/</button>
-          {pathParts.map((part, i) => (
+          {pathParts.map((part, i) => {
+            const crumbPath = initialPath !== '.'
+              ? `${initialPath}/${pathParts.slice(0, i + 1).join('/')}`
+              : pathParts.slice(0, i + 1).join('/');
+            return (
             <Fragment key={i}>
               <span className="fp-crumb-sep">›</span>
               <button
                 className={`fp-crumb${i === pathParts.length - 1 ? ' fp-crumb-active' : ''}`}
-                onClick={() => setSubPath(pathParts.slice(0, i + 1).join('/'))}
+                onClick={() => setSubPath(crumbPath)}
               >{part}</button>
             </Fragment>
-          ))}
+            );
+          })}
         </div>
         <div className="fp-toolbar-btns">
           <button className="fp-btn" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Upload files">
@@ -408,7 +470,7 @@ function FileSection({
           {loading && <div className="fp-empty">Loading…</div>}
 
           {/* Up directory */}
-          {!loading && subPath !== '.' && (
+          {!loading && subPath !== initialPath && subPath !== '.' && (
             <div className="fp-entry fp-entry-dir fp-entry-up" onClick={navigateUp}>
               <span className="fp-dir-up-icon">↩</span>
               <span className="fp-name">..</span>
@@ -434,13 +496,13 @@ function FileSection({
           ) : (
             <div
               key={f.name}
-              className="fp-entry fp-entry-draggable"
-              draggable
-              onDragStart={(e) => startFileDrag(e, f.name)}
+              className={`fp-entry${!noDragFilter?.(f.name) ? ' fp-entry-draggable' : ''}`}
+              draggable={!noDragFilter?.(f.name)}
+              onDragStart={!noDragFilter?.(f.name) ? (e) => startFileDrag(e, f.name) : undefined}
               onClick={() => onFileClick?.(subPath, f.name)}
               style={{ cursor: onFileClick ? 'pointer' : undefined }}
             >
-              <IconFile />
+              <FileIcon name={f.name} />
               <span className="fp-name" title={f.name}>{f.name}</span>
               <TypeBadge name={f.name} />
               <div className="fp-actions">
@@ -470,86 +532,3 @@ function FileSection({
   );
 }
 
-// ── FilesPanel ─────────────────────────────────────────────────────────────
-
-export function FilesPanel() {
-  const sessionId = useStore((s) => s.sessionId);
-  const workspaceDir = useStore((s) => s.workspaceDir);
-  const filesPanelOpen = useStore((s) => s.filesPanelOpen);
-  const toggleFilesPanel = useStore((s) => s.toggleFilesPanel);
-  const authToken = useStore((s) => s.authToken);
-  const setOpenFile = useStore((s) => s.setOpenFile);
-
-  if (!filesPanelOpen) {
-    return (
-      <aside className="files-panel files-panel-collapsed">
-        <button className="fp-expand-btn" onClick={toggleFilesPanel} title="Show files" aria-label="Show files">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-            <rect x="1.5" y="1.5" width="11" height="11" rx="1.5" />
-            <line x1="5" y1="1.5" x2="5" y2="12.5" />
-          </svg>
-        </button>
-      </aside>
-    );
-  }
-
-  const wsBase = sessionId ? `/api/notebooks/${encodeURIComponent(sessionId)}` : null;
-
-  return (
-    <aside className="files-panel">
-      {/* Panel header */}
-      <div className="fp-header">
-        <span className="fp-title">Files</span>
-        <button className="fp-close" onClick={toggleFilesPanel} title="Collapse" aria-label="Collapse">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-            <line x1="1" y1="1" x2="9" y2="9" />
-            <line x1="9" y1="1" x2="1" y2="9" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="fp-sections">
-        {/* Workspace */}
-        <div className="fp-section fp-section-ws">
-          <div className="fp-section-head">
-            <span className="fp-section-name">Workspace</span>
-          </div>
-          {wsBase
-            ? <FileSection
-                baseUrl={wsBase}
-                authToken={authToken}
-                showDownloadAll
-                dropLabel="Drop to upload to workspace"
-                onFileClick={(subPath, name) => {
-                  if (!sessionId) return;
-                  const relPath = subPath === '.' ? name : `${subPath}/${name}`;
-                  setOpenFile({ path: relPath, source: 'workspace', sessionId });
-                }}
-              />
-            : <div className="fp-section-body"><div className="fp-empty">No active session</div></div>
-          }
-        </div>
-
-        {/* Library */}
-        <div className="fp-section fp-section-lib">
-          <div className="fp-section-head">
-            <span className="fp-section-name">Library</span>
-            <span className="fp-section-sub">drag to prompt</span>
-          </div>
-          <FileSection
-            baseUrl="/api/library"
-            authToken={authToken}
-            showDownloadAll
-            dropLabel="Drop to add to Library"
-            workspaceDir={workspaceDir}
-            onFileClick={(subPath, name) => {
-              if (!sessionId) return;
-              const relPath = subPath === '.' ? name : `${subPath}/${name}`;
-              setOpenFile({ path: relPath, source: 'library', sessionId });
-            }}
-          />
-        </div>
-      </div>
-    </aside>
-  );
-}

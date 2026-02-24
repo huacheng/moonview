@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../store';
+import { cacheSet, cacheGet, TTL } from '../utils/localCache';
 
 export type FileFormat = 'text' | 'html' | 'pdf-binary' | 'unsupported';
 
@@ -27,7 +28,7 @@ export function useFileStream(
   sessionId: string | null,
   notebookId: string | null,
   filePath: string | null,
-  source: 'workspace' | 'library',
+  source: 'workspace' | 'library' | 'deliverables',
 ) {
   const ws = useStore((s) => s.ws);
   const wsStatus = useStore((s) => s.wsStatus);
@@ -68,26 +69,23 @@ export function useFileStream(
     let cachedMtime = 0;
     let cachedContent = '';
     let cachedFormat: FileFormat | null = null;
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached) as { content: string; mtime: number; format: FileFormat };
-        cachedMtime = parsed.mtime;
-        cachedContent = parsed.content;
-        cachedFormat = parsed.format;
-        formatRef.current = parsed.format;
-        contentRef.current = parsed.content;
-        // Render cached content immediately while waiting for server
-        setState({
-          status: 'loading',
-          format: parsed.format,
-          content: parsed.content,
-          pdfBuffer: null,
-          mtime: parsed.mtime,
-          error: null,
-        });
-      }
-    } catch { /* cache miss */ }
+    const cached = cacheGet<{ content: string; mtime: number; format: FileFormat }>(cacheKey, TTL.FILE_CONTENT);
+    if (cached) {
+      cachedMtime = cached.mtime;
+      cachedContent = cached.content;
+      cachedFormat = cached.format;
+      formatRef.current = cached.format;
+      contentRef.current = cached.content;
+      // Render cached content immediately while waiting for server
+      setState({
+        status: 'loading',
+        format: cached.format,
+        content: cached.content,
+        pdfBuffer: null,
+        mtime: cached.mtime,
+        error: null,
+      });
+    }
 
     function handleMessage(event: MessageEvent) {
       let msg: { type: string; session_id?: string; [key: string]: unknown };
@@ -130,9 +128,7 @@ export function useFileStream(
             for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
             setState({ status: 'complete', format: fmt, content: '', pdfBuffer: buffer, mtime, error: null });
           } else {
-            try {
-              localStorage.setItem(cacheKey, JSON.stringify({ content: contentRef.current, mtime, format: fmt }));
-            } catch { /* storage full */ }
+            cacheSet(cacheKey, { content: contentRef.current, mtime, format: fmt });
             setState({ status: 'complete', format: fmt ?? 'text', content: contentRef.current, pdfBuffer: null, mtime, error: null });
           }
           break;

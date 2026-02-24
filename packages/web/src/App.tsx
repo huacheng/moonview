@@ -4,12 +4,14 @@ import { Notebook } from './components/Notebook';
 import { ProjectSidebar } from './components/ProjectSidebar';
 import { NotebookTabs } from './components/NotebookTabs';
 import { RightPanel } from './components/RightPanel';
+import { FileViewer } from './components/FileViewer';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { NotebookCreationPanel } from './components/NotebookCreationPanel';
 import { GitHistoryPanel } from './components/GitHistoryPanel';
 import { LoginPage } from './components/LoginPage';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useStore } from './store';
+import { cacheSet, cacheGet, cacheRemove, TTL } from './utils/localCache';
 import './styles.css';
 
 // ── Scroll position persistence ─────────────────────────────────────────────
@@ -28,9 +30,9 @@ function useScrollRestoration(
     if (!notebookId || !containerRef.current) return;
     // Slight delay to let React finish rendering cells before scrolling.
     const id = requestAnimationFrame(() => {
-      const saved = localStorage.getItem(`nb-scroll-${notebookId}`);
-      if (saved && containerRef.current) {
-        containerRef.current.scrollTop = parseInt(saved, 10);
+      const saved = cacheGet<number>(`nb-scroll-${notebookId}`, TTL.SCROLL);
+      if (saved !== null && containerRef.current) {
+        containerRef.current.scrollTop = saved;
       }
     });
     return () => cancelAnimationFrame(id);
@@ -45,7 +47,7 @@ function useScrollRestoration(
     function onScroll() {
       clearTimeout(timer);
       timer = window.setTimeout(() => {
-        localStorage.setItem(`nb-scroll-${notebookId}`, String(el.scrollTop));
+        cacheSet(`nb-scroll-${notebookId}`, el.scrollTop);
       }, 200);
     }
 
@@ -62,9 +64,9 @@ function useScrollRestoration(
 
     function onVisibilityChange() {
       if (document.visibilityState === 'visible' && containerRef.current) {
-        const saved = localStorage.getItem(`nb-scroll-${notebookId}`);
-        if (saved) {
-          containerRef.current.scrollTop = parseInt(saved, 10);
+        const saved = cacheGet<number>(`nb-scroll-${notebookId}`, TTL.SCROLL);
+        if (saved !== null) {
+          containerRef.current.scrollTop = saved;
         }
       }
     }
@@ -98,8 +100,11 @@ function AuthenticatedApp() {
   const fetchProjects = useStore((s) => s.fetchProjects);
   const gitTabOpen = useStore((s) => s.gitTabOpen);
   const activeProjectId = useStore((s) => s.activeProjectId);
+  const openFile = useStore((s) => s.openFile);
+  const fileViewerMaximized = useStore((s) => s.fileViewerMaximized);
 
   const contentRef = useRef<HTMLElement | null>(null);
+  const savedScrollRef = useRef<number>(0);
 
   // Initiate WebSocket connection only when we have a sessionId.
   useWebSocket(sessionId);
@@ -115,19 +120,39 @@ function AuthenticatedApp() {
   // Save last opened notebook ID to localStorage.
   useEffect(() => {
     if (activeNotebookId) {
-      localStorage.setItem('nb-last-notebook', activeNotebookId);
+      cacheSet('nb-last-notebook', activeNotebookId);
     }
   }, [activeNotebookId]);
 
   // On mount: reopen the last notebook if none is currently active.
   useEffect(() => {
-    const lastId = localStorage.getItem('nb-last-notebook');
+    const lastId = cacheGet<string>('nb-last-notebook', TTL.LAST_NOTEBOOK);
     if (lastId) {
       restoreNotebook(lastId).catch(() => {
-        localStorage.removeItem('nb-last-notebook');
+        cacheRemove('nb-last-notebook');
       });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save/restore scroll position when FileViewer opens/closes (R1).
+  const prevOpenFileRef = useRef(openFile);
+  useEffect(() => {
+    const wasOpen = prevOpenFileRef.current !== null;
+    const isOpen = openFile !== null;
+    prevOpenFileRef.current = openFile;
+
+    if (!wasOpen && isOpen && contentRef.current) {
+      // FileViewer opening — save current scroll position.
+      savedScrollRef.current = contentRef.current.scrollTop;
+    } else if (wasOpen && !isOpen && contentRef.current) {
+      // FileViewer closing — restore saved scroll position.
+      requestAnimationFrame(() => {
+        if (contentRef.current) {
+          contentRef.current.scrollTop = savedScrollRef.current;
+        }
+      });
+    }
+  }, [openFile]);
 
   const hasNotebook = notebook !== null;
 
@@ -145,12 +170,14 @@ function AuthenticatedApp() {
           </button>
         </div>
       )}
-      <div className="app-body">
+      <div className={`app-body${openFile && fileViewerMaximized ? ' app-body--fv-maximized' : ''}`}>
         <ProjectSidebar />
         <main ref={contentRef} className="app-content">
           <NotebookTabs />
           <div className="notebook-area">
-            {gitTabOpen && activeProjectId ? (
+            {openFile ? (
+              <FileViewer />
+            ) : gitTabOpen && activeProjectId ? (
               <GitHistoryPanel projectId={activeProjectId} />
             ) : notebookLoading ? (
               <NotebookLoadingScreen />

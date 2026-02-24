@@ -13,9 +13,13 @@
     "node": ">=20"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "better-sqlite3"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "better-sqlite3"
+    ]
   },
   "devDependencies": {
+    "jsdom": "^28.1.0",
     "vitest": "^4.0.18"
   }
 }

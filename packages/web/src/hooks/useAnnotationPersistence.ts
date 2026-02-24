@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import type { FileAnnotations } from '../types/fileAnnotations';
 import { storageKey, EMPTY_FILE_ANNOTATIONS } from '../types/fileAnnotations';
+import { cacheSet, cacheGet, TTL } from '../utils/localCache';
 
 interface UseAnnotationPersistenceArgs {
   sessionId: string;
@@ -37,7 +38,7 @@ export function useAnnotationPersistence({
     // L1: 50ms → localStorage
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      try { localStorage.setItem(lsKey, serialized); } catch { /* full */ }
+      cacheSet(lsKey, annotations);
     }, 50);
 
     // L2: adaptive ≥200ms → WS annotation-sync
@@ -69,16 +70,11 @@ export function useAnnotationPersistence({
 
     // L1: instant from localStorage
     let localUpdatedAt = 0;
-    try {
-      const saved = localStorage.getItem(storageKey(notebookId, filePath));
-      if (saved) {
-        const parsed = JSON.parse(saved) as FileAnnotations;
-        setAnnotations(parsed);
-        localUpdatedAt = parsed.updatedAt ?? 0;
-      } else {
-        setAnnotations(EMPTY_FILE_ANNOTATIONS);
-      }
-    } catch {
+    const saved = cacheGet<FileAnnotations>(storageKey(notebookId, filePath), TTL.ANNOTATION);
+    if (saved) {
+      setAnnotations(saved);
+      localUpdatedAt = saved.updatedAt ?? 0;
+    } else {
       setAnnotations(EMPTY_FILE_ANNOTATIONS);
     }
 
@@ -95,7 +91,7 @@ export function useAnnotationPersistence({
         try {
           const parsed = JSON.parse(msg.content as string) as FileAnnotations;
           setAnnotations(parsed);
-          try { localStorage.setItem(storageKey(notebookId, filePath), msg.content as string); } catch { /* full */ }
+          cacheSet(storageKey(notebookId, filePath), parsed);
         } catch { /* corrupt */ }
       }
       annLoadedRef.current = true;

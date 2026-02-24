@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import type { Notebook, NotebookListItem } from '@notebook-ai/shared';
 import type { NotebookStore } from './types';
 import { _cacheKey, _loadCachedNotebook, _persistNotebook } from './cacheHelpers';
+import { cacheSet, cacheGet, cacheRemove, TTL } from '../utils/localCache';
 
 function makeBlankNotebook(): Notebook {
   const now = new Date().toISOString();
@@ -53,18 +54,20 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
         if (res.ok) {
           const data = (await res.json()) as { notebooks: NotebookListItem[] };
           const notebooks = data.notebooks.map((item) => {
-            const cached = localStorage.getItem(`nb-title-${item.id}`);
+            const cached = cacheGet<string>(`nb-title-${item.id}`, TTL.TITLE);
             return cached ? { ...item, title: cached } : item;
           });
           set({ notebookList: notebooks, notebookListLoading: false });
 
           const validIds = new Set(data.notebooks.map((n) => n.id));
-          for (const key of Object.keys(localStorage)) {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (!key) continue;
             const m = key.match(/^nb-(?:notebook|scroll|title)-(.+)$/);
-            if (m && !validIds.has(m[1])) localStorage.removeItem(key);
+            if (m && !validIds.has(m[1])) cacheRemove(key);
           }
-          const lastId = localStorage.getItem('nb-last-notebook');
-          if (lastId && !validIds.has(lastId)) localStorage.removeItem('nb-last-notebook');
+          const lastId = cacheGet<string>('nb-last-notebook', TTL.LAST_NOTEBOOK);
+          if (lastId && !validIds.has(lastId)) cacheRemove('nb-last-notebook');
 
           return;
         }
@@ -92,7 +95,6 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
       sessionId: null,
       activeNotebookId: tempId,
       workspaceDir: null,
-      filesPanelOpen: true,
     });
 
     try {
@@ -168,9 +170,9 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
         console.error('[store] restoreNotebook failed:', err.error);
         set({ notebookLoading: false, activeNotebookId: null, notebook: null });
         if (res.status === 404) {
-          localStorage.removeItem(_cacheKey(notebookId));
-          if (localStorage.getItem('nb-last-notebook') === notebookId) {
-            localStorage.removeItem('nb-last-notebook');
+          cacheRemove(_cacheKey(notebookId));
+          if (cacheGet<string>('nb-last-notebook', TTL.LAST_NOTEBOOK) === notebookId) {
+            cacheRemove('nb-last-notebook');
           }
         }
         return;
@@ -189,7 +191,6 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
         activeNotebookId: data.notebookId,
         workspaceDir: data.workspaceDir,
         notebookLoading: false,
-        filesPanelOpen: true,
       });
 
       _persistNotebook(data.notebookId, data.notebook);
@@ -209,17 +210,17 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
       notebookList: state.notebookList.filter((n) => n.id !== notebookId),
     }));
     if (get().activeNotebookId === notebookId) {
-      set({ notebook: null, sessionId: null, activeNotebookId: null, workspaceDir: null, filesPanelOpen: false });
-      localStorage.removeItem('nb-last-notebook');
+      set({ notebook: null, sessionId: null, activeNotebookId: null, workspaceDir: null });
+      cacheRemove('nb-last-notebook');
     }
-    localStorage.removeItem(_cacheKey(notebookId));
+    cacheRemove(_cacheKey(notebookId));
     const notebookForCleanup =
       get().activeNotebookId === notebookId
         ? get().notebook
         : _loadCachedNotebook(notebookId);
     if (notebookForCleanup) {
       for (const cell of notebookForCleanup.cells) {
-        localStorage.removeItem(`nb-draft-${cell.id}`);
+        cacheRemove(`nb-draft-${cell.id}`);
       }
     }
 
@@ -252,7 +253,7 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
       return patch;
     });
 
-    localStorage.setItem(`nb-title-${notebookId}`, newTitle);
+    cacheSet(`nb-title-${notebookId}`, newTitle);
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const token = get().authToken;
@@ -264,7 +265,7 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
         headers,
         body: JSON.stringify({ title: newTitle }),
       });
-      localStorage.removeItem(`nb-title-${notebookId}`);
+      cacheRemove(`nb-title-${notebookId}`);
       get().fetchNotebookList();
     } catch (err) {
       console.error('[store] renameNotebook error:', err);
@@ -338,7 +339,6 @@ export const createSidebarSlice: StateCreator<NotebookStore, [], [], Pick<Notebo
         sessionId: data.sessionId,
         activeNotebookId: data.notebookId,
         workspaceDir: data.workspaceDir,
-        filesPanelOpen: true,
       });
 
       await fetch(`/api/notebooks/${encodeURIComponent(data.notebookId)}/import-content`, {
