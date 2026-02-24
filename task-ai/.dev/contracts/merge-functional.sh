@@ -15,7 +15,15 @@ INDEX_JSON="$NB_WORKSPACES_ROOT/proj/$TEST_NB/.working/.index.json"
 # Create branch
 BRANCH="task/$TEST_NB"
 git branch "$BRANCH" > /dev/null 2>&1
-echo "{"status":"executing", "branch":"$BRANCH", "worktree":""}" > "$INDEX_JSON"
+
+# 使用 cat 生成合法的 JSON
+cat > "$INDEX_JSON" <<EOF
+{
+  "status": "executing",
+  "branch": "$BRANCH",
+  "worktree": ""
+}
+EOF
 
 # Act
 "$MERGE_SH" "$TEST_NB" > /dev/null
