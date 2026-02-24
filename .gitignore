@@ -12,3 +12,6 @@ AiTasks/**/.lock
 AiTasks/.experiences/.lock
 AiTasks/.references/.lock
 AiTasks/.type-profiles/.lock
+
+# Library Knowledge Base (Independent Repo)
+.library/

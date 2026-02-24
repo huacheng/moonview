@@ -14,6 +14,7 @@
 | `depends-on-format.md` | Dependency format spec and enforcement rules |
 | `directory-convention.md` | Full directory tree structure and path resolution |
 | `git-details.md` | Branch/commit conventions, worktree, rollback, `.gitignore` |
+| `library-repo-protocol.md` | Independent git repository protocol for knowledge library |
 | `library-write-protocol.md` | 6-step library write protocol, changelog format |
 | `lifecycle-hooks.md` | Status transition hooks configuration |
 | `model-routing.md` | Tier definitions (heavy/medium/light), routing table |
@@ -95,6 +96,6 @@
 | File | Description |
 |------|-------------|
 | `references/blocked-sources.md` | Three-tier source classification (reject/high-risk/caution) |
-| `references/injection-rules.md` | Nine-category injection protection rules |
+| `references/injection-rules.md` | Ten-category injection protection rules |
 | `references/quality-rubric.md` | H/M/L thinking quality self-assessment rubric |
 | `references/write-protocol.md` | Per-directory lock table, hold duration, stale-lock recovery |

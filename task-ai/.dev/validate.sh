@@ -25,12 +25,17 @@ L2_SCRIPTS=(
   lock-coverage.sh
   phase-state-machine.py
   index-completeness.sh
+  library-index-completeness.sh
+  library-health-audit.sh
   signal-field-names.py
+  injection-category-count.sh
+  plugin-slot-consistency.py
 )
 
 L3_SCRIPTS=(
   state-machine-graph.py
   protocol-compliance.py
+  library-relation-routing.py
   signal-routing.py
 )
 
