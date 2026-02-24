@@ -49,13 +49,13 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
     - **Optional delegation — brainstorm**: On first plan generation (no existing `.plan.md`), follow `auto/references/plugin-delegation.md` to attempt matching the `brainstorm` capability slot. If matched, invoke via Task subagent — exploration results serve as supplementary planning input. No match or failure → continue normally
 16. Write plan to `.plan.md` in the task module
 17. Write `.test/<YYYY-MM-DD>-plan-criteria.md` with **domain-appropriate** verification criteria: acceptance criteria from `.target.md` + per-step test cases using methods standard in the task domain. On re-plan, write `.test/<YYYY-MM-DD>-replan-criteria.md` incorporating lessons from previous `.test/` results files
-18. **Red test skeleton generation** (software types only): When `type` (from `.index.json`) contains `software`, generate executable failing test stubs from the criteria:
+18. **VH stub generation** (software types only): When `type` (from `.index.json`) contains `software`, generate executable failing verification hypothesis stubs from the criteria:
     - Extract each plan step's verification points from the criteria file written in step 17
-    - Generate `<workspace>/.test/<YYYY-MM-DD>-red-stubs.test.*` (language/framework determined by `.type-profile.md` or project conventions)
-    - Each stub contains: test description, assertion placeholder, expected failure marker `// RED: not implemented`
-    - Run the test stubs once to confirm **all fail** (Red state)
-    - Write `.test/<YYYY-MM-DD>-red-baseline.md` recording: total Red stubs count, per-step stub mapping, run output confirming all failures
-    - In `.plan.md`, annotate each implementation step with its corresponding Red test stub references (e.g., `[Red: test-auth-login, test-auth-logout]`)
+    - Generate `<workspace>/.test/<YYYY-MM-DD>-vh-stubs.test.*` (language/framework determined by `.type-profile.md` or project conventions)
+    - Each stub contains: test description, assertion placeholder, expected failure marker `// VH: not implemented`
+    - Run the VH stubs once to confirm **all fail** (VH baseline state)
+    - Write `.test/<YYYY-MM-DD>-vh-baseline.md` recording: total VH stubs count, per-step stub mapping, run output confirming all failures
+    - In `.plan.md`, annotate each implementation step with its corresponding VH stub references (e.g., `[VH: test-auth-login, test-auth-logout]`)
     - If any stub unexpectedly passes → log warning in baseline file ("stub X passed without implementation — test may be trivially satisfied, review assertion strength")
 19. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
 20. Create `.notes/<YYYY-MM-DD>-<summary>-plan.md` with research findings and key decisions

@@ -8,6 +8,14 @@ Data transformation, ETL, migration
 
 Schema validation, row counts, data integrity
 
+### Verification Cycle
+
+- **VH Mode**: `executable` — schema validation, row count checks, and integrity assertions as exit code tests
+- **VH Generation**: Plan generates VH stubs for schema conformance, row count reconciliation, idempotency, and referential integrity
+- **CGG**: After each step's HS confirmation, re-run all prior data integrity checks; append to `cumulative-green.jsonl`
+- **Consolidation**: Verify no data corruption or schema drift from prior steps
+- **Compliance Threshold**: 80% (default)
+
 ## Phase Intelligence
 
 ### plan

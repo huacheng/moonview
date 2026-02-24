@@ -28,6 +28,9 @@ while IFS= read -r md_file; do
   # Skip the refactoring design doc
   [[ "$md_file" == *"重构方案"* ]] && continue
 
+  # Skip VFP protocol — its Terminology table legitimately defines old→new mappings
+  [[ "$md_file" == *"verification-first-protocol.md" ]] && continue
+
   # Strip code blocks
   content=$(strip_code_blocks < "$md_file")
 

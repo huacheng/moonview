@@ -87,7 +87,7 @@ Fields:
 - `checkpoint`: context hint (e.g., `"post-plan"`, `"mid-exec"`, `"post-exec"`). Empty when not applicable
 - `iteration`: current iteration count (for daemon progress tracking). **Auto-mode only** — absent when sub-commands write `.auto-signal` in manual execution
 - `compaction_count`: number of `/compact` invocations within the current iteration. **Auto-mode only** — absent in manual execution. Reset to `0` at the start of each iteration. If `>= 3` within one iteration, auto loop stops with warning (see Compaction frequency limit below)
-- `tdd_cycles_completed`: number of Red→Green cycles completed so far during Phase 2 execution. **Auto-mode only**, software types only — absent for non-software types and manual execution. Incremented each time exec reports a successful Red→Green transition for a step. Used for progress tracking and anomaly detection
+- `vfp_cycles_completed`: number of VH→HS (VFP) cycles completed so far during Phase 2 execution. **Auto-mode only**, software types only — absent for non-software types and manual execution. Incremented each time exec reports a successful VH→HS transition for a step. Used for progress tracking and anomaly detection. See also `cumulative-green.jsonl` for per-step CGG records
 - `timestamp`: ISO 8601
 
 The daemon reads this via `fs.watch` to:
@@ -123,7 +123,7 @@ The daemon validates `.auto-signal` fields for monitoring integrity:
 | `checkpoint` | Whitelist | `""`, `post-plan`, `post-research`, `post-o1`, `post-o2`, `post-o3`, `mid-exec`, `post-exec`, `quick`, `full`, `step-N`, `dependency-blocked`, `no-accept` |
 | `iteration` | Integer | ≥ 0 |
 | `compaction_count` | Integer | ≥ 0 |
-| `tdd_cycles_completed` | Integer (optional) | ≥ 0 (present only for software types in auto mode) |
+| `vfp_cycles_completed` | Integer (optional) | ≥ 0 (present only for software types in auto mode) |
 | `timestamp` | Format check | ISO 8601 |
 
 Invalid signals are logged but do not affect Claude's internal loop (daemon is observer, not dispatcher).
@@ -270,14 +270,14 @@ The `.summary.md` file is still written by each sub-command as a **compaction sa
 
 > **See `references/backend-api.md`** for REST API endpoints, SQLite schema, daemon startup sequence, frontend integration, cleanup protocol, and server recovery.
 
-## TDD Cycle Tracking (Software Types)
+## VFP Cycle Tracking (Software Types)
 
-When `type` contains `software`, the auto loop tracks Red→Green cycle progress during Phase 2 (Execution):
+When `type` contains `software`, the auto loop tracks VH→HS cycle progress during Phase 2 (Execution):
 
-1. **Initialization**: After plan generates Red stubs (step 18), read `.test/<date>-red-baseline.md` to get `red_stubs_total`. Set `tdd_cycles_completed = 0`
-2. **Per-step tracking**: After each exec step completes, check if exec notes record a successful Red→Green transition. If yes, increment `tdd_cycles_completed` and include it in `.auto-signal`
-3. **Anomaly detection**: If `completed_steps` exceeds `tdd_cycles_completed` by more than 2 consecutive steps (i.e., 3+ steps executed without any Red→Green transition), trigger `check --checkpoint mid-exec` with a note: "TDD anomaly: N steps without Red→Green transition — verify test discipline"
-4. **Progress display**: Daemon can display TDD progress as `tdd_cycles_completed / red_stubs_total` alongside standard iteration tracking
+1. **Initialization**: After plan generates VH stubs (step 18), read vh-baseline.md (`.test/<date>-vh-baseline.md`) to get `vh_stubs_total`. Set `vfp_cycles_completed = 0`
+2. **Per-step tracking**: After each exec step completes, check if exec notes record a successful VH→HS transition. If yes, increment `vfp_cycles_completed` and include it in `.auto-signal`. Append step result to `.test/<date>-cumulative-green.jsonl` for CGG tracking
+3. **Anomaly detection**: If `completed_steps` exceeds `vfp_cycles_completed` by more than 2 consecutive steps (i.e., 3+ steps executed without any VH→HS transition), trigger `check --checkpoint mid-exec` with a note: "VFP anomaly: N steps without VH→HS transition — verify test discipline"
+4. **Progress display**: Daemon can display VFP progress as `vfp_cycles_completed / vh_stubs_total` alongside standard iteration tracking
 
 ## Safety
 

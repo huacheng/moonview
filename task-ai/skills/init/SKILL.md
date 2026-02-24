@@ -151,7 +151,7 @@ Dependencies reference other task modules. Two formats — simple string (requir
 
     <!-- Any constraints or limitations -->
     ```
-12. **Git commit**: `task-ai(<notebook_name>):init initialize notebook`
+13. **Git commit**: `task-ai(<notebook_name>):init initialize notebook`
 14. **Report**: path, files created, branch name, worktree path (if any), next step hint
 
 ## Git

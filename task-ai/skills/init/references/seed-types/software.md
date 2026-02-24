@@ -8,6 +8,15 @@ Programming, API, database, UI development
 
 Unit/integration tests, CI, code review
 
+### Verification Cycle
+
+- **VH Mode**: `executable` — exit code 0 (HS) / 1 (VH unsatisfied) / >1 (infra error)
+- **VH Generation**: Mandatory. Plan generates `vh-stubs.test.*` from per-step verification points; all must fail (VH baseline)
+- **CGG**: Run all prior VH stubs after each step's HS confirmation; append to `cumulative-green.jsonl`
+- **Consolidation**: Check refactoring opportunities after each VH→HS transition; run full suite to confirm no regressions
+- **Compliance Threshold**: 80% of steps must complete VH→HS cycles
+- **Always Applicable**: `software` type always uses VFP regardless of type-profile content
+
 ## Phase Intelligence
 
 ### plan
