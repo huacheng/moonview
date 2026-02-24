@@ -42,7 +42,7 @@ export function FileViewer() {
   const canEdit = fileState.format !== null && fileState.format !== 'pdf-binary' && fileState.format !== 'unsupported';
 
   return (
-    <div className={`file-viewer${fileViewerMaximized ? ' file-viewer--maximized' : ''}`}>
+    <div className="file-viewer">
       <FileViewerStatusBar
         filename={filename}
         format={fileState.format}

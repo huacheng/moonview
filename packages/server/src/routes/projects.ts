@@ -1,11 +1,15 @@
-import { Router, type IRouter } from 'express';
+import { Router, type IRouter, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, writeFile, copyFile, unlink, stat, rm } from 'fs/promises';
+import { createReadStream } from 'fs';
 import path from 'path';
+import os from 'os';
+import multer from 'multer';
 import type { NotebookDb } from '../db.js';
 import type { SessionManager } from '../session.js';
 import type { NotebookStore } from '../notebook-store.js';
 import { GitManager } from '../git.js';
+import { listWorkspaceFiles, validateWorkspacePath } from '../workspace-files.js';
 
 function titleToSlug(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'project';
@@ -37,7 +41,6 @@ export function createProjectsRouter(
       const now = new Date().toISOString();
 
       // Create directory structure
-      await mkdir(path.join(projectPath, '.working'), { recursive: true });
       await mkdir(path.join(projectPath, '.deliverables'), { recursive: true });
 
       // Write project .index.json
@@ -81,10 +84,10 @@ export function createProjectsRouter(
 
       // Avoid slug collisions by appending a short suffix
       const { existsSync } = await import('fs');
-      let workingDir = path.join(project.path, '.working', nbSlug);
-      if (existsSync(workingDir)) {
+      let nbDir = path.join(project.path, nbSlug);
+      if (existsSync(nbDir)) {
         nbSlug = `${nbSlug}-${randomUUID().slice(0, 6)}`;
-        workingDir = path.join(project.path, '.working', nbSlug);
+        nbDir = path.join(project.path, nbSlug);
       }
 
       const branchName = `task/${nbSlug}`;
@@ -95,16 +98,17 @@ export function createProjectsRouter(
       await git.createBranch(branchName);
       await git.addWorktree(worktreePath, branchName);
 
-      // Create notebook working directory
-      await mkdir(workingDir, { recursive: true });
+      // Create notebook directory: project/{slug}/
+      //   {slug}.notebook.json  — notebook file
+      //   .working/             — task workspace files
+      await mkdir(path.join(nbDir, '.working'), { recursive: true });
 
-      // Create notebook file
       const notebook = notebookStore.createNew(title, worktreePath);
       notebook.metadata.project_id = project.id;
       notebook.metadata.worktree_path = worktreePath;
       notebook.metadata.branch = branchName;
 
-      const notebookPath = path.join(workingDir, `${nbSlug}.notebook.json`);
+      const notebookPath = path.join(nbDir, `${nbSlug}.notebook.json`);
       await notebookStore.save(notebookPath, notebook);
 
       // Create session with worktree as cwd
@@ -136,61 +140,185 @@ export function createProjectsRouter(
     }
   });
 
+  // Dotfile whitelist for project file listing — exact matches only
+  const DOTFILE_WHITELIST = new Set(['.index.json']);
+  function isVisibleEntry(name: string): boolean {
+    if (!name.startsWith('.')) return true;
+    if (DOTFILE_WHITELIST.has(name)) return true;
+    if (name.endsWith('.notebook.json')) return true;
+    return false;
+  }
+
+  const upload = multer({
+    dest: path.join(os.tmpdir(), 'nb-uploads'),
+    limits: { fileSize: 100 * 1024 * 1024, files: 20 },
+  });
+
   // List files within project directory
   router.get('/:projectId/files', async (req, res) => {
+    const project = db.getProject(req.params.projectId);
+    if (!project) return res.status(404).json({ error: 'not found' });
+
+    const subPath = (req.query.path as string) || '.';
     try {
-      const project = db.getProject(req.params.projectId);
-      if (!project) return res.status(404).json({ error: 'not found' });
-
-      const subPath = (req.query.path as string) || '';
-      const fullPath = path.join(project.path, subPath);
-
-      // Validate path is within project (append separator to prevent prefix-match bypass)
-      const resolved = path.resolve(fullPath);
+      const result = await listWorkspaceFiles(project.path, subPath);
+      result.files = result.files.filter(f => isVisibleEntry(f.name));
+      res.json(result);
+    } catch (err: any) {
+      if (err.message === 'Path outside workspace') {
+        return res.status(403).json({ error: 'path traversal' });
+      }
+      // realpath may throw ENOENT for non-existent traversal targets — fallback prefix check
+      const resolved = path.resolve(project.path, subPath);
       const projectRoot = path.resolve(project.path);
       if (resolved !== projectRoot && !resolved.startsWith(projectRoot + path.sep)) {
         return res.status(403).json({ error: 'path traversal' });
       }
+      // Non-existent directory → empty listing
+      res.json({ dirPath: resolved, files: [], truncated: false });
+    }
+  });
 
-      const { readdir, stat } = await import('fs/promises');
-      let entries;
-      try {
-        entries = await readdir(fullPath, { withFileTypes: true });
-      } catch {
-        return res.json({ dirPath: fullPath, files: [], truncated: false });
+  // Upload files to project
+  router.post(
+    '/:projectId/files',
+    upload.array('files', 20),
+    async (req: Request, res: Response) => {
+      const project = db.getProject(req.params.projectId as string);
+      if (!project) { res.status(404).json({ error: 'not found' }); return; }
+
+      const subPath = typeof req.query['path'] === 'string' ? req.query['path'] : '.';
+      const uploaded = req.files as Express.Multer.File[] | undefined;
+      if (!uploaded || uploaded.length === 0) {
+        res.status(400).json({ error: 'No files provided.' });
+        return;
       }
 
-      const files = await Promise.all(
-        entries
-          .filter(e => !e.name.startsWith('.') || e.name.endsWith('.notebook.json') || e.name === '.index.json')
-          .map(async (e) => {
-            const entryPath = path.join(fullPath, e.name);
-            let size = 0;
-            let modifiedAt = new Date().toISOString();
-            try {
-              const s = await stat(entryPath);
-              size = s.size;
-              modifiedAt = s.mtime.toISOString();
-            } catch { /* ignore */ }
-            return {
-              name: e.name,
-              type: e.isDirectory() ? 'directory' as const : 'file' as const,
-              size,
-              modifiedAt,
-            };
-          })
-      );
+      const results: string[] = [];
+      try {
+        for (const file of uploaded) {
+          const name = path.basename(file.originalname);
+          const destPath = await validateWorkspacePath(path.join(subPath, name), project.path);
+          await copyFile(file.path, destPath);
+          await unlink(file.path).catch(() => {});
+          results.push(name);
+        }
+        res.json({ uploaded: results });
+      } catch (err: any) {
+        for (const file of uploaded) {
+          await unlink(file.path).catch(() => {});
+        }
+        if (err.message === 'Path outside workspace') {
+          res.status(400).json({ error: 'path traversal' });
+        } else {
+          res.status(400).json({ error: String(err) });
+        }
+      }
+    },
+  );
 
-      // Sort: directories first, then alphabetically
-      files.sort((a, b) => {
-        if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
+  // Create empty file
+  router.post('/:projectId/files/new-file', async (req, res) => {
+    const project = db.getProject(req.params.projectId);
+    if (!project) { res.status(404).json({ error: 'not found' }); return; }
 
-      res.json({ dirPath: fullPath, files, truncated: false });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+    const subPath = typeof req.query['path'] === 'string' ? req.query['path'] : '.';
+    const name = (typeof req.query['name'] === 'string' ? req.query['name'] : '').trim();
+    if (!name || name.includes('/') || name === '.' || name === '..') {
+      res.status(400).json({ error: 'Invalid file name.' });
+      return;
     }
+    try {
+      const targetPath = await validateWorkspacePath(path.join(subPath, name), project.path);
+      await writeFile(targetPath, '', { flag: 'wx' });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // Create directory
+  router.post('/:projectId/files/mkdir', async (req, res) => {
+    const project = db.getProject(req.params.projectId);
+    if (!project) { res.status(404).json({ error: 'not found' }); return; }
+
+    const subPath = typeof req.query['path'] === 'string' ? req.query['path'] : '.';
+    const name = (typeof req.query['name'] === 'string' ? req.query['name'] : '').trim();
+    if (!name || name.includes('/') || name === '.' || name === '..') {
+      res.status(400).json({ error: 'Invalid directory name.' });
+      return;
+    }
+    try {
+      const targetPath = await validateWorkspacePath(path.join(subPath, name), project.path);
+      await mkdir(targetPath);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // Delete file or directory
+  router.delete('/:projectId/files', async (req, res) => {
+    const project = db.getProject(req.params.projectId);
+    if (!project) { res.status(404).json({ error: 'not found' }); return; }
+
+    const filePath = typeof req.query['path'] === 'string' ? req.query['path'] : '';
+    if (!filePath || filePath === '.') {
+      res.status(400).json({ error: 'Cannot delete project root.' });
+      return;
+    }
+    try {
+      const resolved = await validateWorkspacePath(filePath, project.path);
+      await rm(resolved, { recursive: true, force: false });
+      res.json({ ok: true });
+    } catch (err: any) {
+      if (err.message === 'Path outside workspace') {
+        res.status(400).json({ error: 'path traversal' });
+      } else {
+        res.status(400).json({ error: String(err) });
+      }
+    }
+  });
+
+  // Download single file
+  router.get('/:projectId/files/download', async (req, res) => {
+    const project = db.getProject(req.params.projectId);
+    if (!project) { res.status(404).json({ error: 'not found' }); return; }
+
+    const filePath = typeof req.query['path'] === 'string' ? req.query['path'] : '';
+    try {
+      const resolved = await validateWorkspacePath(filePath, project.path);
+      const fileStat = await stat(resolved);
+      if (fileStat.isDirectory()) {
+        res.status(400).json({ error: 'Cannot download a directory.' });
+        return;
+      }
+      const filename = path.basename(resolved);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+      res.setHeader('Content-Length', fileStat.size);
+      createReadStream(resolved).pipe(res);
+    } catch (err: any) {
+      if (err.message === 'Path outside workspace') {
+        res.status(400).json({ error: 'path traversal' });
+      } else {
+        res.status(400).json({ error: String(err) });
+      }
+    }
+  });
+
+  // Download all as tar.gz
+  router.get('/:projectId/files/zip', async (req, res) => {
+    const project = db.getProject(req.params.projectId);
+    if (!project) { res.status(404).json({ error: 'not found' }); return; }
+
+    const { spawn } = await import('child_process');
+    res.setHeader('Content-Type', 'application/gzip');
+    res.setHeader('Content-Disposition', `attachment; filename="${project.slug || 'project'}.tar.gz"`);
+    const tar = spawn('tar', ['czf', '-', '-C', project.path, '.']);
+    tar.stdout.pipe(res);
+    tar.stderr.on('data', (d: Buffer) => console.error('[tar]', d.toString()));
+    tar.on('error', (err: Error) => { if (!res.headersSent) res.status(500).json({ error: String(err) }); });
   });
 
   // Delete project (cascades: close sessions, remove worktrees, delete from disk + DB)

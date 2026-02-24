@@ -8,7 +8,7 @@ interface FileViewerEditorProps {
   format: 'text' | 'html';
   sessionId: string;
   filePath: string;
-  source: 'workspace' | 'library';
+  source: 'workspace' | 'library' | 'deliverables';
 }
 
 export function FileViewerEditor({ content, format, sessionId, filePath, source }: FileViewerEditorProps) {

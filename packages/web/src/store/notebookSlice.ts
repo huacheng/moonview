@@ -376,6 +376,7 @@ export const createNotebookSlice: StateCreator<NotebookStore, [], [], Pick<Noteb
         activeNotebookTabId: notebookId,
         notebook: updated[notebookId]?.notebook ?? null,
         sessionId: updated[notebookId]?.sessionId ?? null,
+        openFile: null, // C3: clear FileViewer when switching tabs
       };
     });
   },

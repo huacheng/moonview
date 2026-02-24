@@ -38,9 +38,9 @@ export interface NotebookStore {
   sessionNotice: string | null;
   latency: number | null;
   creatingNotebook: boolean;
-  filesPanelOpen: boolean;
   wsReconnectExhausted: boolean;
-  openFile: { path: string; source: 'workspace' | 'library'; sessionId: string } | null;
+  openFile: { path: string; source: 'workspace' | 'library' | 'deliverables'; sessionId: string } | null;
+  leftSidebarSplitRatio: number;
   fileViewerMaximized: boolean;
 
   // ── Project state ─────────────────────────────────────────────────────
@@ -59,8 +59,6 @@ export interface NotebookStore {
   // ── Right panel state ─────────────────────────────────────────────────
   rightPanelOpen: boolean;
   rightPanelSplitRatio: number;
-  deliverablesViewingFile: string | null;
-  libraryViewingFile: string | null;
 
   // ── WebSocket state ────────────────────────────────────────────────────
   ws: WebSocket | null;
@@ -107,8 +105,8 @@ export interface NotebookStore {
   clearSessionNotice(): void;
   setLatency(ms: number | null): void;
   setWsReconnectExhausted(v: boolean): void;
-  toggleFilesPanel(): void;
-  setOpenFile(file: { path: string; source: 'workspace' | 'library'; sessionId: string } | null): void;
+  setOpenFile(file: { path: string; source: 'workspace' | 'library' | 'deliverables'; sessionId: string } | null): void;
+  setLeftSidebarSplitRatio(ratio: number): void;
   toggleFileViewerMaximized(): void;
 
   // ── Project actions ───────────────────────────────────────────────────
@@ -129,10 +127,6 @@ export interface NotebookStore {
   // ── Right panel actions ───────────────────────────────────────────────
   toggleRightPanel(): void;
   setRightPanelSplitRatio(ratio: number): void;
-  openFileInDeliverables(path: string): void;
-  openFileInLibrary(path: string): void;
-  closeDeliverablesViewer(): void;
-  closeLibraryViewer(): void;
 
   // ── WebSocket actions ──────────────────────────────────────────────────
   connectWebSocket(): void;

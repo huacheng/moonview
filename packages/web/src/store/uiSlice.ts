@@ -3,31 +3,27 @@ import type { NotebookStore } from './types';
 
 export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookStore,
   | 'activeTab' | 'gitTabOpen' | 'sessionNotice' | 'latency' | 'creatingNotebook'
-  | 'filesPanelOpen' | 'wsReconnectExhausted'
+  | 'wsReconnectExhausted'
   | 'setActiveTab' | 'openGitTab' | 'closeGitTab'
   | 'clearSessionNotice' | 'setLatency'
-  | 'setWsReconnectExhausted' | 'toggleFilesPanel'
+  | 'setWsReconnectExhausted'
   | 'openFile' | 'fileViewerMaximized'
   | 'setOpenFile' | 'toggleFileViewerMaximized'
+  | 'leftSidebarSplitRatio' | 'setLeftSidebarSplitRatio'
   | 'rightPanelOpen' | 'rightPanelSplitRatio'
-  | 'deliverablesViewingFile' | 'libraryViewingFile'
   | 'toggleRightPanel' | 'setRightPanelSplitRatio'
-  | 'openFileInDeliverables' | 'openFileInLibrary'
-  | 'closeDeliverablesViewer' | 'closeLibraryViewer'
 >> = (set) => ({
   activeTab: 'notebook',
   gitTabOpen: false,
   sessionNotice: null,
   latency: null,
   creatingNotebook: false,
-  filesPanelOpen: false,
   wsReconnectExhausted: false,
+  leftSidebarSplitRatio: 0.5,
   openFile: null,
   fileViewerMaximized: false,
   rightPanelOpen: true,
   rightPanelSplitRatio: 0.5,
-  deliverablesViewingFile: null,
-  libraryViewingFile: null,
 
   setActiveTab(tab) {
     set({ activeTab: tab, gitTabOpen: tab === 'git' });
@@ -53,10 +49,6 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
     set({ wsReconnectExhausted: v });
   },
 
-  toggleFilesPanel() {
-    set((state) => ({ filesPanelOpen: !state.filesPanelOpen }));
-  },
-
   setOpenFile(file) {
     set({ openFile: file });
   },
@@ -69,23 +61,11 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
     set((state) => ({ rightPanelOpen: !state.rightPanelOpen }));
   },
 
+  setLeftSidebarSplitRatio(ratio) {
+    set({ leftSidebarSplitRatio: Math.min(0.8, Math.max(0.2, ratio)) });
+  },
+
   setRightPanelSplitRatio(ratio) {
     set({ rightPanelSplitRatio: ratio });
-  },
-
-  openFileInDeliverables(path) {
-    set({ deliverablesViewingFile: path });
-  },
-
-  openFileInLibrary(path) {
-    set({ libraryViewingFile: path });
-  },
-
-  closeDeliverablesViewer() {
-    set({ deliverablesViewingFile: null });
-  },
-
-  closeLibraryViewer() {
-    set({ libraryViewingFile: null });
   },
 });

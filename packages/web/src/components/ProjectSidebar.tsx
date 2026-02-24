@@ -1,12 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-
-interface FileEntry {
-  name: string;
-  type: 'file' | 'directory';
-  size: number;
-  modifiedAt: string;
-}
+import { FileSection } from './FileSection';
 
 function ProjectList() {
   const { projects, projectsLoading, createProject, setActiveProject } = useStore();
@@ -61,77 +55,54 @@ function ProjectList() {
 }
 
 function FileBrowser() {
-  const {
-    activeProjectId, activeProjectPath, fileBrowserPath,
-    goBackToProjectList, navigateFileBrowser, authToken,
-    openNotebookTab, subscribeToSession, openFileInDeliverables,
-  } = useStore();
-  const [files, setFiles] = useState<FileEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const activeProjectId = useStore(s => s.activeProjectId);
+  const activeProjectPath = useStore(s => s.activeProjectPath);
+  const goBackToProjectList = useStore(s => s.goBackToProjectList);
+  const authToken = useStore(s => s.authToken);
+  const setOpenFile = useStore(s => s.setOpenFile);
 
   const projectTitle = useStore(s => s.projects.find(p => p.id === s.activeProjectId)?.title ?? 'Project');
-
-  useEffect(() => {
-    if (!activeProjectId) return;
-    setLoading(true);
-    const subPath = fileBrowserPath ? `.working/${fileBrowserPath}` : '.working';
-    fetch(`/api/projects/${activeProjectId}/files?path=${encodeURIComponent(subPath)}`, {
-      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-    })
-      .then(r => r.json())
-      .then((data: { files: FileEntry[] }) => {
-        setFiles(data.files ?? []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [activeProjectId, fileBrowserPath, authToken]);
-
-  const handleFileClick = async (entry: FileEntry) => {
-    if (entry.type === 'directory') {
-      const newPath = fileBrowserPath ? `${fileBrowserPath}/${entry.name}` : entry.name;
-      navigateFileBrowser(newPath);
-      return;
-    }
-    if (entry.name.endsWith('.notebook.json')) {
-      // Load notebook and open as tab
-      const notebookPath = `${activeProjectPath}/.working/${fileBrowserPath ? fileBrowserPath + '/' : ''}${entry.name}`;
-      try {
-        const res = await fetch(`/api/notebooks/open-by-path`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-          },
-          body: JSON.stringify({ path: notebookPath }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          openNotebookTab(data.notebookId, data.notebook, data.sessionId);
-          subscribeToSession(data.sessionId);
-        }
-      } catch (err) {
-        console.error('Failed to open notebook:', err);
-      }
-    } else {
-      // Open in right panel FileViewer
-      const filePath = `${activeProjectPath}/.working/${fileBrowserPath ? fileBrowserPath + '/' : ''}${entry.name}`;
-      openFileInDeliverables(filePath);
-    }
-  };
 
   const [showNbCreate, setShowNbCreate] = useState(false);
   const [nbTitle, setNbTitle] = useState('');
   const [nbCreating, setNbCreating] = useState(false);
 
+  const handleFileClick = useCallback(async (subPath: string, filename: string) => {
+    if (filename.endsWith('.notebook.json')) {
+      const notebookPath = subPath === '.' ? `${activeProjectPath}/${filename}` : `${activeProjectPath}/${subPath}/${filename}`;
+      try {
+        const { authToken: token, openNotebookTab: openTab, subscribeToSession: sub } = useStore.getState();
+        const res = await fetch('/api/notebooks/open-by-path', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ path: notebookPath }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          openTab(data.notebookId, data.notebook, data.sessionId);
+          sub(data.sessionId);
+        }
+      } catch (err) {
+        console.error('Failed to open notebook:', err);
+      }
+    } else {
+      const { sessionId } = useStore.getState();
+      if (!sessionId) return;
+      const relPath = subPath === '.' ? filename : `${subPath}/${filename}`;
+      setOpenFile({ path: relPath, source: 'workspace', sessionId });
+    }
+  }, [activeProjectPath, setOpenFile]);
+
   const handleCreateNotebook = async () => {
     if (!nbTitle.trim() || !activeProjectId || nbCreating) return;
     setNbCreating(true);
     try {
-      const store = useStore.getState();
-      await store.createNotebook(activeProjectId, nbTitle.trim());
+      await useStore.getState().createNotebook(activeProjectId, nbTitle.trim());
       setNbTitle('');
       setShowNbCreate(false);
-      navigateFileBrowser(fileBrowserPath);
     } catch (err) {
       console.error('Failed to create notebook:', err);
     } finally {
@@ -139,35 +110,18 @@ function FileBrowser() {
     }
   };
 
-  const handleBack = () => {
-    if (fileBrowserPath) {
-      const parts = fileBrowserPath.split('/');
-      parts.pop();
-      navigateFileBrowser(parts.join('/'));
-    } else {
-      goBackToProjectList();
-    }
-  };
-
   return (
     <div className="file-browser">
-      <div className="file-browser-header" onClick={handleBack}>
+      <div className="file-browser-header" onClick={goBackToProjectList}>
         <span className="file-browser-back">&larr;</span>
-        <span className="file-browser-title">{fileBrowserPath || projectTitle}</span>
+        <span className="file-browser-title">{projectTitle}</span>
       </div>
-      {loading && <div className="file-browser-loading">Loading...</div>}
-      <div className="file-browser-items">
-        {files.map(f => (
-          <div
-            key={f.name}
-            className={`file-browser-item file-browser-item--${f.type}`}
-            onClick={() => handleFileClick(f)}
-          >
-            <span className="file-browser-item-icon">{f.type === 'directory' ? '\u{1F4C1}' : '\u{1F4C4}'}</span>
-            <span className="file-browser-item-name">{f.name}</span>
-          </div>
-        ))}
-      </div>
+      <FileSection
+        baseUrl={`/api/projects/${activeProjectId}`}
+        authToken={authToken}
+        onFileClick={handleFileClick}
+        noDragFilter={(name) => name.endsWith('.notebook.json')}
+      />
       {showNbCreate ? (
         <div className="project-create-form">
           <input
@@ -193,9 +147,58 @@ function FileBrowser() {
 
 export function ProjectSidebar() {
   const sidebarLevel = useStore(s => s.sidebarLevel);
+  const leftSidebarSplitRatio = useStore(s => s.leftSidebarSplitRatio);
+  const setLeftSidebarSplitRatio = useStore(s => s.setLeftSidebarSplitRatio);
+  const authToken = useStore(s => s.authToken);
+  const workspaceDir = useStore(s => s.workspaceDir);
+  const sessionId = useStore(s => s.sessionId);
+  const setOpenFile = useStore(s => s.setOpenFile);
+
+  const sidebarRef = useRef<HTMLElement>(null);
+  const dragging = useRef(false);
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      if (!dragging.current || !sidebarRef.current) return;
+      const rect = sidebarRef.current.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+      setLeftSidebarSplitRatio(ratio);
+    };
+    const handleUp = () => { dragging.current = false; };
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+  }, [setLeftSidebarSplitRatio]);
+
   return (
-    <aside className="sidebar">
-      {sidebarLevel === 'L1' ? <ProjectList /> : <FileBrowser />}
+    <aside className="sidebar" ref={sidebarRef}>
+      <div className="sidebar-top" style={{ flex: leftSidebarSplitRatio }}>
+        {sidebarLevel === 'L1' ? <ProjectList /> : <FileBrowser />}
+      </div>
+      <div
+        className="sidebar-divider"
+        onMouseDown={() => { dragging.current = true; }}
+      />
+      <div className="sidebar-bottom" style={{ flex: 1 - leftSidebarSplitRatio }}>
+        <div className="sidebar-section-header">
+          <span>Library</span>
+          <span className="fp-section-sub">drag to prompt</span>
+        </div>
+        <FileSection
+          baseUrl="/api/library"
+          authToken={authToken}
+          showDownloadAll
+          dropLabel="Drop to add to Library"
+          workspaceDir={workspaceDir}
+          onFileClick={(subPath, name) => {
+            const relPath = subPath === '.' ? name : `${subPath}/${name}`;
+            setOpenFile({ path: relPath, source: 'library', sessionId: sessionId ?? '' });
+          }}
+        />
+      </div>
     </aside>
   );
 }

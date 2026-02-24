@@ -284,14 +284,14 @@ export const FileOpenSchema = z.object({
   type: z.literal('file-open'),
   session_id: z.string(),
   path: z.string(),
-  source: z.enum(['workspace', 'library']),
+  source: z.enum(['workspace', 'library', 'deliverables']),
 });
 
 export const FileSaveSchema = z.object({
   type: z.literal('file-save'),
   session_id: z.string(),
   path: z.string(),
-  source: z.enum(['workspace', 'library']),
+  source: z.enum(['workspace', 'library', 'deliverables']),
   content: z.string(),
   format: z.enum(['text', 'html']),
 });

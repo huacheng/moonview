@@ -238,7 +238,7 @@ export function setupWebSocket(
             break;
           }
           try {
-            const basedir = source === 'workspace' ? session.cwd : getLibraryDir();
+            const basedir = source === 'library' ? getLibraryDir() : session.cwd;
             const safePath = await validateWorkspacePath(filePath, basedir);
             const stat = await fs.stat(safePath);
             const ext = safePath.split('.').pop()?.toLowerCase() ?? '';
@@ -301,7 +301,7 @@ export function setupWebSocket(
             break;
           }
           try {
-            const basedir = source === 'workspace' ? session.cwd : getLibraryDir();
+            const basedir = source === 'library' ? getLibraryDir() : session.cwd;
             const safePath = await validateWorkspacePath(filePath, basedir);
             const ext = safePath.split('.').pop()?.toLowerCase() ?? '';
 
