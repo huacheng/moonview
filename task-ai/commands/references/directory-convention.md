@@ -45,10 +45,12 @@ $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 │
 ├── project-a/                         # 项目目录
 │   ├── .index.json                    # 项目元数据（notebook 列表等）
+│   ├── .deliverables/                 # 环境变量: NB_PROJECT_DELIVERABLES — project 级交付物目录
+│   │   └── <notebook>/               # 按 notebook 隔离
+│   │       └── .report.md            # 完成报告（由 report 子命令生成）
+│   │
 │   ├── notebook-1/
-│   │   ├── [deliverables-dir]/        # 用户自定义名称，存放交付成果
-│   │   │   └── .report.md             # 完成报告（由 report 子命令生成）
-│   │   └── .working/                  # 任务状态文件（系统管理）
+│   │   └── .working/                  # 环境变量: NB_TASK_WORKING — notebook 级系统工作目录
 │   │       ├── .index.json            # 任务元数据（status/phase/type...）
 │   │       ├── .target.md             # 需求目标（人工编写）
 │   │       ├── .plan.md               # 实施计划（plan 生成，可通过 Plan 面板批注）
@@ -60,10 +62,14 @@ $NB_WORKSPACES_ROOT/                   # 环境变量: NB_WORKSPACES_ROOT
 │   │       ├── .auto-timeline.md      # 执行时间线
 │   │       ├── .library-state.json    # 库读取游标（last_library_read + changelog_offset，gitignore）
 │   │       ├── .tmp-annotations.json  # Plan 面板批注传输（临时）
+│   │       ├── vh-stubs.*             # VFP: 验证假设 stubs（plan 生成，exec/verify/check 消费）
+│   │       ├── vh-baseline.md         # VFP: VH 初始失败状态基线（plan 生成）
 │   │       ├── .analysis/             # check 评估历史
 │   │       │   └── .summary.md
 │   │       ├── .test/                 # 测试准则 & 结果
-│   │       │   └── .summary.md
+│   │       │   ├── .summary.md
+│   │       │   ├── <date>-cumulative-green.jsonl  # VFP: CGG 累积通过记录（追加）
+│   │       │   └── hil-snapshots/     # VFP: HIL 人工审批快照
 │   │       ├── .bugfix/               # 问题修复历史
 │   │       │   └── .summary.md
 │   │       └── .notes/                # 研究笔记 & 执行日志
@@ -93,4 +99,15 @@ Project names and notebook names share the same validation rule: ASCII letters, 
 
 ## Path Resolution
 
-Sub-commands read `NB_WORKSPACES_ROOT` and `NB_WORKSPACES_LIBRARY` env vars at start. Notebooks are organized under project directories: `$NB_WORKSPACES_ROOT/<project>/`. Each project has a `.index.json` for project metadata. When a sub-command receives `<project>` and `<notebook>` arguments, its working directory is `$NB_WORKSPACES_ROOT/<project>/<notebook>/.working/` and deliverables directory is `$NB_WORKSPACES_ROOT/<project>/<notebook>/[deliverables-dir]/`.
+Sub-commands read `NB_WORKSPACES_ROOT` and `NB_WORKSPACES_LIBRARY` env vars at start. Notebooks are organized under project directories: `$NB_WORKSPACES_ROOT/<project>/`. Each project has a `.index.json` for project metadata.
+
+When a sub-command receives `<project>` and `<notebook>` arguments, the following derived paths are used:
+
+| Variable | Path | Description |
+|----------|------|-------------|
+| `NB_WORKSPACES_ROOT` | (env var) | Workspace root |
+| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library/` | Shared knowledge library |
+| `NB_TASK_WORKING` | `$NB_WORKSPACES_ROOT/<project>/<notebook>/.working/` | Notebook-level system working directory |
+| `NB_PROJECT_DELIVERABLES` | `$NB_WORKSPACES_ROOT/<project>/.deliverables/` | Project-level deliverables directory |
+
+Deliverables are written to `$NB_PROJECT_DELIVERABLES/<notebook>/` (project-level, not notebook-level).
