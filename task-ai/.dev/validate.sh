@@ -28,6 +28,7 @@ L2_SCRIPTS=(
   library-index-completeness.sh
   library-health-audit.sh
   library-regression-fixes.sh
+  init-functional.sh
   signal-field-names.py
   injection-category-count.sh
   plugin-slot-consistency.py
