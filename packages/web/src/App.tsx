@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Notebook } from './components/Notebook';
 import { ProjectSidebar } from './components/ProjectSidebar';
@@ -100,11 +100,46 @@ function AuthenticatedApp() {
   const fetchProjects = useStore((s) => s.fetchProjects);
   const gitTabOpen = useStore((s) => s.gitTabOpen);
   const activeProjectId = useStore((s) => s.activeProjectId);
-  const openFile = useStore((s) => s.openFile);
+  const activeFileTabId = useStore((s) => s.activeFileTabId);
   const fileViewerMaximized = useStore((s) => s.fileViewerMaximized);
+  const rightPanelOpen = useStore((s) => s.rightPanelOpen);
+  const setRightPanelOpen = useStore((s) => s.setRightPanelOpen);
+
+  const setSidebarWidth = useStore((s) => s.setSidebarWidth);
+  const setRightPanelWidth = useStore((s) => s.setRightPanelWidth);
 
   const contentRef = useRef<HTMLElement | null>(null);
   const savedScrollRef = useRef<number>(0);
+  const draggingRef = useRef<'left' | 'right' | null>(null);
+
+  // ── Column divider drag ──────────────────────────────────────────────
+  const startLeftDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = 'left';
+  }, []);
+
+  const startRightDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = 'right';
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!draggingRef.current) return;
+      if (draggingRef.current === 'left') {
+        setSidebarWidth(e.clientX);
+      } else {
+        setRightPanelWidth(window.innerWidth - e.clientX);
+      }
+    };
+    const onUp = () => { draggingRef.current = null; };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [setSidebarWidth, setRightPanelWidth]);
 
   // Initiate WebSocket connection only when we have a sessionId.
   useWebSocket(sessionId);
@@ -135,11 +170,12 @@ function AuthenticatedApp() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save/restore scroll position when FileViewer opens/closes (R1).
-  const prevOpenFileRef = useRef(openFile);
+  const hasActiveFile = activeFileTabId !== null;
+  const prevHasFileRef = useRef(hasActiveFile);
   useEffect(() => {
-    const wasOpen = prevOpenFileRef.current !== null;
-    const isOpen = openFile !== null;
-    prevOpenFileRef.current = openFile;
+    const wasOpen = prevHasFileRef.current;
+    const isOpen = hasActiveFile;
+    prevHasFileRef.current = hasActiveFile;
 
     if (!wasOpen && isOpen && contentRef.current) {
       // FileViewer opening — save current scroll position.
@@ -152,7 +188,19 @@ function AuthenticatedApp() {
         }
       });
     }
-  }, [openFile]);
+  }, [hasActiveFile]);
+
+  // Auto-collapse RightPanel when FileViewer opens; restore when it closes.
+  const savedRightPanelRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (hasActiveFile && rightPanelOpen) {
+      savedRightPanelRef.current = true;
+      setRightPanelOpen(false);
+    } else if (!hasActiveFile && savedRightPanelRef.current) {
+      setRightPanelOpen(true);
+      savedRightPanelRef.current = null;
+    }
+  }, [hasActiveFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasNotebook = notebook !== null;
 
@@ -170,12 +218,13 @@ function AuthenticatedApp() {
           </button>
         </div>
       )}
-      <div className={`app-body${openFile && fileViewerMaximized ? ' app-body--fv-maximized' : ''}`}>
+      <div className={`app-body${hasActiveFile && fileViewerMaximized ? ' app-body--fv-maximized' : ''}`}>
         <ProjectSidebar />
+        <div className="app-divider" onMouseDown={startLeftDrag} />
         <main ref={contentRef} className="app-content">
           <NotebookTabs />
           <div className="notebook-area">
-            {openFile ? (
+            {hasActiveFile ? (
               <FileViewer />
             ) : gitTabOpen && activeProjectId ? (
               <GitHistoryPanel projectId={activeProjectId} />
@@ -190,6 +239,7 @@ function AuthenticatedApp() {
             )}
           </div>
         </main>
+        <div className="app-divider" onMouseDown={startRightDrag} />
         <RightPanel />
       </div>
     </div>

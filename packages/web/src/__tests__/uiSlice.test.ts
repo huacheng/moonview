@@ -299,3 +299,28 @@ describe('rightPanelWidth', () => {
     expect(state.rightPanelWidth).toBe(500);
   });
 });
+
+// ── setRightPanelOpen ──────────────────────────────────────────────────
+
+describe('setRightPanelOpen', () => {
+  it('explicitly sets rightPanelOpen to false', () => {
+    const { state, getAction } = createTestSlice();
+    expect(state.rightPanelOpen).toBe(true);
+    getAction('setRightPanelOpen')(false);
+    expect(state.rightPanelOpen).toBe(false);
+  });
+
+  it('explicitly sets rightPanelOpen to true', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setRightPanelOpen')(false);
+    expect(state.rightPanelOpen).toBe(false);
+    getAction('setRightPanelOpen')(true);
+    expect(state.rightPanelOpen).toBe(true);
+  });
+
+  it('idempotent: setting true when already true', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('setRightPanelOpen')(true);
+    expect(state.rightPanelOpen).toBe(true);
+  });
+});

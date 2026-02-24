@@ -7,11 +7,14 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   | 'setActiveTab' | 'openGitTab' | 'closeGitTab'
   | 'clearSessionNotice' | 'setLatency'
   | 'setWsReconnectExhausted'
-  | 'openFile' | 'fileViewerMaximized'
-  | 'setOpenFile' | 'toggleFileViewerMaximized'
+  | 'openFiles' | 'activeFileTabId' | 'fileViewerMaximized'
+  | 'openFileTab' | 'closeFileTab' | 'setActiveFileTab' | 'deactivateFileTab' | 'closeAllFileTabs' | 'setFileTabLoading'
+  | 'toggleFileViewerMaximized'
   | 'leftSidebarSplitRatio' | 'setLeftSidebarSplitRatio'
   | 'rightPanelOpen' | 'rightPanelSplitRatio'
-  | 'toggleRightPanel' | 'setRightPanelSplitRatio'
+  | 'toggleRightPanel' | 'setRightPanelOpen' | 'setRightPanelSplitRatio'
+  | 'sidebarWidth' | 'rightPanelWidth'
+  | 'setSidebarWidth' | 'setRightPanelWidth'
 >> = (set) => ({
   activeTab: 'notebook',
   gitTabOpen: false,
@@ -20,10 +23,13 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
   creatingNotebook: false,
   wsReconnectExhausted: false,
   leftSidebarSplitRatio: 0.5,
-  openFile: null,
+  openFiles: {},
+  activeFileTabId: null,
   fileViewerMaximized: false,
   rightPanelOpen: true,
   rightPanelSplitRatio: 0.5,
+  sidebarWidth: 272,
+  rightPanelWidth: 300,
 
   setActiveTab(tab) {
     set({ activeTab: tab, gitTabOpen: tab === 'git' });
@@ -49,8 +55,43 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
     set({ wsReconnectExhausted: v });
   },
 
-  setOpenFile(file) {
-    set({ openFile: file });
+  openFileTab(file) {
+    const tabId = `${file.source}::${file.path}`;
+    set(s => ({
+      openFiles: { ...s.openFiles, [tabId]: { ...file, loading: true } },
+      activeFileTabId: tabId,
+    }));
+  },
+
+  closeFileTab(tabId) {
+    set(s => {
+      const { [tabId]: _, ...rest } = s.openFiles;
+      const ids = Object.keys(rest);
+      const newActive = s.activeFileTabId === tabId
+        ? (ids[0] ?? null)
+        : s.activeFileTabId;
+      return { openFiles: rest, activeFileTabId: newActive };
+    });
+  },
+
+  setActiveFileTab(tabId) {
+    set({ activeFileTabId: tabId });
+  },
+
+  deactivateFileTab() {
+    set({ activeFileTabId: null });
+  },
+
+  closeAllFileTabs() {
+    set({ openFiles: {}, activeFileTabId: null });
+  },
+
+  setFileTabLoading(tabId, loading) {
+    set(s => {
+      const entry = s.openFiles[tabId];
+      if (!entry) return s;
+      return { openFiles: { ...s.openFiles, [tabId]: { ...entry, loading } } };
+    });
   },
 
   toggleFileViewerMaximized() {
@@ -61,11 +102,23 @@ export const createUiSlice: StateCreator<NotebookStore, [], [], Pick<NotebookSto
     set((state) => ({ rightPanelOpen: !state.rightPanelOpen }));
   },
 
+  setRightPanelOpen(open) {
+    set({ rightPanelOpen: open });
+  },
+
   setLeftSidebarSplitRatio(ratio) {
     set({ leftSidebarSplitRatio: Math.min(0.8, Math.max(0.2, ratio)) });
   },
 
   setRightPanelSplitRatio(ratio) {
     set({ rightPanelSplitRatio: ratio });
+  },
+
+  setSidebarWidth(px) {
+    set({ sidebarWidth: Math.min(500, Math.max(180, px)) });
+  },
+
+  setRightPanelWidth(px) {
+    set({ rightPanelWidth: Math.min(500, Math.max(180, px)) });
   },
 });

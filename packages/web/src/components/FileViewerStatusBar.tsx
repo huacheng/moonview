@@ -8,18 +8,38 @@ interface FileViewerStatusBarProps {
   onToggleMode: () => void;
   onToggleMaximize: () => void;
   onClose: () => void;
+  pdfPage?: number;
+  pdfPages?: number;
+  pdfScale?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
 }
 
 const FORMAT_LABEL: Partial<Record<FileFormat, string>> = {
   text: 'Text', html: 'HTML', 'pdf-binary': 'PDF', 'docx-binary': 'DOCX', 'xlsx-binary': 'XLSX', 'pptx-binary': 'PPTX', unsupported: '—',
 };
 
-export function FileViewerStatusBar({ filename, format, mode, maximized, onToggleMode, onToggleMaximize, onClose }: FileViewerStatusBarProps) {
+export function FileViewerStatusBar({
+  filename, format, mode, maximized, onToggleMode, onToggleMaximize, onClose,
+  pdfPage, pdfPages, pdfScale, onZoomIn, onZoomOut,
+}: FileViewerStatusBarProps) {
   const canEdit = format !== null && !format.endsWith('-binary') && format !== 'unsupported';
+  const showPdfControls = pdfPages !== undefined && pdfPages > 0;
   return (
     <div className="fv-statusbar">
       <span className="fv-statusbar__name" title={filename}>{filename}</span>
       {format && <span className="fv-statusbar__format">{FORMAT_LABEL[format] ?? format}</span>}
+
+      {/* PDF page & zoom controls */}
+      {showPdfControls && (
+        <div className="fv-statusbar__pdf-controls">
+          <span className="fv-statusbar__page-info">{pdfPage} / {pdfPages}</span>
+          <button className="fv-statusbar__btn" onClick={onZoomOut} title="Zoom out">−</button>
+          <span className="fv-statusbar__zoom-level">{Math.round((pdfScale ?? 1) * 100)}%</span>
+          <button className="fv-statusbar__btn" onClick={onZoomIn} title="Zoom in">+</button>
+        </div>
+      )}
+
       <div className="fv-statusbar__actions">
         {canEdit && (
           <button className={`fv-statusbar__btn${mode === 'edit' ? ' active' : ''}`} onClick={onToggleMode}>

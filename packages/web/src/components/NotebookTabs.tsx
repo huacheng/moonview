@@ -1,5 +1,10 @@
 import { useStore } from '../store';
 
+const MAX_TAB_CHARS = 20;
+function truncate(s: string): string {
+  return s.length > MAX_TAB_CHARS ? s.slice(0, MAX_TAB_CHARS) + '…' : s;
+}
+
 export function NotebookTabs() {
   const openNotebooks = useStore(s => s.openNotebooks);
   const activeNotebookTabId = useStore(s => s.activeNotebookTabId);
@@ -10,24 +15,29 @@ export function NotebookTabs() {
   const closeGitTab = useStore(s => s.closeGitTab);
   const activeProjectId = useStore(s => s.activeProjectId);
   const projects = useStore(s => s.projects);
-  const openFile = useStore(s => s.openFile);
-  const setOpenFile = useStore(s => s.setOpenFile);
+  const openFiles = useStore(s => s.openFiles);
+  const activeFileTabId = useStore(s => s.activeFileTabId);
+  const setActiveFileTab = useStore(s => s.setActiveFileTab);
+  const closeFileTab = useStore(s => s.closeFileTab);
+  const deactivateFileTab = useStore(s => s.deactivateFileTab);
 
-  const tabs = Object.entries(openNotebooks);
+  const notebookTabs = Object.entries(openNotebooks);
+  const fileTabs = Object.entries(openFiles);
   const activeProject = activeProjectId ? projects.find(p => p.id === activeProjectId) : null;
-  const hasFileTab = openFile !== null;
 
-  if (tabs.length === 0 && !activeProject && !hasFileTab) return null;
+  if (notebookTabs.length === 0 && !activeProject && fileTabs.length === 0) return null;
+
+  const hasActiveFile = activeFileTabId !== null;
 
   return (
     <div className="notebook-tabs">
-      {tabs.map(([id, { notebook }]) => (
+      {notebookTabs.map(([id, { notebook }]) => (
         <div
           key={id}
-          className={`notebook-tab${id === activeNotebookTabId && !gitTabOpen && !hasFileTab ? ' notebook-tab--active' : ''}`}
-          onClick={() => { closeGitTab(); setOpenFile(null); setActiveNotebookTab(id); }}
+          className={`notebook-tab${id === activeNotebookTabId && !gitTabOpen && !hasActiveFile ? ' notebook-tab--active' : ''}`}
+          onClick={() => { closeGitTab(); deactivateFileTab(); setActiveNotebookTab(id); }}
         >
-          <span className="notebook-tab-title">{notebook.metadata.title}</span>
+          <span className="notebook-tab-title" title={notebook.metadata.title}>{truncate(notebook.metadata.title)}</span>
           <button
             className="notebook-tab-close"
             onClick={e => { e.stopPropagation(); closeNotebookTab(id); }}
@@ -38,10 +48,10 @@ export function NotebookTabs() {
       ))}
       {activeProject && (
         <div
-          className={`notebook-tab notebook-tab--git${gitTabOpen && !hasFileTab ? ' notebook-tab--active' : ''}`}
-          onClick={() => { setOpenFile(null); openGitTab(); }}
+          className={`notebook-tab notebook-tab--git${gitTabOpen && !hasActiveFile ? ' notebook-tab--active' : ''}`}
+          onClick={() => { deactivateFileTab(); openGitTab(); }}
         >
-          <span className="notebook-tab-title">Git({activeProject.title})</span>
+          <span className="notebook-tab-title" title={`Git(${activeProject.title})`}>{truncate(`Git(${activeProject.title})`)}</span>
           <button
             className="notebook-tab-close"
             onClick={e => { e.stopPropagation(); closeGitTab(); }}
@@ -50,17 +60,22 @@ export function NotebookTabs() {
           </button>
         </div>
       )}
-      {hasFileTab && (
-        <div className="notebook-tab notebook-tab--file notebook-tab--active">
-          <span className="notebook-tab-title">{openFile!.path.split('/').pop()}</span>
+      {fileTabs.map(([tabId, file]) => (
+        <div
+          key={tabId}
+          className={`notebook-tab notebook-tab--file${tabId === activeFileTabId ? ' notebook-tab--active' : ''}${file.loading ? ' notebook-tab--loading' : ''}`}
+          onClick={() => setActiveFileTab(tabId)}
+        >
+          {file.loading && <span className="notebook-tab-spinner" />}
+          <span className="notebook-tab-title" title={file.path.split('/').pop()}>{truncate(file.path.split('/').pop() ?? '')}</span>
           <button
             className="notebook-tab-close"
-            onClick={() => setOpenFile(null)}
+            onClick={e => { e.stopPropagation(); closeFileTab(tabId); }}
           >
             &times;
           </button>
         </div>
-      )}
+      ))}
     </div>
   );
 }
