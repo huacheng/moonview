@@ -30,6 +30,7 @@ export function useFileStream(
   source: 'workspace' | 'library',
 ) {
   const ws = useStore((s) => s.ws);
+  const wsStatus = useStore((s) => s.wsStatus);
   const [state, setState] = useState<FileStreamState>(INITIAL_STATE);
 
   const contentRef = useRef('');
@@ -54,7 +55,7 @@ export function useFileStream(
   }, [flushState]);
 
   useEffect(() => {
-    if (!sessionId || !notebookId || !filePath || !ws) return;
+    if (!sessionId || !notebookId || !filePath || !ws || wsStatus !== 'connected') return;
 
     contentRef.current = '';
     b64Ref.current = '';
@@ -150,7 +151,7 @@ export function useFileStream(
       ws.removeEventListener('message', handleMessage);
       if (throttleRef.current !== null) { clearTimeout(throttleRef.current); throttleRef.current = null; }
     };
-  }, [sessionId, notebookId, filePath, source, ws, scheduleFlush]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, notebookId, filePath, source, ws, wsStatus, scheduleFlush]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return state;
 }

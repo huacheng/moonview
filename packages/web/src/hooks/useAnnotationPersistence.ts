@@ -22,6 +22,7 @@ export function useAnnotationPersistence({
   sessionId, notebookId, filePath, annotations, annLoadedRef, setAnnotations,
 }: UseAnnotationPersistenceArgs) {
   const ws = useStore((s) => s.ws);
+  const wsStatus = useStore((s) => s.wsStatus);
   const latency = useStore((s) => s.latency);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -29,7 +30,7 @@ export function useAnnotationPersistence({
 
   // L1 + L2 save whenever annotations change
   useEffect(() => {
-    if (!annLoadedRef.current || !ws) return;
+    if (!annLoadedRef.current || !ws || wsStatus !== 'connected') return;
     const lsKey = storageKey(notebookId, filePath);
     const serialized = JSON.stringify(annotations);
 
@@ -59,11 +60,11 @@ export function useAnnotationPersistence({
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [annotations, sessionId, notebookId, filePath, ws, latency, annLoadedRef]);
+  }, [annotations, sessionId, notebookId, filePath, ws, wsStatus, latency, annLoadedRef]);
 
   // Load on filePath change: L1 instant + L2 async merge
   useEffect(() => {
-    if (!ws) return;
+    if (!ws || wsStatus !== 'connected') return;
     annLoadedRef.current = false;
 
     // L1: instant from localStorage
@@ -107,5 +108,5 @@ export function useAnnotationPersistence({
     return () => {
       ws.removeEventListener('message', handleMessage);
     };
-  }, [sessionId, notebookId, filePath, ws]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, notebookId, filePath, ws, wsStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 }
