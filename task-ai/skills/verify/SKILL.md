@@ -43,12 +43,21 @@ Run domain-adapted tests and verification procedures for a task module, producin
 8. **Gap check**: if `.type-profile.md` lacks verification standards OR `.references/` lacks testing/verification knowledge for the task `type`, trigger `research --scope gap --caller verify` to collect missing references before proceeding
 9. **Determine** verification strategy: use `.type-profile.md` "Verification Standards" first, supplement with per-type seed file `init/references/seed-types/<type>.md` (verify section), combine with `.references/` domain knowledge. If verification reveals that `.type-profile.md` standards are inadequate, update its "Verification Standards" section with findings. For hybrid types (`A|B`), read seed files and experience for all segments
 10. **Execute** verification procedures per checkpoint scope:
-    - **Optional delegation — tdd** (`full` or `step-N` checkpoint, `type` contains `software`): Follow `auto/references/plugin-delegation.md` to attempt matching the `tdd` capability slot. If matched, invoke via Task subagent — delegate test generation/execution, merge results into standard verification output. No match or failure → continue standard verification flow
+    - **TDD delegation** (`full` or `step-N` checkpoint, `type` contains `software`): Follow `auto/references/plugin-delegation.md` to attempt matching the `tdd` capability slot. For `software` types, tdd delegation is **default-enabled** (not optional) at `full` and `step-N` checkpoints. If matched, invoke via Task subagent — delegate test generation/execution, merge results into standard verification output. No match or failure → continue standard verification flow
     - `quick`: build, lint, type check — fast feedback loop
     - `full`: all `.test/` criteria, acceptance tests from `.target.md`, regression tests
     - `step-N`: only criteria associated with step N from `.test/` criteria file
-11. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics)
-12. **Write** `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-verify.md` with test outcomes, domain verification patterns, and threshold findings — `quality_status: provisional`. Follow six-step Library Write Protocol (see `skills/library/SKILL.md`): acquire `.memory/.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.memory/.experiences/<type>/.index.md` row → release lock. Skip if `--checkpoint quick` (insufficient evidence for experience)
+11. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics). For `software` types, append a **TDD Metrics** section:
+    ```markdown
+    ## TDD Metrics
+    - Red stubs total: N (from `.test/<date>-red-baseline.md`)
+    - Green (passing): M
+    - Still Red (failing): N - M
+    - Red→Green cycle count: K (steps that completed a full Red→Green transition)
+    - Coverage: X% (if coverage tooling is available, otherwise "N/A")
+    - TDD compliance: (K / total_steps)% of steps followed Red→Green discipline
+    ```
+12. **Write** `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-verify.md` with test outcomes, domain verification patterns, and threshold findings — `quality_status: provisional`. For `software` types, include TDD patterns learned: which testing frameworks worked well, Red stub generation techniques, common reasons for Red→Green failures, refactoring patterns applied. Follow six-step Library Write Protocol (see `skills/library/SKILL.md`): acquire `.memory/.experiences/.lock` → O_APPEND with `---` separator (create file if not exists) → append `experience` changelog line → update `.memory/.experiences/<type>/.index.md` row → release lock. Skip if `--checkpoint quick` (insufficient evidence for experience)
 13. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
 14. **Git commit**: `task-ai(<notebook>):verify <checkpoint> verification`
 15. **Write** `.auto-signal`: `{ "step": "verify", "result": "(pass|fail|partial)", "next": "check", "checkpoint": "<checkpoint>", "timestamp": "..." }`

@@ -56,12 +56,19 @@ Read the `type` field from `.index.json` to determine the task domain. Execution
 For each implementation step:
 
 1. **Read** relevant files (source code, configs, scripts, documentation)
-2. **Implement** the change using **domain-appropriate methods** as described in the plan (see `init/references/seed-types/<type>.md` for per-type seed methodology, or `.type-profile.md` for task-specific guidance)
+2. **Red confirmation** (software types with Red stubs): If `type` contains `software` AND `.test/<date>-red-stubs.test.*` exists, run **only** the tests corresponding to the current step (identified by the `[Red: ...]` annotations in `.plan.md`) before implementing:
+   - **Expected: all Red (failing)** → proceed to implementation
+   - **Unexpected: any Green (passing)** → log warning in `.notes/`: "Step N: test X was Green before implementation — test may be trivially satisfied or implementation leaked from a prior step". Continue implementation but flag for review
+3. **Implement** the change using **domain-appropriate methods** as described in the plan (see `init/references/seed-types/<type>.md` for per-type seed methodology, or `.type-profile.md` for task-specific guidance)
    - **Optional delegation — capability check**: Before implementing, follow `auto/references/plugin-delegation.md` to check if the current step matches a capability slot: `type` containing `frontend`/`web`/`ui` → `frontend-design` slot; `type` containing `bugfix` or NEEDS_FIX resumption → `debugging` slot; `type` containing `software` with `.test/` criteria → `tdd` slot; otherwise → `domain-*` semantic scan. If matched, invoke via Task subagent — guidance is incorporated into the implementation approach. No match or failure → use existing inline methods
-3. **Verify** the step succeeded against `.test/` criteria using **domain-appropriate verification** (see per-type seed file or `.type-profile.md` for domain verification methods)
-4. **Record** what was done (files changed, commands run, tools invoked, approach taken)
-5. **Create** `.notes/<YYYY-MM-DD>-<summary>-exec.md` when implementation deviates from plan, an unexpected workaround is needed, or a non-obvious API behavior is discovered. Skip for straightforward steps that follow the plan exactly
-6. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
+4. **Green confirmation** (software types with Red stubs): After implementing, run the same step-specific tests:
+   - **All Green (passing)** → record successful Red→Green transition, proceed
+   - **Still Red (failing)** → mark step as `NEEDS_FIX`, record failure details (which tests still fail and why). If minor, attempt a targeted fix and re-run. If unresolvable, signal `(mid-exec)` for check evaluation
+5. **Refactor window** (software types, after Green confirmation): With tests passing, check for obvious refactoring opportunities in the code just written (duplication, naming, dead code). If refactored, run the **full** test suite (not just step tests) to confirm no regressions. Skip if the step was straightforward with no refactoring opportunities
+6. **Verify** the step succeeded against `.test/` criteria using **domain-appropriate verification** (see per-type seed file or `.type-profile.md` for domain verification methods)
+7. **Record** what was done (files changed, commands run, tools invoked, approach taken)
+8. **Create** `.notes/<YYYY-MM-DD>-<summary>-exec.md` when implementation deviates from plan, an unexpected workaround is needed, or a non-obvious API behavior is discovered. Skip for straightforward steps that follow the plan exactly. For software types, include a **TDD Cycle Summary** section per step: `Red (N failing) → Green (N passing) → Refactor (yes/no)`
+9. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
 
 ### Issue Handling
 
@@ -81,12 +88,15 @@ For each implementation step:
 5. **Detect completed steps**: read `completed_steps` field from `.index.json` to determine progress; skip steps ≤ `completed_steps`
 6. **If NEEDS_FIX resumption**: determine fix source by reading **both** `.bugfix/` and `.analysis/` latest files, using the most recent file (by filename date) as the primary fix guidance. `.bugfix/` entries indicate mid-exec issues; `.analysis/` entries indicate post-exec issues. Address fix items before continuing remaining steps
 7. **If** `--step N` specified, execute only that step; otherwise execute remaining incomplete steps in order
-8. **For each step:**
+8. **For each step** (follow Per-Step Execution flow above):
    a. Read required files
-   b. Implement the change
-   c. Verify against `.test/` criteria (diagnostics / build check). For domain-specific testing, can optionally invoke `verify --checkpoint step-N`
-   d. Record result
-   e. Update `.index.json` `completed_steps` to current step number
+   b. **Red confirmation** — run step-specific Red stubs (software types only, see Per-Step step 2)
+   c. Implement the change
+   d. **Green confirmation** — run step-specific tests, confirm Red→Green transition (software types only, see Per-Step step 4)
+   e. **Refactor window** — check for refactoring opportunities, run full suite to confirm no regressions (software types only, see Per-Step step 5)
+   f. Verify against `.test/` criteria (diagnostics / build check). For domain-specific testing, can optionally invoke `verify --checkpoint step-N`
+   g. Record result (include TDD cycle summary for software types)
+   h. Update `.index.json` `completed_steps` to current step number
 9. **After all steps** (or on failure):
    - Update `.index.json` timestamp
    - Write task-level `.summary.md` with condensed context: current progress, steps completed, key decisions, issues encountered, remaining work (integrate from directory summaries)
