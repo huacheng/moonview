@@ -19,26 +19,37 @@ A "fast-track" mode for small, self-contained tasks (e.g., typos, simple CSS twe
 - **Finish**: `/moonview:light --finish` — Squash merges changes to master, deletes the branch, and clears the record.
 - **Promote**: `/moonview:light --promote` — Converts the shadow task into a standard heavy-duty notebook (creates directory, etc.).
 
+## Complexity Constraints
+
+To maintain the "lightweight" nature of this mode, the following thresholds are enforced:
+
+1.  **File Limit**: If more than **3 files** are modified, the agent MUST suggest `/moonview:light --promote`.
+2.  **Attempt Limit**: If more than **3 verification attempts** fail during the `exec` phase, the agent MUST suggest `/moonview:light --promote`.
+3.  **Scope Creep**: If the task objective evolves beyond a single self-contained fix, promote it.
+
 ## Execution Steps
 
 1. **Context discovery**:
    - Locate the project root (where `.git/` exists).
 2. **Start shadow session** (if `objective` provided):
-   - **Registry**: Record the task goal in `$PROJECT_ROOT/.light-tasks.jsonl`.
+   - **Initialize**: Call `/moonview:init` to create a minimalist notebook directory (maintains system architecture).
+   - **Registry**: The `init` command records the task; `light.sh` adds `mode: light` to `.index.json`.
    - **Branch**: `git checkout -b light/<slug>-<timestamp>`.
-   - **Verify**: Output a confirmation message. A minimalist notebook directory is created under the project to maintain the notebook-bound architecture.
-3. **Execute change**:
+   - **Verify**: Output a confirmation message. 
+3. **Status & Monitoring**:
+   - `/moonview:light --status` — Checks the number of modified files and displays the current objective.
+4. **Execute change**:
    - The agent modifies files directly in the codebase.
-   - **No intermediate commits**: All changes stay in the working tree/index of the shadow branch.
-4. **Quick Verification**:
-   - Run lightweight checks (e.g., `npm run lint`, `tsc`, or basic build).
-5. **Atomic Finish** (if `--finish` provided):
-   - **Merge**: `git checkout master && git merge --squash <shadow-branch>`.
-   - **Commit**: `git commit -m "task-ai(light): <objective>"`.
-   - **Cleanup**: Delete the shadow branch and remove the entry from `.light-tasks.jsonl`.
-6. **Promotion** (if `--promote` provided):
-   - Call `/moonview:init` with the current objective.
-   - Migrate changes from the shadow branch to the new notebook branch.
+   - **Check Complexity**: Periodically run `--status` or manually count changed files.
+5. **Quick Verification**:
+   - Run lightweight checks (e.g., `npm run lint`, `tsc`).
+6. **Atomic Finish** (if `--finish` provided):
+   - **Merge**: Squash merge the shadow branch into the main branch.
+   - **Commit**: Single commit: `task-ai(<project>):light <objective>`.
+   - **Cleanup**: Delete the shadow branch and the transient notebook directory.
+7. **Promotion** (if `--promote` provided):
+   - **Upgrade**: Convert the transient notebook into a standard task (remove `light` mode flag, set status to `planning`, rename branch to `task/`).
+
 
 ## State Transitions
 

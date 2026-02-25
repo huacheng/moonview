@@ -5,6 +5,7 @@
 source "$(dirname "$0")/lib.sh"
 
 CHECK_SH="$TASK_AI_ROOT/skills/check/scripts/check.sh"
+STATE_PY="$TASK_AI_ROOT/core/state.py"
 TEST_NB="check-tdd-$(date +%s)"
 export NB_WORKSPACES_ROOT="/tmp/check-functional-test"
 
@@ -18,7 +19,7 @@ echo '{"status":"planning"}' > "$INDEX_JSON"
 "$CHECK_SH" "$TEST_NB" --checkpoint post-plan > /dev/null
 
 # 1. Assert: Status changed to review
-NEW_STATUS=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['status'])")
+NEW_STATUS=$(python3 "$STATE_PY" get "$INDEX_JSON" status)
 if [[ "$NEW_STATUS" == "review" ]]; then
     emit_pass "check: post-plan PASS transitioned to review"
 else

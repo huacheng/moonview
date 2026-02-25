@@ -5,6 +5,7 @@
 source "$(dirname "$0")/lib.sh"
 
 EXEC_SH="$TASK_AI_ROOT/skills/exec/scripts/exec.sh"
+STATE_PY="$TASK_AI_ROOT/core/state.py"
 TEST_NB="exec-tdd-$(date +%s)"
 export NB_WORKSPACES_ROOT="/tmp/exec-functional-test"
 
@@ -18,7 +19,7 @@ echo '{"completed_steps":0, "type":"software"}' > "$INDEX_JSON"
 "$EXEC_SH" "$TEST_NB" > /dev/null
 
 # 1. Assert: Progress is 1
-CUR_PROG=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['completed_steps'])")
+CUR_PROG=$(python3 "$STATE_PY" get "$INDEX_JSON" completed_steps)
 if [[ "$CUR_PROG" == "1" ]]; then
     emit_pass "exec: incremented progress to 1"
 else
@@ -37,7 +38,7 @@ fi
 "$EXEC_SH" "$TEST_NB" > /dev/null
 
 # 3. Assert: Progress is 2
-CUR_PROG=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['completed_steps'])")
+CUR_PROG=$(python3 "$STATE_PY" get "$INDEX_JSON" completed_steps)
 if [[ "$CUR_PROG" == "2" ]]; then
     emit_pass "exec: incremented progress to 2"
 else

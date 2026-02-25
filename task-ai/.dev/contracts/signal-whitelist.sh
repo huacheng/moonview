@@ -9,9 +9,10 @@ if [[ ! -f "$SIGNALS_FILE" ]]; then
   summary; exit $?
 fi
 
-result_whitelist=$(python3 -c "import json; d=json.load(open('$SIGNALS_FILE')); print('\n'.join(d['result_whitelist']))")
-next_whitelist=$(python3 -c "import json; d=json.load(open('$SIGNALS_FILE')); print('\n'.join(d['next_whitelist']))")
-checkpoint_whitelist=$(python3 -c "import json; d=json.load(open('$SIGNALS_FILE')); print('\n'.join(d['checkpoint_whitelist']))")
+JSON_GET="$TASK_AI_ROOT/.dev/contracts/json_get.py"
+result_whitelist=$(python3 "$JSON_GET" "$SIGNALS_FILE" result_whitelist --join)
+next_whitelist=$(python3 "$JSON_GET" "$SIGNALS_FILE" next_whitelist --join)
+checkpoint_whitelist=$(python3 "$JSON_GET" "$SIGNALS_FILE" checkpoint_whitelist --join)
 
 # Scan all SKILL.md files for .auto-signal sections
 while IFS= read -r skill_file; do

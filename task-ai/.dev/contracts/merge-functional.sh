@@ -29,7 +29,8 @@ EOF
 "$MERGE_SH" "$TEST_NB" > /dev/null
 
 # 1. Assert: Status is complete
-STATUS=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['status'])")
+STATE_PY="$TASK_AI_ROOT/core/state.py"
+STATUS=$(python3 "$STATE_PY" get "$INDEX_JSON" status)
 if [[ "$STATUS" == "complete" ]]; then
     emit_pass "merge: updated status to complete"
 else
@@ -37,7 +38,7 @@ else
 fi
 
 # 2. Assert: Branch metadata cleared
-BRANCH_META=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['branch'])")
+BRANCH_META=$(python3 "$STATE_PY" get "$INDEX_JSON" branch)
 if [[ -z "$BRANCH_META" ]]; then
     emit_pass "merge: cleared branch metadata"
 else

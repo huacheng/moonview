@@ -5,6 +5,7 @@
 source "$(dirname "$0")/lib.sh"
 
 LIGHT_SH="$TASK_AI_ROOT/skills/light/scripts/light.sh"
+STATE_PY="$TASK_AI_ROOT/core/state.py"
 TEST_PROJECT="test-project"
 TEST_OBJ="Fix spelling"
 export NB_WORKSPACES_ROOT="/tmp/task-ai-test"
@@ -81,7 +82,7 @@ cd "$NB_DIR" || exit 1
 
 # 1. Check if mode flag is removed
 INDEX_JSON=".working/.index.json"
-MODE=$(python3 -c "import json; print(json.load(open('$INDEX_JSON')).get('mode', ''))")
+MODE=$(python3 "$STATE_PY" get "$INDEX_JSON" mode)
 if [[ "$MODE" != "light" ]]; then
     emit_pass "light: successfully removed light mode flag during promotion"
 else
@@ -97,11 +98,26 @@ else
 fi
 
 # 3. Check if status is planning
-STATUS=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['status'])")
+STATUS=$(python3 "$STATE_PY" get "$INDEX_JSON" status)
 if [[ "$STATUS" == "planning" ]]; then
     emit_pass "light: status set to planning after promotion"
 else
     emit_fail "light: failed to set status to planning"
+fi
+
+# --- Test 4: Threshold Detection ---
+# Setup a fresh light task
+cd "$NB_WORKSPACES_ROOT/$TEST_PROJECT" || exit 1
+"$LIGHT_SH" "$TEST_PROJECT" "Bulk Update" > /dev/null
+# Modify 4 files
+touch file1 file2 file3 file4
+git add file1 file2 file3 file4
+
+OUTPUT=$("$LIGHT_SH" --status 2>&1)
+if echo "$OUTPUT" | grep -q "Complexity warning: 4 files modified"; then
+    emit_pass "light: correctly detected file modification threshold"
+else
+    emit_fail "light: failed to detect complexity threshold (Output: $OUTPUT)"
 fi
 
 # Cleanup

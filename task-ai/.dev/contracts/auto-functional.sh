@@ -5,6 +5,7 @@
 source "$(dirname "$0")/lib.sh"
 
 AUTO_SH="$TASK_AI_ROOT/skills/auto/scripts/auto.sh"
+JSON_GET="$TASK_AI_ROOT/.dev/contracts/json_get.py"
 TEST_NB="auto-tdd-$(date +%s)"
 export NB_WORKSPACES_ROOT="/tmp/auto-functional-test"
 
@@ -16,7 +17,8 @@ INDEX_JSON="$NB_WORKSPACES_ROOT/proj/$TEST_NB/.working/.index.json"
 # --- Test 1: Draft Entry ---
 echo '{"status":"draft"}' > "$INDEX_JSON"
 "$AUTO_SH" "$TEST_NB" > /dev/null
-NEXT=$(python3 -c "import json; print(json.load(open('$NB_WORKSPACES_ROOT/proj/$TEST_NB/.working/.auto-signal'))['next'])")
+SIGNAL_FILE="$NB_WORKSPACES_ROOT/proj/$TEST_NB/.working/.auto-signal"
+NEXT=$(python3 "$JSON_GET" "$SIGNAL_FILE" next)
 if [[ "$NEXT" == "plan" ]]; then
     emit_pass "auto: correctly routed draft to plan"
 else
@@ -26,7 +28,7 @@ fi
 # --- Test 2: Planning Entry ---
 echo '{"status":"planning"}' > "$INDEX_JSON"
 "$AUTO_SH" "$TEST_NB" > /dev/null
-NEXT=$(python3 -c "import json; print(json.load(open('$NB_WORKSPACES_ROOT/proj/$TEST_NB/.working/.auto-signal'))['next'])")
+NEXT=$(python3 "$JSON_GET" "$SIGNAL_FILE" next)
 if [[ "$NEXT" == "check" ]]; then
     emit_pass "auto: correctly routed planning to check"
 else
