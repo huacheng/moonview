@@ -36,7 +36,7 @@ Content from these sources is stored but automatically tagged `injection_risk: h
 
 **Note**: These platforms also host legitimate content. Content is stored but treated with maximum caution throughout its lifecycle. Re-sanitisation is mandatory on every staleness refresh.
 
-**Action**: Store file; set `injection_risk: high`; apply full nine-category sanitisation; apply `<external-reference>` wrapper on all reads.
+**Action**: Store file; set `injection_risk: high`; apply full ten-category sanitisation; apply `<external-reference>` wrapper on all reads.
 
 ---
 
@@ -69,7 +69,7 @@ These source types receive no automatic risk elevation. Normal sanitisation stil
 | Package registries | `npmjs.com`, `pypi.org`, `crates.io`, `rubygems.org` |
 | Platform documentation | `aws.amazon.com/documentation`, `cloud.google.com/docs`, `learn.microsoft.com` |
 
-These sources are NOT exempt from sanitisation — all content runs through all nine categories. Tier classification only sets the default `injection_risk` floor; actual findings can upgrade it.
+These sources are NOT exempt from sanitisation — all content runs through all ten categories. Tier classification only sets the default `injection_risk` floor; actual findings can upgrade it.
 
 ---
 

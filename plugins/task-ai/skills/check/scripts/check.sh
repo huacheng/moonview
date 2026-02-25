@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# /moonview:check implementation
+# Usage: check.sh <notebook> [--checkpoint post-plan|mid-exec|post-exec]
+
+set -uo pipefail
+# Load context discovery from lib.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../../.dev/contracts/lib.sh"
+
+
+NOTEBOOK="${1:-}"
+# 1. Identify Context
+if [[ -z "$NOTEBOOK" ]]; then
+    if ! find_nb_context; then
+        echo "[ERROR] No active task context detected. Enter a notebook directory or specify a name." >&2
+        exit 1
+    fi
+    NOTEBOOK="$NB_NOTEBOOK"
+    WORK_DIR="$NB_WORKING"
+else
+    # Explicit notebook name provided
+    if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "[ERROR] Invalid notebook name." >&2
+        exit 1
+    fi
+    NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
+    WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
+fi
+
+if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "[ERROR] Invalid notebook name." >&2
+    exit 1
+fi
+
+shift || true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --checkpoint) CHECKPOINT="$2"; shift 2 ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
+NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
+WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
+INDEX_JSON="$WORK_DIR/.index.json"
+ANALYSIS_DIR="$WORK_DIR/../.analysis"
+mkdir -p "$ANALYSIS_DIR"
+
+if [[ ! -d "$WORK_DIR" ]]; then
+    echo "[ERROR] Working directory not found." >&2
+    exit 1
+fi
+
+STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
+
+# 1. Decision Logic (Simulated for plumbing)
+# In real AI agent run, this would be a reasoned verdict.
+VERDICT="PASS"
+[[ "$CHECKPOINT" == "post-exec" ]] && VERDICT="ACCEPT"
+
+echo "Checking $NOTEBOOK at $CHECKPOINT... Verdict: $VERDICT"
+
+# 2. State Transitions
+case "$VERDICT" in
+  PASS)
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status review
+    ;;
+  ACCEPT)
+    # ACCEPT keeps 'executing' status but signals 'merge'
+    ;;
+  REPLAN)
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status re-planning --phase needs-plan
+    ;;
+  BLOCKED)
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status blocked
+    ;;
+esac
+
+# 3. Output Analysis File
+DATE=$(date +%Y-%m-%d)
+ANALYSIS_FILE="$ANALYSIS_DIR/$DATE-$CHECKPOINT-${VERDICT,,}.md"
+cat > "$ANALYSIS_FILE" <<EOF
+# Evaluation: $CHECKPOINT · $DATE
+- Verdict: $VERDICT
+- Rationale: Simulated plumbing pass.
+EOF
+
+echo "Check completed. Analysis written to $ANALYSIS_FILE."

@@ -18,13 +18,17 @@ Sub-commands have different cognitive demands. The `model_tier` and `auto_delega
 | **exec** | heavy | false | Code generation + multi-file implementation; needs plan/check context |
 | **check** | heavy | false | Six-perspective audit + judgment; needs plan/exec implicit context |
 | **auto** | heavy | — (orchestration) | Loop management + decision routing; IS the main session |
+| **security** | heavy | false | Six-perspective security audit + judgment; needs plan/exec context |
+| **read** | medium | true | Web search + content collection; output to `.references/` is self-contained |
 | **research** | medium | true | Web search + content collection; output to `.references/` is self-contained |
 | **merge** | medium | false | Conflict resolution needs exec context; git state is session-bound |
 | **annotate** | medium | false | Cross-impact assessment needs module-wide file context |
 | **verify** | medium | true | Test execution + result collection; output to `.test/` is self-contained |
 | **report** | medium | true | Read all files + compose report; output to `.report.md` is self-contained |
+| **target** | light | true | Simple metadata update + natural language to markdown formatting |
 | **summarize** | light | true | Read + condense; output to `.summary.md` is self-contained |
 | **init** | light | true | Mechanical file creation + branch setup |
+| **light** | light | true | Fast-track shadow task orchestration |
 | **list** | light | true | Pure read-only query; no file writes |
 | **cancel** | light | true | Simple status update + cleanup |
 | **library** | light | true | Read-only queries (search/list/status) or mechanical maintenance; output is self-contained |

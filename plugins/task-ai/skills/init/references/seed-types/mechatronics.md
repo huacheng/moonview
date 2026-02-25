@@ -38,3 +38,7 @@ Hardware-in-loop, timing analysis, safety interlocks
 - **Key Sources**: Datasheet register maps, HAL/LL driver docs, protocol specs (I2C/SPI/CAN/UART)
 - **Implementation Approach**: Write firmware/control code, run simulations (Simulink, LTspice, etc.), verify timing and stability
 - **Step Verification**: Control stability analysis, timing constraint verification, safety margin checks
+
+### Verification Cycle
+
+Default verification cycle not specified.

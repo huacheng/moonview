@@ -1,6 +1,6 @@
 # Auto Mode — Backend API & Infrastructure
 
-Backend implementation details for the auto mode daemon. This file is for server-side development reference — Claude's internal loop logic does not depend on these details.
+Backend implementation details for the auto mode daemon. This file is for server-side development reference — the agent's internal loop logic does not depend on these details.
 
 ## Backend REST API
 
@@ -34,11 +34,11 @@ When `POST /api/sessions/:id/task-auto` is called:
 
 1. **Validate**: check no active auto loop for this session or task_dir
 2. **Insert** `task_auto` row into SQLite
-3. **Send** `claude "/moonview:auto <taskDir>"` to the session's PTY
+3. **Send** `/moonview:auto <taskDir>` to the prompt input window of the active session
 4. **Start** `fs.watch` on `taskDir` for `.auto-signal` changes
 5. **Start** heartbeat polling timer (60s interval)
 
-The daemon does NOT send any further commands after step 3. Claude's internal loop handles all subsequent orchestration.
+The daemon does NOT send any further commands after step 3. the agent's internal loop handles all subsequent orchestration.
 
 ## SQLite State
 
@@ -75,24 +75,24 @@ The frontend is a **pure observer** for auto mode, except for start/stop control
   - Current step (from latest `.auto-signal`)
   - Running / stopped status
 - **Stop button**: sends `DELETE /api/sessions/:id/task-auto` (daemon writes `.auto-stop`)
-- Does NOT drive the loop — Claude's internal loop handles all orchestration
+- Does NOT drive the loop — the agent's internal loop handles all orchestration
 
 ## Cleanup
 
-When auto mode stops (complete, blocked, cancelled, or manual stop), cleanup is split between Claude and the daemon:
+When auto mode stops (complete, blocked, cancelled, or manual stop), cleanup is split between the agent and the daemon:
 
-**Claude-side** (inside the session, at loop exit):
+**the agent-side** (inside the session, at loop exit):
 1. Delete `.auto-signal` file if exists
 2. Delete `.auto-stop` file if exists (consumed, no longer needed)
 
 **Daemon-side** (backend, after detecting loop exit or stop):
 1. Stop heartbeat polling timer
 2. Stop `fs.watch` on task directory
-3. **Delete stale files**: remove `.auto-signal`, `.auto-signal.tmp`, and `.auto-stop` from `task_dir` if they exist (Claude-side cleanup may have been skipped due to crash/kill)
+3. **Delete stale files**: remove `.auto-signal`, `.auto-signal.tmp`, and `.auto-stop` from `task_dir` if they exist (the agent-side cleanup may have been skipped due to crash/kill)
 4. Remove `task_auto` row from SQLite (clears all stall detection state)
 5. Frontend status indicator clears on next poll
 
-The daemon detects loop exit by: (a) receiving a `DELETE` API call (user stop), (b) heartbeat detecting shell prompt (Claude exited), or (c) `.auto-signal` with `next: "(stop)"` (natural completion). In all cases, daemon performs its cleanup steps above.
+The daemon detects loop exit by: (a) receiving a `DELETE` API call (user stop), (b) heartbeat detecting shell prompt (the agent exited), or (c) `.auto-signal` with `next: "(stop)"` (natural completion). In all cases, daemon performs its cleanup steps above.
 
 ## Server Recovery
 
@@ -100,13 +100,13 @@ On backend server restart, auto state is recovered from SQLite:
 
 1. **Read** all `task_auto` rows with `status = 'running'`
 2. **For each active row**:
-   a. **Delete stale `.auto-stop`** if exists in `task_dir` (prevents restarted Claude from immediately exiting due to leftover stop file from pre-crash state)
+   a. **Delete stale `.auto-stop`** if exists in `task_dir` (prevents restarted the agent from immediately exiting due to leftover stop file from pre-crash state)
    b. Check terminal state via `tmux capture-pane`:
-      - If Claude auto session still running → re-establish monitoring (fs.watch + heartbeat)
-      - If shell prompt visible (Claude exited) → restart with backoff: send `claude "/moonview:auto <task_dir>"` to PTY (Claude's internal loop reads `.index.json` to determine resume point). **Restart limit**: max 3 restarts per `task_dir`. Track restart count in a new SQLite column `restart_count INTEGER DEFAULT 0`. If exceeded, set row status to `'failed'` and log error "auto loop exceeded restart limit — likely crash loop, manual intervention required". Do NOT delete the row — leave for admin inspection
+      - If the agent auto session still running → re-establish monitoring (fs.watch + heartbeat)
+      - If shell prompt visible (the agent exited) → restart with backoff: send `/moonview:auto <task_dir>` to the prompt input window (the agent's internal loop reads `.index.json` to determine resume point). **Restart limit**: max 3 restarts per `task_dir`. Track restart count in a new SQLite column `restart_count INTEGER DEFAULT 0`. If exceeded, set row status to `'failed'` and log error "auto loop exceeded restart limit — likely crash loop, manual intervention required". Do NOT delete the row — leave for admin inspection
    c. Reset `stall_count` to `0` and `last_capture_hash` to `""` (fresh monitoring baseline)
    d. Start heartbeat polling timer
    e. Re-establish `fs.watch` on `task_dir` for `.auto-signal`
 3. **Resume** normal daemon operation (signal watching + heartbeat polling)
 
-On restart, Claude's auto loop re-reads `.index.json` and `.summary.md` to reconstruct context. The conversation context from the previous session is lost, but `.summary.md` provides the condensed recovery information.
+On restart, the agent's auto loop re-reads `.index.json` and `.summary.md` to reconstruct context. The conversation context from the previous session is lost, but `.summary.md` provides the condensed recovery information.

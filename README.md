@@ -14,9 +14,9 @@ claude plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v0.0.6)
+### task-ai (v0.8.0)
 
-Structured task lifecycle management with **14 skills** for AI-driven development. Git-integrated branch-per-task workflow with project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution.
+Structured task lifecycle management with **18 skills** for AI-driven development. Git-integrated branch-per-task workflow with project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution.
 
 ```
 /moonview:task-ai <subcommand> [args]
@@ -50,6 +50,10 @@ Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate`
 | `annotate` | medium | Process Plan panel annotations (Insert/Delete/Replace/Comment) |
 | `summarize` | light | Regenerate `.summary.md` for context recovery |
 | `library` | light | Knowledge library management (search/list/status/maintain) |
+| `target` | light | **Demand Anchor** — define/review objectives in .target.md |
+| `light` | light | **Shadow Task** — fast-track fixes, transient notebook |
+| `read` | medium | **System Immunity** — ingest local docs safely |
+| `security` | heavy | **Runtime Guardian** — audit plans and commands |
 
 ### Status State Machine
 
@@ -91,7 +95,7 @@ draft → planning → review → executing → complete
 ## Features
 
 - **Project hierarchy** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` two-level organization
-- **14 skills** — full lifecycle from init to report, plus utility commands
+- **18 skills** — full lifecycle from init to report, plus utility commands
 - **Domain-aware** — 19 seed types (software, science:\*, image-processing, video-production, DSP, literary, screenwriting, mechatronics, chip-design, ...) with auto-discovery and hybrid support (`data-pipeline|ml`)
 - **Knowledge library** — `.library/.memory/` with experiences, references, type profiles, and thinking patterns across tasks
 - **Git integration** — branch-per-task, worktree isolation for parallel execution, structured commit messages

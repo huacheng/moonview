@@ -38,3 +38,7 @@ Format compliance, scene structure, dialogue flow
 - **Key Sources**: Fountain spec, screenwriting software docs, production notation standards
 - **Implementation Approach**: Write scenes in industry format (Fountain/Final Draft), maintain continuity notes
 - **Step Verification**: Format compliance, scene structure validation, dialogue flow, continuity checks
+
+### Verification Cycle
+
+Default verification cycle not specified.

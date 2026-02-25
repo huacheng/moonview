@@ -8,6 +8,14 @@ Machine learning, model training, datasets
 
 Accuracy/F1, cross-validation, data split integrity
 
+### Verification Cycle
+
+- **VH Mode**: `inspectable` — the agent evaluates metric thresholds (accuracy/F1/loss) against baseline targets
+- **VH Generation**: Plan generates VH stubs as metric assertions: each step defines expected metric improvements or invariants
+- **CGG**: After each step's HS confirmation, re-evaluate all prior metric targets to detect regressions (model quality degradation)
+- **Consolidation**: Review hyperparameter choices and training configuration for optimization opportunities
+- **Compliance Threshold**: 80% (default)
+
 ## Phase Intelligence
 
 ### plan

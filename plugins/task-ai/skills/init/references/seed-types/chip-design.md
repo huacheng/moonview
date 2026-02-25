@@ -38,3 +38,7 @@ Simulation, formal verification, STA, DRC/LVS
 - **Key Sources**: Synopsys/Cadence/Mentor tool manuals, vendor IP user guides, HDL coding style guides
 - **Implementation Approach**: Write RTL (Verilog/SystemVerilog/VHDL), build testbenches, run simulation (iverilog/VCS/Xcelium/Verilator), synthesize (Yosys/DC), run STA, generate netlists/bitstreams
 - **Step Verification**: RTL lint pass, functional simulation pass (all testcases), code coverage targets met, synthesis timing closure (no violations), formal property proofs, CDC clean
+
+### Verification Cycle
+
+Default verification cycle not specified.

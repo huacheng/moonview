@@ -14,9 +14,9 @@ claude plugin add huacheng/moonview
 
 ## 插件
 
-### task-ai (v0.0.6)
+### task-ai (v0.8.0)
 
-结构化任务生命周期管理，包含 **14 个技能**，面向 AI 驱动开发。Git 集成的 branch-per-task 工作流，支持项目/笔记本层级、领域感知验证、知识库和自主执行。
+结构化任务生命周期管理，包含 **18 个技能**，面向 AI 驱动开发。Git 集成的 branch-per-task 工作流，支持项目/笔记本层级、领域感知验证、知识库和自主执行。
 
 ```
 /moonview:task-ai <subcommand> [args]
@@ -32,7 +32,7 @@ init → research(target) → plan → research(test) → verify → check → e
 
 辅助命令（随时可用）：`auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
 
-### 技能（14 个）
+### 技能（18 个）
 
 | 技能 | 层级 | 说明 |
 |------|------|------|
@@ -50,6 +50,10 @@ init → research(target) → plan → research(test) → verify → check → e
 | `annotate` | medium | 处理 Plan 面板批注（插入/删除/替换/评注） |
 | `summarize` | light | 重建 `.summary.md` 上下文摘要 |
 | `library` | light | 知识库管理（search / list / status / maintain） |
+| `target` | light | **需求锚点** — 在 .target.md 中定义/评审目标与需求 |
+| `light` | light | **影子任务** — 极速闪击模式，瞬时笔记本，自动清理 |
+| `read` | medium | **系统免疫** — 安全地吸纳本地文档到知识库 |
+| `security` | heavy | **安全网关** — 审计实施计划并拦截高危命令 |
 
 ### 状态机
 
@@ -91,7 +95,7 @@ draft → planning → review → executing → complete
 ## 特性
 
 - **项目层级** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` 两级组织结构
-- **14 个技能** — 从 init 到 report 的完整生命周期，加辅助命令
+- **18 个技能** — 从 init 到 report 的完整生命周期，加辅助命令
 - **领域感知** — 19 个种子类型（software、science:\*、image-processing、video-production、DSP、literary、screenwriting、mechatronics、chip-design 等），支持自动发现和混合类型（`data-pipeline|ml`）
 - **知识库** — `.library/.memory/` 存储跨任务经验、外部参考、类型方法论和思维模式
 - **Git 集成** — branch-per-task，worktree 隔离实现并行执行，结构化提交信息

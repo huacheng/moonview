@@ -6,10 +6,10 @@ auto_delegatable: false
 arguments:
   - name: task_file
     description: "Absolute path to the task file being annotated"
-    required: true
+    required: false
   - name: annotation_file
     description: "Absolute path to .tmp-annotations.json"
-    required: true
+    required: false
   - name: mode
     description: "Execution mode: interactive (default) or silent"
     required: false
