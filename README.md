@@ -23,7 +23,7 @@ codex plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v0.8.0)
+### task-ai (v0.8.1)
 
 Structured task lifecycle management with **18 skills** for AI-driven development. Git-integrated branch-per-task workflow with project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution.
 
@@ -72,7 +72,7 @@ draft → planning → review → executing → complete
           re-planning    ←    blocked
 ```
 
-8 statuses with validated transitions. Terminal states: `complete`, `cancelled`.
+9 statuses with validated transitions (including `light-exec`). Terminal states: `complete`, `cancelled`.
 
 ## Quick Start
 
@@ -112,7 +112,7 @@ draft → planning → review → executing → complete
 - **Auto mode** — single-session autonomous orchestration with stall detection, context quota, plugin delegation
 - **Six-perspective audit** — check skill evaluates plans and implementations from 6 independent viewpoints
 - **Research intelligence** — standalone callable at every phase for domain knowledge, requirement deepening, testing methodology
-- **Concurrency protection** — lockfile-based mutual exclusion with 6-priority lock ordering and stale lock recovery
+- **Concurrency protection** — atomic `O_CREAT|O_EXCL` lock with 6-priority ordering and stale lock recovery
 
 ## Environment Variables
 
