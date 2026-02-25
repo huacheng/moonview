@@ -86,7 +86,7 @@ Fields:
 - `next`: what Claude will execute next (or `"(stop)"`)
 - `checkpoint`: context hint (e.g., `"post-plan"`, `"mid-exec"`, `"post-exec"`). Empty when not applicable
 - `iteration`: current iteration count (for daemon progress tracking). **Auto-mode only** — absent when sub-commands write `.auto-signal` in manual execution
-- `compaction_count`: number of `/compact` invocations within the current iteration. **Auto-mode only** — absent in manual execution. Reset to `0` at the start of each iteration. If `>= 3` within one iteration, auto loop stops with warning (see Compaction frequency limit below)
+- `compaction_count`: number of context compaction prompt invocations within the current iteration. **Auto-mode only** — absent in manual execution. Reset to `0` at the start of each iteration. If `>= 3` within one iteration, auto loop stops with warning (see Compaction frequency limit below)
 - `vfp_cycles_completed`: number of VH→HS (VFP) cycles completed so far during Phase 2 execution. **Auto-mode only**, software types only — absent for non-software types and manual execution. Incremented each time exec reports a successful VH→HS transition for a step. Used for progress tracking and anomaly detection. See also `cumulative-green.jsonl` for per-step CGG records
 - `timestamp`: ISO 8601
 
@@ -136,7 +136,7 @@ Claude Code may stall mid-execution. The daemon detects stalls via heartbeat pol
 
 ### Context Window Management & Quota Handling
 
-Proactive `/compact` at >= 70% context usage prevents overflow. `.summary.md` files provide compaction recovery context. Quota exhaustion is NOT a stall — daemon enters quota-wait mode with timeout clock paused.
+Proactive context compaction (prompt: "请对我们目前的对话上下文进行一次全面的总结和压缩，保留关键状态和未完成的任务，以便我们清理上下文窗口继续工作。") at >= 70% context usage prevents overflow. `.summary.md` files provide compaction recovery context. Quota exhaustion is NOT a stall — daemon enters quota-wait mode with timeout clock paused.
 
 **Compaction frequency limit**: If 3 or more compactions occur within the same iteration (indicating the task generates more context per sub-command than compaction can reclaim), the auto loop should stop with a warning: "context budget insufficient for this task — consider breaking into smaller sub-tasks or increasing context window". Claude tracks compaction count in memory and persists it to `.auto-signal` via the `compaction_count` field (step 2e). On compaction recovery, the count is restored from the signal file (see Compaction recovery below). The daemon can also monitor `compaction_count` in the signal for observability.
 
@@ -186,7 +186,7 @@ The auto skill runs this loop within a single Claude session:
 1. Read .index.json → determine entry point (status-based routing). For `draft` status: also read `.target.md` to detect `## Research Insights` presence and `[PROPOSED]` residuals before routing
 2. LOOP:
    a. Check for .auto-stop file → if exists, break loop
-   b. Context check: if context window usage ≥ 70%, run /compact to compress context
+   b. Context check: if context window usage ≥ 70%, run prompt "请对我们目前的对话上下文进行一次全面的总结和压缩，保留关键状态和未完成的任务，以便我们清理上下文窗口继续工作。" to compress context
    c. Execute current step — read target SKILL.md metadata (`model_tier`, `auto_delegatable`):
       - **If `auto_delegatable: true`**: Invoke via Task subagent with `model = tier_to_model(model_tier)` (heavy→opus, medium→sonnet, light→haiku). Subagent receives SKILL.md + `.summary.md` + `.index.json` + input files. On subagent completion, read output files (`.auto-signal`, `.summary.md`, result files) to restore context. On subagent failure/timeout → fallback to inline execution below
       - **If `auto_delegatable: false`**: Execute inline (Read SKILL.md steps, execute in main session)
@@ -287,7 +287,7 @@ When `type` contains `software`, the auto loop tracks VH→HS cycle progress dur
 - **Max iterations**: user-configurable (default 20), daemon writes `.auto-stop` when reached
 - **Timeout**: user-configurable (default 30 min), daemon writes `.auto-stop` when elapsed
 - **Stall detection**: heartbeat polling (60s) + pattern matching recovery, with per-iteration (3) and total (10) recovery limits
-- **Context management**: proactive `/compact` at ≥ 70% context window usage, with `.summary.md` as compaction safety net
+- **Context management**: proactive context compaction (prompt: "请对我们目前的对话上下文进行一次全面的总结和压缩，保留关键状态和未完成的任务，以便我们清理上下文窗口继续工作。") at ≥ 70% context window usage, with `.summary.md` as compaction safety net
 - **Quota exhaustion**: detected and handled as wait (not stall), timeout clock paused during quota-wait
 - **Pause on blocked**: Auto stops immediately on `blocked` status (Claude's internal loop exits)
 - **Manual override**: User can `/moonview:auto --stop` at any time, or daemon writes `.auto-stop` via `DELETE` API
@@ -314,4 +314,4 @@ Auto mode inherits git behavior from each sub-command it invokes. No additional 
 - The daemon logs all signal events and stall detections to server console for debugging
 - **Known trade-off**: First entry on `executing` status always runs `check --checkpoint post-exec`. If execution was incomplete (`completed_steps` < total), check will detect this and route back to exec via NEEDS_FIX, adding one extra iteration. This is acceptable because the auto skill does not re-parse `.plan.md` to count total steps at entry
 - **Context window overflow**: If Claude's context compacts during a long auto run, `.summary.md` (written by each sub-command) provides recovery context. The auto loop continues normally after compaction — each sub-command re-reads relevant files as specified in its SKILL.md
-- **Plugin delegation in auto mode**: External plugin delegation (see `auto/references/plugin-delegation.md`) works naturally in auto mode. Each skill's delegation steps invoke plugins via the Task tool, creating isolated subagents that prevent external plugin output from inflating the auto session context. Trust `/compact` to handle context pressure; all delegation slots are always attempted when their trigger conditions are met
+- **Plugin delegation in auto mode**: External plugin delegation (see `auto/references/plugin-delegation.md`) works naturally in auto mode. Each skill's delegation steps invoke plugins via the Task tool, creating isolated subagents that prevent external plugin output from inflating the auto session context. Trust context compaction prompts to handle context pressure; all delegation slots are always attempted when their trigger conditions are met
