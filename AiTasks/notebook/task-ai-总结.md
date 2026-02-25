@@ -19,8 +19,8 @@ task-ai 是一套**纯 Markdown 指令驱动**的任务生命周期管理框架�
 | 子命令 | 模型层级 | 职责 | 备注 |
 |--------|---------|------|------|
 | `init` | light | 初始化工作目录、Git 分支 | 需提供 `<project> <notebook>` |
-| `target` | light | **定义/评审任务目标** | 双向同步 `.target.md` |
-| `research` | medium | 情报收集、类型发现 | 任意阶段可独立调用 |
+| `target` | heavy | **定义/评审任务目标** | 双向同步 `.target.md` |
+| `research` | heavy | 情报收集、类型发现 | 任意阶段可独立调用 |
 | `plan` | heavy | 生成实施计划 `.plan.md` | 自动生成 VH 验证存根 |
 | `verify` | medium | 运行领域适配测试 (VH/CGG) | 生成测试结果文件 |
 | `check` | heavy | 计划/执行评审与门禁 | 三大检查点控制状态流转 |

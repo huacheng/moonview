@@ -8,15 +8,24 @@ A Claude Code plugin marketplace for structured task lifecycle management.
 
 ## Installation
 
+Add the Moonview marketplace to your preferred agent:
+
 ```bash
+# For Gemini CLI
+gemini plugin add huacheng/moonview
+
+# For Claude Code
 claude plugin add huacheng/moonview
+
+# For Codex CLI
+codex plugin add huacheng/moonview
 ```
 
 ## Plugins
 
-### task-ai (v0.0.6)
+### task-ai (v0.8.0)
 
-Structured task lifecycle management with **14 skills** for AI-driven development. Git-integrated branch-per-task workflow with project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution.
+Structured task lifecycle management with **18 skills** for AI-driven development. Git-integrated branch-per-task workflow with project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution.
 
 ```
 /moonview:task-ai <subcommand> [args]
@@ -25,18 +34,22 @@ Structured task lifecycle management with **14 skills** for AI-driven developmen
 ## Lifecycle
 
 ```
-init → research(target) → plan → research(test) → verify → check → exec → merge → report
+init → target → research(target) → plan → research(test) → verify → check → exec → merge → report
             ↑                ↑         ↑              ↑       ↑       ↑
             └──────────────── research callable at every phase ────────┘
 ```
 
 Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
 
-### Skills (14)
+### Skills (18)
 
 | Skill | Tier | Description |
 |-------|------|-------------|
-| `init` | light | Create notebook — directory, `.index.json`, git branch, optional worktree |
+| `init` | light | Create notebook — directory, git branch, optional worktree |
+| `target` | light | **Demand Anchor** — define/review objectives in .target.md |
+| `light` | light | **Shadow Task** — fast-track fixes, transient notebook |
+| `read` | medium | **System Immunity** — ingest local docs safely |
+| `security` | heavy | **Runtime Guardian** — audit plans and commands |
 | `research` | medium | Intelligence officer — target deepening, reference collection, type discovery |
 | `plan` | heavy | Generate implementation plan from `.target.md` with domain-adapted methodology |
 | `verify` | medium | Run domain-adapted tests, produce result files |
@@ -91,7 +104,7 @@ draft → planning → review → executing → complete
 ## Features
 
 - **Project hierarchy** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` two-level organization
-- **14 skills** — full lifecycle from init to report, plus utility commands
+- **18 skills** — full lifecycle from init to report, plus utility commands
 - **Domain-aware** — 19 seed types (software, science:\*, image-processing, video-production, DSP, literary, screenwriting, mechatronics, chip-design, ...) with auto-discovery and hybrid support (`data-pipeline|ml`)
 - **Knowledge library** — `.library/.memory/` with experiences, references, type profiles, and thinking patterns across tasks
 - **Git integration** — branch-per-task, worktree isolation for parallel execution, structured commit messages
@@ -100,41 +113,6 @@ draft → planning → review → executing → complete
 - **Six-perspective audit** — check skill evaluates plans and implementations from 6 independent viewpoints
 - **Research intelligence** — standalone callable at every phase for domain knowledge, requirement deepening, testing methodology
 - **Concurrency protection** — lockfile-based mutual exclusion with 6-priority lock ordering and stale lock recovery
-
-## Directory Structure
-
-```
-$NB_WORKSPACES_ROOT/
-│
-├── .library/                          # Shared knowledge library
-│   ├── .changelog                     # Append-only write log
-│   ├── .master-index.md               # Flat index of all library files
-│   ├── .type-registry.md              # Known type registry (seed + auto-expanded)
-│   └── .memory/                       # System-managed knowledge base
-│       ├── .type-profiles/            # Shared domain methodology profiles
-│       ├── .experiences/              # Cross-task experience (by type)
-│       ├── .references/               # External reference materials (versioned)
-│       └── .thinking/                 # Thinking CoT raw records + distilled patterns
-│
-├── project-a/
-│   ├── .index.json                    # Project metadata
-│   ├── notebook-1/
-│   │   └── .working/                  # Task state files (system-managed)
-│   │       ├── .index.json            # Task metadata (status/phase/type)
-│   │       ├── .target.md             # Requirements (human-authored)
-│   │       ├── .plan.md               # Implementation plan
-│   │       ├── .type-profile.md       # Domain methodology (task-level)
-│   │       ├── .summary.md            # Condensed context summary
-│   │       ├── .analysis/             # Check evaluation history
-│   │       ├── .test/                 # Test criteria & results
-│   │       ├── .bugfix/               # Issue history
-│   │       └── .notes/                # Research notes & execution log
-│   └── notebook-2/
-│       └── ...
-│
-└── project-b/
-    └── ...
-```
 
 ## Environment Variables
 
@@ -145,7 +123,7 @@ $NB_WORKSPACES_ROOT/
 
 ## Related
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface for Claude Code with Plan annotation panel and Chat editor
+- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface  with Plan annotation panel and Chat editor
 
 ## License
 

@@ -2,150 +2,169 @@
 
 [English](README.md)
 
-一个 Claude Code 插件市场，提供结构化的任务生命周期管理。
+一个通用的插件市场，提供结构化的任务生命周期管理。
 
 > *"站在月球看地球"* — [老王来了@dlw2023](https://www.youtube.com/@dlw2023)
 
 ## 安装
 
+将 Moonview 插件市场添加到您首选的智能体中：
+
 ```bash
+# Gemini CLI
+gemini plugin add huacheng/moonview
+
+# Claude Code
 claude plugin add huacheng/moonview
+
+# Codex CLI
+codex plugin add huacheng/moonview
 ```
 
 ## 插件
 
-### task-ai (v0.0.6)
+### task-ai (v0.8.0)
+## 一、概述
 
-结构化任务生命周期管理，包含 **14 个技能**，面向 AI 驱动开发。Git 集成的 branch-per-task 工作流，支持项目/笔记本层级、领域感知验证、知识库和自主执行。
+task-ai 是一套**纯 Markdown 指令驱动**的任务生命周期管理框架。它作为一个通用的、模型解耦的插件运行，管理从任务初始化到完成报告的完整生命周期。框架支持领域自适应验证（VFP 协议）、跨任务知识复用和高度自动化的自主执行。
 
+**核心哲学**: “任务即 Notebook”。所有任务都绑定到独立的 Notebook 结构中，确保责任边界清晰和审计追踪完整。
+
+**入口命令**: 在 Prompt 窗口输入 `/moonview:<subcommand> [args]`
+
+---
+
+## 二、18 个子命令
+
+### 核心生命周期（按典型顺序）
+
+| 子命令 | 模型层级 | 职责 | 备注 |
+|--------|---------|------|------|
+| `init` | light | 初始化工作目录、Git 分支 | 需提供 `<project> <notebook>` |
+| `target` | light | **定义/评审任务目标** | 双向同步 `.target.md` |
+| `research` | medium | 情报收集、类型发现 | 任意阶段可独立调用 |
+| `plan` | heavy | 生成实施计划 `.plan.md` | 自动生成 VH 验证存根 |
+| `verify` | medium | 运行领域适配测试 (VH/CGG) | 生成测试结果文件 |
+| `check` | heavy | 计划/执行评审与门禁 | 三大检查点控制状态流转 |
+| `exec` | heavy | 按计划逐步执行实施 | 遵循 VFP 协议（红→绿→重构） |
+| `merge` | medium | 合并任务分支，清理元数据 | 自动删除任务分支 |
+| `report` | medium | 生成完成报告，经验蒸馏 | 将知识同步至 `.library` |
+
+### 辅助与系统命令
+
+| 子命令 | 模型层级 | 职责 |
+|--------|---------|------|
+| `light` | light | **轻量级影子任务**：闪击模式，瞬时 Notebook，完成后自动清理。 |
+| `read` | medium | **系统免疫**：从外部文档/URL 安全吸纳知识到图书馆。 |
+| `security` | heavy | **安全网关**：前置审计计划和验证高危命令。 |
+| `auto` | heavy | 自主执行循环：单会话编排，通过 `.auto-signal` 驱动。 |
+| `cancel` | light | 取消任务，清理状态。 |
+| `list` | light | 查询任务清单、依赖图及影子任务状态。 |
+| `annotate` | medium | 处理实施计划面板的交互批注。 |
+| `summarize` | light | 重新生成 `.summary.md` 压缩上下文。 |
+| `library` | light | 知识库管理（搜索、索引重建、归档维护）。 |
+
+### 参数简化方案 (Hard Upgrade)
+除了 `init` 和 `light` 启动阶段需要指定项目/任务名外，其他所有命令均通过**路径嗅探**和**Git 分支匹配**自动锁定上下文，无需手动输入参数。
+
+### 典型子命令流转图
+
+#### 1. 标准重型任务 (Standard Path)
+```mermaid
+graph TD
+    init[init] --> target[target]
+    target --> res_obj[research:objective]
+    res_obj --> plan[plan]
+    plan --> sec_plan{security:audit-plan}
+    sec_plan -- PASS --> verify[verify]
+    sec_plan -- REJECT --> plan
+    verify --> check[check]
+    check -- PASS --> exec[exec]
+    check -- REPLAN --> plan
+    exec --> sec_cmd{security:verify-cmd}
+    sec_cmd -- PASS --> hs[Verification: HS]
+    hs --> check_post[check:post-exec]
+    check_post -- ACCEPT --> merge[merge]
+    check_post -- NEEDS_FIX --> exec
+    merge --> report[report]
 ```
-/moonview:task-ai <subcommand> [args]
+
+#### 2. 轻量级影子任务 (Light Path)
+```mermaid
+graph LR
+    light[light] --> exec_l[exec]
+    exec_l --> finish[light --finish]
+    exec_l --> promote[light --promote]
+    promote --> plan[Standard: planning]
 ```
 
-## 生命周期
+#### 3. 辅助与全局命令 (Auxiliary)
+- **`auto`**: 封装标准流，通过 `.auto-signal` 自动驱动。
+- **`read`**: 全局调用，向 `.library` 输送知识。
+- **`list` / `summarize` / `library`**: 随时调用的状态与管理工具。
 
-```
-init → research(target) → plan → research(test) → verify → check → exec → merge → report
-            ↑                ↑         ↑              ↑       ↑       ↑
-            └──────────────── research 可在任意阶段独立调用 ────────────┘
-```
+---
 
-辅助命令（随时可用）：`auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
+## 三、状态机升级 (9 状态 25 转换)
 
-### 技能（14 个）
+### 新增状态与路径
+- **`light-exec`**: `light` 模式专用状态，表示正在执行影子任务。
+- **`post-target`**: `target` 命令完成后到达的中间检查点。
 
-| 技能 | 层级 | 说明 |
+### 关键设计约束
+1. **轻量限制**: `light` 模式若修改文件 > 3 或失败 > 3 次，必须执行 `--promote` 转正。
+2. **Notebook 绑定**: 即使是 `light` 模式也必须创建临时 Notebook 目录以承载状态。
+3. **安全前置**: 所有 `exec` 执行前必须通过 `security` 校验。
+
+---
+
+## 四、VFP 协议与质量保证
+
+### 验证先行协议 (VFP)
+框架强制执行 **Verification-First Protocol**：
+- **VH (Verification Hypothesis)**: 计划阶段定义失败基线。
+- **HS (Hypothesis Satisfied)**: 实施后验证成功。
+- **CGG (Cumulative Green Gate)**: 每次修改必须通过全量回归。
+
+### 自动化审计 (Six-Perspective Audit)
+框架内置 `.dev/validate.sh` 对 18 个 Skill 执行六个维度的深度检查：
+1. **结构一致性**: 步骤编号、交叉引用。
+2. **路由合规**: `.auto-signal` 状态机跳转。
+3. **技术完整性**: 锁定机制、数据流闭环。
+4. **功能健壮性**: TDD 契约测试全覆盖。
+5. **安全防护**: 10 类注入解毒、路径穿越防御。
+6. **协议合规**: 权威协议节 (`§`) 引用。
+
+---
+
+## 五、环境与兼容性
+
+### 模型解耦 (Agnostic)
+- 彻底移除对特定大模型名称的硬编码。
+- 采用通用术语 `the agent` 代替旧有的 `Claude`。
+- 文档全面英文规范化，Prompt 支持多 CLI 环境（Gemini/Claude Code 等）。
+
+### 基础设施
+- **去 Python 内联**: 所有 Bash 脚本均通过独立工具类（`state.py`, `json_get.py`）操作数据，严禁 Shell 中嵌入 Python 代码。
+- **并发保护**: 基于 `flock` 的原子锁机制，确保多任务并行时的状态安全。
+
+---
+
+## 六、当前统计
+
+| 指标 | 数值 | 备注 |
 |------|------|------|
-| `init` | light | 创建笔记本 — 目录、`.index.json`、git 分支、可选 worktree |
-| `research` | medium | 情报官 — 目标深化、参考收集、类型发现 |
-| `plan` | heavy | 从 `.target.md` 生成实施计划，采用领域适配方法论 |
-| `verify` | medium | 运行领域适配测试，生成结果文件 |
-| `check` | heavy | 六视角审计：post-plan、mid-exec、post-exec 三个检查点 |
-| `exec` | heavy | 按步骤执行计划，每步验证 |
-| `merge` | medium | 合并任务分支到 main，冲突解决（最多 3 次重试） |
-| `report` | medium | 生成完成报告，提炼经验到知识库 |
-| `auto` | heavy | 自主循环：plan → verify → check → exec → merge → report |
-| `cancel` | light | 取消任务，可选清理 worktree 和分支 |
-| `list` | light | 查询任务状态、依赖图、状态时间线（只读） |
-| `annotate` | medium | 处理 Plan 面板批注（插入/删除/替换/评注） |
-| `summarize` | light | 重建 `.summary.md` 上下文摘要 |
-| `library` | light | 知识库管理（search / list / status / maintain） |
+| 子命令总数 | 18 | 覆盖从调研到交付全流程 |
+| 契约测试通过数 | **617 PASS** | 0 FAIL, 0 ERROR |
+| 状态机状态数 | 9 | 包含 light-exec 扩展 |
+| 文档覆盖度 | 100% | 每个 Skill 均有完整 SKILL.md |
 
-### 状态机
-
-```
-draft → planning → review → executing → complete
-                 ↗            ↘
-          re-planning    ←    blocked
-```
-
-8 个状态，经过验证的转换规则。终态：`complete`、`cancelled`。
-
-## 快速开始
-
-```bash
-# 1. 在项目下初始化笔记本
-/moonview:task-ai init my-project auth-refactor --title "重构认证为 JWT"
-
-# 2. 在 .target.md 中编写需求，然后让 research 深化
-/moonview:task-ai research my-project/auth-refactor --caller target
-
-# 3. 生成计划
-/moonview:task-ai plan auth-refactor --generate
-
-# 4. 验证 → 审查计划质量
-/moonview:task-ai verify auth-refactor
-/moonview:task-ai check auth-refactor --checkpoint post-plan
-
-# 5. 执行计划
-/moonview:task-ai exec auth-refactor
-
-# 6. 合并到 main + 生成报告
-/moonview:task-ai merge auth-refactor
-/moonview:task-ai report auth-refactor
-
-# 或者自动运行完整生命周期：
-/moonview:task-ai auto auth-refactor --start
-```
-
-## 特性
-
-- **项目层级** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` 两级组织结构
-- **14 个技能** — 从 init 到 report 的完整生命周期，加辅助命令
-- **领域感知** — 19 个种子类型（software、science:\*、image-processing、video-production、DSP、literary、screenwriting、mechatronics、chip-design 等），支持自动发现和混合类型（`data-pipeline|ml`）
-- **知识库** — `.library/.memory/` 存储跨任务经验、外部参考、类型方法论和思维模式
-- **Git 集成** — branch-per-task，worktree 隔离实现并行执行，结构化提交信息
-- **批注驱动** — 前端 Plan 面板批注处理为计划更新
-- **Auto 模式** — 单会话自主编排，支持停滞检测、上下文配额、插件委托
-- **六视角审计** — check 从 6 个独立视角评估计划和实施
-- **研究情报** — 每个阶段都可独立调用，用于领域知识、需求深化、测试方法论
-- **并发保护** — 基于锁文件的互斥，6 级锁优先级排序，过期锁恢复
-
-## 目录结构
-
-```
-$NB_WORKSPACES_ROOT/
-│
-├── .library/                          # 共享知识库
-│   ├── .changelog                     # 追加写入日志
-│   ├── .master-index.md               # 所有库文件扁平索引
-│   ├── .type-registry.md              # 类型注册表（种子 + 自动扩展）
-│   └── .memory/                       # 系统管理知识库
-│       ├── .type-profiles/            # 共享领域方法论
-│       ├── .experiences/              # 跨任务经验（按类型分类）
-│       ├── .references/               # 外部参考资料（版本化）
-│       └── .thinking/                 # Thinking CoT 原始记录 + 蒸馏模式
-│
-├── project-a/
-│   ├── .index.json                    # 项目元数据
-│   ├── notebook-1/
-│   │   └── .working/                  # 任务状态文件（系统管理）
-│   │       ├── .index.json            # 任务元数据（status/phase/type）
-│   │       ├── .target.md             # 需求目标（人工编写）
-│   │       ├── .plan.md               # 实施计划
-│   │       ├── .type-profile.md       # 领域方法论（任务级）
-│   │       ├── .summary.md            # 压缩上下文摘要
-│   │       ├── .analysis/             # check 评估历史
-│   │       ├── .test/                 # 测试准则与结果
-│   │       ├── .bugfix/               # 问题修复历史
-│   │       └── .notes/                # 研究笔记与执行日志
-│   └── notebook-2/
-│       └── ...
-│
-└── project-b/
-    └── ...
-```
-
-## 环境变量
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `NB_WORKSPACES_ROOT` | `/home/user/nb-workspaces` | 所有项目和笔记本的根目录 |
-| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` | 共享知识库目录 |
+---
+*总结由 task-ai (v0.8.0) 自动生成并验证。*
 
 ## 相关项目
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Claude Code 网页界面，包含 Plan 批注面板和 Chat 编辑器
+- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — 网页界面，包含 Plan 批注面板和 Chat 编辑器
 
 ## 许可证
 
