@@ -253,6 +253,8 @@ import {
   computeMarginAnchor,
   scaleRect,
   scaleHighlightCoords,
+  scaleRectWithOffset,
+  scaleHighlightCoordsWithOffset,
 } from '../utils/annotationHighlight';
 import type { HighlightsMap } from '../utils/annotationHighlight';
 
@@ -469,5 +471,44 @@ describe('scaleHighlightCoords — apply ratio to all rects/bottomY', () => {
     expect(scaled.rects[0]).toEqual({ x: 0, y: 0, width: 150, height: 15 });
     expect(scaled.rects[1]).toEqual({ x: 75, y: 30, width: 300, height: 15 });
     expect(scaled.bottomY).toBe(57);
+  });
+});
+
+describe('scaleRectWithOffset — excludes fixed padding from scaling', () => {
+  const RECT = { x: 124, y: 520, width: 300, height: 20 };
+  // Container padding: left=24, top=20
+  // So content starts at (24, 20). Position within content = (100, 500).
+
+  it('ratio 1.0 → unchanged', () => {
+    expect(scaleRectWithOffset(RECT, 1.0, 24, 20)).toEqual(RECT);
+  });
+
+  it('ratio 1.5 → scales content portion only', () => {
+    // x: 24 + (124-24)*1.5 = 24 + 150 = 174
+    // y: 20 + (520-20)*1.5 = 20 + 750 = 770
+    const result = scaleRectWithOffset(RECT, 1.5, 24, 20);
+    expect(result).toEqual({ x: 174, y: 770, width: 450, height: 30 });
+  });
+
+  it('ratio 2.0 → doubles content portion, padding stays fixed', () => {
+    // x: 24 + (124-24)*2 = 24 + 200 = 224
+    // y: 20 + (520-20)*2 = 20 + 1000 = 1020
+    const result = scaleRectWithOffset(RECT, 2.0, 24, 20);
+    expect(result).toEqual({ x: 224, y: 1020, width: 600, height: 40 });
+  });
+});
+
+describe('scaleHighlightCoordsWithOffset — applies offset-aware scaling to all rects', () => {
+  it('scales rects and bottomY with padding offset', () => {
+    const hl = {
+      rects: [{ x: 124, y: 520, width: 300, height: 20 }],
+      bottomY: 548, // 520 + 20 + 8
+      type: 'comment' as const,
+      capturedScale: 1.0,
+    };
+    const scaled = scaleHighlightCoordsWithOffset(hl, 1.5, 24, 20);
+    expect(scaled.rects[0]).toEqual({ x: 174, y: 770, width: 450, height: 30 });
+    // bottomY: 20 + (548-20)*1.5 = 20 + 792 = 812
+    expect(scaled.bottomY).toBe(812);
   });
 });

@@ -100,11 +100,39 @@ export function scaleRect(r: Rect, ratio: number): Rect {
   return { x: r.x * ratio, y: r.y * ratio, width: r.width * ratio, height: r.height * ratio };
 }
 
+/**
+ * Scale a rect by ratio, but exclude a fixed offset (e.g. container padding)
+ * that doesn't participate in content scaling.
+ * Formula: newPos = offset + (capturedPos - offset) * ratio
+ */
+export function scaleRectWithOffset(r: Rect, ratio: number, offsetX: number, offsetY: number): Rect {
+  if (ratio === 1) return r;
+  return {
+    x: offsetX + (r.x - offsetX) * ratio,
+    y: offsetY + (r.y - offsetY) * ratio,
+    width: r.width * ratio,
+    height: r.height * ratio,
+  };
+}
+
 /** Scale all coordinates in a highlight by a ratio. */
 export function scaleHighlightCoords(hl: AnnotationHighlight, ratio: number): { rects: Rect[]; bottomY: number } {
   if (ratio === 1) return { rects: hl.rects, bottomY: hl.bottomY };
   const rects = hl.rects.map(r => scaleRect(r, ratio));
   return { rects, bottomY: hl.bottomY * ratio };
+}
+
+/** Scale all coordinates with a fixed offset excluded from scaling. */
+export function scaleHighlightCoordsWithOffset(
+  hl: AnnotationHighlight,
+  ratio: number,
+  offsetX: number,
+  offsetY: number,
+): { rects: Rect[]; bottomY: number } {
+  if (ratio === 1) return { rects: hl.rects, bottomY: hl.bottomY };
+  const rects = hl.rects.map(r => scaleRectWithOffset(r, ratio, offsetX, offsetY));
+  const bottomY = offsetY + (hl.bottomY - offsetY) * ratio;
+  return { rects, bottomY };
 }
 
 /** Compute scroll target Y for a given annotation's highlight. */
