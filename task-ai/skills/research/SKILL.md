@@ -197,30 +197,7 @@ if `[PROPOSED]` residual found in latest stage       → STOP with message:
 
 Use shell script to detect:
 ```bash
-python3 -c "
-import re, sys
-t = open('.working/.target.md').read()
-has_ri = '## Research Insights' in t
-has_o1 = bool(re.search(r'### O1:', t))
-has_o2 = bool(re.search(r'### O2:', t))
-has_o3 = bool(re.search(r'### O3:', t))
-# Check [PROPOSED] only in the latest stage section
-if has_o3:
-    last = t[t.rindex('### O3:'):]
-elif has_o2:
-    last = t[t.rindex('### O2:'):]
-elif has_o1:
-    last = t[t.rindex('### O1:'):]
-else:
-    last = ''
-has_proposed = '[PROPOSED]' in last
-if not has_ri or not has_o1: print('O1')
-elif has_o1 and not has_proposed and not has_o2: print('O2')
-elif has_o2 and not has_proposed and not has_o3: print('O3')
-elif has_o3 and not has_proposed: print('COMPLETE')
-elif has_proposed: print('PENDING')
-else: print('O1')
-"
+python3 "$TASK_AI_ROOT/skills/research/scripts/detect_stage.py" ".working/.target.md"
 ```
 
 **O1: Background Research** (领域 + 现状 + 参考实现)
@@ -344,7 +321,7 @@ These steps execute when `--caller test` is specified. Steps 1–18 run first
 
 Use shell script to extract status:
 ```bash
-python3 -c "import json,sys; d=json.load(open('.working/.index.json')); print(d['status'])"
+python3 "$TASK_AI_ROOT/core/state.py" get ".working/.index.json" status
 ```
 
 **Test-S2a. If status = `planning` or `draft` → Methodology collection**
