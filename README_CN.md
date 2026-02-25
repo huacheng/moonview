@@ -64,8 +64,29 @@ task-ai 是一套**纯 Markdown 指令驱动**的任务生命周期管理框架�
 | `summarize` | light | 重新生成 `.summary.md` 压缩上下文。 |
 | `library` | light | 知识库管理（搜索、索引重建、归档维护）。 |
 
-### 参数简化方案 (Hard Upgrade)
-除了 `init` 和 `light` 启动阶段需要指定项目/任务名外，其他所有命令均通过**路径嗅探**和**Git 分支匹配**自动锁定上下文，无需手动输入参数。
+### 上下文自动检测
+除 `init` 和 `light` 需要指定项目/任务名外，其他所有命令均通过 **Git 分支**（`task/<notebook>`）或**工作目录路径**自动锁定上下文，无需手动传参。
+
+### 快速上手
+
+```bash
+# 1. 初始化任务（创建分支并切换）
+/moonview:init my-project auth-refactor --title "将认证重构为 JWT"
+
+# 2. 定义目标，研究深化（自动检测上下文，无需传 notebook 名）
+/moonview:target "将 auth 模块从 session cookies 迁移到 JWT"
+/moonview:research --caller target
+
+# 3. 生成计划 → 审查 → 执行 → 合并 → 报告
+/moonview:plan --generate
+/moonview:check --checkpoint post-plan
+/moonview:exec
+/moonview:merge
+/moonview:report
+
+# 或一键自主执行全流程：
+/moonview:auto --start
+```
 
 ### 典型子命令流转图
 

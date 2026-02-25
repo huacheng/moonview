@@ -91,29 +91,33 @@ light-exec ─┤─────────────────────
 ## Quick Start
 
 ```bash
-# 1. Initialize a notebook under a project
-/moonview:task-ai init my-project auth-refactor --title "Refactor auth to JWT"
+# 1. Initialize a notebook under a project (creates branch + switches to it)
+/moonview:init my-project auth-refactor --title "Refactor auth to JWT"
 
-# 2. Write requirements in .target.md, then let research deepen them
-/moonview:task-ai research my-project/auth-refactor --caller target
+# 2. Define objectives, then let research deepen them
+#    (auto-detects context from branch — no notebook arg needed)
+/moonview:target "Refactor auth module from session cookies to JWT"
+/moonview:research --caller target
 
 # 3. Generate plan
-/moonview:task-ai plan auth-refactor --generate
+/moonview:plan --generate
 
 # 4. Verify → check plan quality
-/moonview:task-ai verify auth-refactor
-/moonview:task-ai check auth-refactor --checkpoint post-plan
+/moonview:verify
+/moonview:check --checkpoint post-plan
 
 # 5. Execute the plan
-/moonview:task-ai exec auth-refactor
+/moonview:exec
 
 # 6. Merge to main + generate report
-/moonview:task-ai merge auth-refactor
-/moonview:task-ai report auth-refactor
+/moonview:merge
+/moonview:report
 
-# Or run the full lifecycle automatically:
-/moonview:task-ai auto auth-refactor --start
+# Or run the full lifecycle automatically (from step 2 onward):
+/moonview:auto --start
 ```
+
+> After `init`, all commands auto-detect the active notebook via Git branch (`task/<notebook>`) or working directory path. No need to pass the notebook name.
 
 ## Features
 
