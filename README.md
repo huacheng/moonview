@@ -123,20 +123,23 @@ light-exec ─┤─────────────────────
 
 - **Project hierarchy** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` two-level organization
 - **18 skills** — full lifecycle from init to report, plus utility commands
+- **Auto context detection** — after `init`, all commands auto-detect notebook via Git branch (`task/<notebook>`) or working directory path — no manual args needed
 - **Domain-aware** — 19 seed types (software, science:\*, image-processing, video-production, DSP, literary, screenwriting, mechatronics, chip-design, ...) with auto-discovery and hybrid support (`data-pipeline|ml`)
 - **Knowledge library** — `.library/.memory/` with experiences, references, type profiles, and thinking patterns across tasks
 - **Git integration** — branch-per-task, worktree isolation for parallel execution, structured commit messages
 - **Annotation-driven** — frontend Plan panel annotations processed into plan updates
-- **Auto mode** — single-session autonomous orchestration with stall detection, context quota, plugin delegation
+- **Auto mode** — single-session autonomous orchestration with stall detection, dependency gate (`depends_on`), context quota, plugin delegation
 - **Six-perspective audit** — check skill evaluates plans and implementations from 6 independent viewpoints
 - **Research intelligence** — standalone callable at every phase for domain knowledge, requirement deepening, testing methodology
 - **Concurrency protection** — atomic `O_CREAT|O_EXCL` lock with 6-priority ordering and stale lock recovery
+- **Contract test suite** — 632 assertions (L1 structural + L2 functional) covering all skills, scripts, and state transitions
+- **Security hardening** — fixed-string path comparison, input sanitization (tags, title, awk), validated `find()` results
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NB_WORKSPACES_ROOT` | `/home/user/nb-workspaces` | Root directory for all projects and notebooks |
+| `NB_WORKSPACES_ROOT` | `$HOME/nb-workspaces` | Root directory for all projects and notebooks |
 | `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` | Shared knowledge library directory |
 
 ## Related

@@ -190,7 +190,30 @@ light-exec ─┤─────────────────────
 
 ---
 
-## 五、环境与兼容性
+## 五、特性总览
+
+- **项目层级** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` 两级组织
+- **18 个子命令** — 覆盖从初始化到报告的完整生命周期
+- **上下文自动检测** — `init` 之后，所有命令通过 Git 分支（`task/<notebook>`）或工作目录路径自动锁定上下文，无需手动传参
+- **领域自适应** — 19 种种子类型（software, science:\*, image-processing, video-production, DSP, literary, screenwriting, mechatronics, chip-design 等），支持自动发现和混合类型（`data-pipeline|ml`）
+- **知识图书馆** — `.library/.memory/` 存储跨任务的经验、参考、类型档案和思维模式
+- **Git 集成** — 每任务一分支、worktree 隔离并行执行、结构化提交消息
+- **批注驱动** — 前端 Plan 面板批注自动转化为计划更新
+- **自主执行** — auto 单会话编排，停滞检测、依赖门禁（`depends_on`）、上下文配额、插件委派
+- **六维审计** — check 从 6 个独立视角评估计划和实施
+- **研究情报** — 任意阶段可独立调用，支持领域知识、需求深化、测试方法论
+- **并发保护** — 基于 `O_CREAT|O_EXCL` 的原子锁，6 级优先级排序，过期锁自动回收
+- **契约测试套件** — 632 条断言（L1 结构 + L2 功能），覆盖所有 skill、脚本和状态转换
+- **安全加固** — 固定字符串路径比对、输入净化（tags/title/awk）、`find()` 结果校验
+
+## 六、环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `NB_WORKSPACES_ROOT` | `$HOME/nb-workspaces` | 所有项目和 notebook 的根目录 |
+| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` | 共享知识图书馆目录 |
+
+## 七、兼容性
 
 ### 模型解耦 (Agnostic)
 - 彻底移除对特定大模型名称的硬编码。
@@ -199,11 +222,11 @@ light-exec ─┤─────────────────────
 
 ### 基础设施
 - **去 Python 内联**: 所有 Bash 脚本均通过独立工具类（`state.py`, `json_get.py`）操作数据，严禁 Shell 中嵌入 Python 代码。
-- **并发保护**: 基于 `O_CREAT|O_EXCL` 的原子锁机制，确保多任务并行时的状态安全。
+- **共享函数库**: `lib.sh` 提供 `resolve_workdir()`、`find_nb_context()` 等通用函数，9 个脚本统一调用。
 
 ---
 
-## 六、当前统计
+## 八、当前统计
 
 | 指标 | 数值 | 备注 |
 |------|------|------|
