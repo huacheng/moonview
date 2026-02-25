@@ -512,35 +512,41 @@ describe('scaleHighlightCoordsWithOffset — applies offset-aware scaling to all
     expect(scaled.bottomY).toBe(812);
   });
 
-  it('text format (capturedScale=1) at zoom 2.0 scales by full zoom', () => {
-    // Text format uses CSS zoom; getClientRects returns unzoomed coords.
-    // capturedScale=1 so scaleHl computes ratio = pdfScale / 1 = 2.0
-    const hl = {
-      rects: [{ x: 124, y: 520, width: 300, height: 20 }],
-      bottomY: 548,
-      type: 'comment' as const,
-      capturedScale: 1,
-    };
-    const pdfScale = 2.0;
-    const ratio = pdfScale / (hl.capturedScale || 1); // 2.0 / 1 = 2.0
-    const result = scaleHighlightCoordsWithOffset(hl, ratio, 24, 20);
-    // x: 24 + (124-24)*2 = 224
-    // y: 20 + (520-20)*2 = 1020
-    expect(result.rects[0]).toEqual({ x: 224, y: 1020, width: 600, height: 40 });
+  it('capturedScale=pdfScale: at capture zoom ratio=1, at different zoom scales proportionally', () => {
+    // 在 zoom 1.5 时创建 → capturedScale=1.5 → 显示在 zoom 1.5: ratio=1.0
+    const capturedZoom = 1.5;
+    const hl = addHighlight({}, 'a1', [{ x: 174, y: 770, width: 450, height: 30 }], 'comment', capturedZoom);
+    expect(hl.a1.capturedScale).toBe(1.5);
+    const sameZoomRatio = capturedZoom / hl.a1.capturedScale;
+    expect(sameZoomRatio).toBe(1.0);
+
+    // 显示在 zoom 2.0 → ratio = 2.0/1.5 ≈ 1.333
+    const displayZoom = 2.0;
+    const crossZoomRatio = displayZoom / hl.a1.capturedScale;
+    const result = scaleHighlightCoordsWithOffset(hl.a1, crossZoomRatio, 24, 20);
+    // x: 24 + (174-24)*1.333 = 24 + 200 = 224
+    expect(result.rects[0].x).toBeCloseTo(224, 0);
+    expect(result.rects[0].width).toBeCloseTo(600, 0);
   });
 
-  it('text format vs pdf format: capturedScale=1 gives full zoom, capturedScale=pdfScale gives no zoom', () => {
-    const rects = [{ x: 124, y: 520, width: 300, height: 20 }];
-    const pdfScale = 1.5;
+  it('capturedScale=1 is WRONG for non-1.0 zoom: causes double-scaling', () => {
+    // 在 zoom 1.5 时创建，getClientRects 返回已 zoom 的坐标
+    // 内部文本位置 P=100 → container-relative = 24 + 100*1.5 = 174
+    const capturedX = 174;
+    const capturedZoom = 1.5;
 
-    // Text format: capturedScale=1 → ratio = 1.5/1 = 1.5 → highlight scales with zoom
-    const textHl = addHighlight({}, 'a1', rects, 'comment', 1);
-    const textRatio = pdfScale / (textHl.a1.capturedScale || 1);
-    expect(textRatio).toBe(1.5);
+    // 正确: capturedScale=pdfScale → 同 zoom 下 ratio=1, 无缩放
+    const correctHl = addHighlight({}, 'a1', [{ x: capturedX, y: 50, width: 450, height: 30 }], 'comment', capturedZoom);
+    const correctRatio = capturedZoom / correctHl.a1.capturedScale; // 1.0
+    const correctResult = scaleHighlightCoordsWithOffset(correctHl.a1, correctRatio, 24, 20);
+    expect(correctResult.rects[0].x).toBe(capturedX); // 不变 ✓
 
-    // PDF format: capturedScale=pdfScale → ratio = 1.5/1.5 = 1.0 → no change needed
-    const pdfHl = addHighlight({}, 'a1', rects, 'comment', pdfScale);
-    const pdfRatio = pdfScale / (pdfHl.a1.capturedScale || 1);
-    expect(pdfRatio).toBe(1.0);
+    // 错误: capturedScale=1 → 同 zoom 下 ratio=1.5, 双重缩放!
+    const wrongHl = addHighlight({}, 'a1', [{ x: capturedX, y: 50, width: 450, height: 30 }], 'comment', 1);
+    const wrongRatio = capturedZoom / wrongHl.a1.capturedScale; // 1.5
+    const wrongResult = scaleHighlightCoordsWithOffset(wrongHl.a1, wrongRatio, 24, 20);
+    // x = 24 + (174-24)*1.5 = 24 + 225 = 249 ← 偏移了!
+    expect(wrongResult.rects[0].x).toBeCloseTo(249, 0);
+    expect(wrongResult.rects[0].x).not.toBeCloseTo(capturedX, 0); // 证明双重缩放
   });
 });

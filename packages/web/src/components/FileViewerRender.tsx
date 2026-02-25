@@ -243,18 +243,15 @@ export function FileViewerRender({
     };
     onAnnotationsChange({ items: [...annotations.items, ann], updatedAt: Date.now() });
     // Persist selection rects as highlight (record current scale for proportional re-scaling).
-    // For text with CSS zoom, getClientRects returns unzoomed coordinates.
-    // Store capturedScale=1 so scaleHl applies the full zoom ratio at display time.
     if (float?.rects && float.rects.length > 0) {
-      const capturedScale = format === 'pdf-binary' ? pdfScale : 1;
-      setHighlights(prev => addHighlight(prev, id, float.rects, type, capturedScale));
+      setHighlights(prev => addHighlight(prev, id, float.rects, type, pdfScale));
     }
     // Transition: selection float → edit float (at same position) for non-delete types
     if (type !== 'delete') {
       setEditFloat({ x: float!.x, y: float!.selectionBottom, annotationId: id, isNew: true });
     }
     setFloat(null);
-  }, [annotations, filePath, onAnnotationsChange, float, pdfScale, format]);
+  }, [annotations, filePath, onAnnotationsChange, float, pdfScale]);
 
   const removeAnnotation = useCallback((id: string) => {
     onAnnotationsChange({ items: annotations.items.filter((a) => a.id !== id), updatedAt: Date.now() });
