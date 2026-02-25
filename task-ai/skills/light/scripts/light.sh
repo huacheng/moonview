@@ -24,7 +24,7 @@ if [[ "$ARG1" == "--finish" ]]; then
     # Extract objective from index
     OBJECTIVE=$(python3 "$STATE_PY" get "$INDEX_JSON" title)
     
-    # Resolve project name (parent of notebook directory)
+    # Resolve project name
     NB_DIR=$(dirname "$NB_WORKING")
     PROJECT_DIR=$(dirname "$NB_DIR")
     PROJECT_NAME=$(basename "$PROJECT_DIR")
@@ -45,10 +45,8 @@ if [[ "$ARG1" == "--finish" ]]; then
     git merge --squash "$CURRENT_BRANCH" > /dev/null
     git commit -m "task-ai($PROJECT_NAME):light $OBJECTIVE" > /dev/null
     
-    # Cleanup: Delete branch AND the notebook directory (transient)
+    # Cleanup
     git branch -D "$CURRENT_BRANCH" > /dev/null
-    
-    # Resolve the notebook root (one level up from .working)
     NB_DIR=$(dirname "$NB_WORKING")
     rm -rf "$NB_DIR"
     
@@ -56,7 +54,51 @@ if [[ "$ARG1" == "--finish" ]]; then
     exit 0
 fi
 
-# 2. Start Mode
+# 2. Promote Mode
+if [[ "$ARG1" == "--promote" ]]; then
+    if ! find_nb_context; then
+        echo "[ERROR] Not in a light task context." >&2
+        exit 1
+    fi
+
+    INDEX_JSON="$NB_WORKING/.index.json"
+    STATE_PY="$SCRIPT_DIR/../../../core/state.py"
+    
+    # Check if actually in light mode
+    MODE=$(python3 "$STATE_PY" get "$INDEX_JSON" mode)
+    if [[ "$MODE" != "light" ]]; then
+        echo "[ERROR] This notebook is not in light mode." >&2
+        exit 1
+    fi
+
+    echo "Promoting light task to standard notebook..."
+
+    # 1. Update Metadata
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status planning
+    python3 "$STATE_PY" set "$INDEX_JSON" mode "" # Remove light mode flag
+    
+    # 2. Rename Branch
+    CURRENT_BRANCH=$(git branch --show-current)
+    # Convert light/... to task/...
+    NEW_BRANCH="task/${NB_NOTEBOOK}"
+    
+    # Check if task/ branch already exists (init.sh created it)
+    if git branch --list "$NEW_BRANCH" | grep -q "$NB_NOTEBOOK"; then
+        git branch -D "$NEW_BRANCH" > /dev/null # Delete the empty placeholder
+    fi
+    
+    git branch -m "$NEW_BRANCH"
+    python3 "$STATE_PY" set "$INDEX_JSON" branch "$NEW_BRANCH"
+    
+    # 3. Commit Metadata Change
+    git add "$INDEX_JSON"
+    git commit -m "task-ai($NB_NOTEBOOK):promote upgrade to standard task" > /dev/null
+
+    echo "Promotion successful. Task is now a standard notebook on branch $NEW_BRANCH."
+    exit 0
+fi
+
+# 3. Start Mode
 if [[ -n "$ARG1" && -n "$ARG2" ]]; then
     PROJECT_NAME="$ARG1"
     OBJECTIVE="$ARG2"
@@ -68,7 +110,7 @@ if [[ -n "$ARG1" && -n "$ARG2" ]]; then
     
     echo "Starting light task notebook: $NOTEBOOK_NAME"
     
-    # 1. Initialize as a standard notebook (maintains architecture)
+    # 1. Initialize as a standard notebook
     INIT_SH="$SCRIPT_DIR/../../init/scripts/init.sh"
     "$INIT_SH" "$PROJECT_NAME" "$NOTEBOOK_NAME" --title "$OBJECTIVE" > /dev/null
     
@@ -82,7 +124,6 @@ if [[ -n "$ARG1" && -n "$ARG2" ]]; then
     python3 "$STATE_PY" set "$INDEX_JSON" mode "light"
     
     # 4. Create Shadow Branch
-    # (Init already created a task/ branch, we'll use a shadow branch for light work)
     SHADOW_BRANCH="light/${NOTEBOOK_NAME}"
     git checkout -b "$SHADOW_BRANCH" > /dev/null
     
@@ -90,5 +131,5 @@ if [[ -n "$ARG1" && -n "$ARG2" ]]; then
     exit 0
 fi
 
-echo "[ERROR] Invalid arguments. Usage: light <project> <objective> | --finish" >&2
+echo "[ERROR] Invalid arguments. Usage: light <project> <objective> | --finish | --promote" >&2
 exit 1

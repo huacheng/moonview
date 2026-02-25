@@ -61,8 +61,6 @@ if git log -n 1 --oneline | grep -q "task-ai($TEST_PROJECT):light $TEST_OBJ"; th
     emit_pass "light: successfully squash-merged changes"
 else
     emit_fail "light: missing squash commit on master"
-    echo "Actual git log (last 2):"
-    git log -n 2 --oneline
 fi
 
 # 3. Check if notebook directory is deleted
@@ -70,6 +68,40 @@ if [[ -z $(find . -name "light-fix-spelling-*" -type d) ]]; then
     emit_pass "light: successfully deleted transient notebook directory"
 else
     emit_fail "light: failed to delete notebook directory after finish"
+fi
+
+# --- Test 3: Promote Mode ---
+# Setup a fresh light task to promote
+cd "$NB_WORKSPACES_ROOT/$TEST_PROJECT" || exit 1
+"$LIGHT_SH" "$TEST_PROJECT" "Complex Fix" > /dev/null
+NB_DIR=$(find . -name "light-complex-fix-*" -type d)
+cd "$NB_DIR" || exit 1
+
+"$LIGHT_SH" "--promote" > /dev/null
+
+# 1. Check if mode flag is removed
+INDEX_JSON=".working/.index.json"
+MODE=$(python3 -c "import json; print(json.load(open('$INDEX_JSON')).get('mode', ''))")
+if [[ "$MODE" != "light" ]]; then
+    emit_pass "light: successfully removed light mode flag during promotion"
+else
+    emit_fail "light: failed to remove light mode flag"
+fi
+
+# 2. Check if branch is renamed to task/
+CURRENT_BRANCH=$(git branch --show-current)
+if [[ "$CURRENT_BRANCH" =~ ^task/light-complex-fix- ]]; then
+    emit_pass "light: successfully renamed branch to task/ prefix"
+else
+    emit_fail "light: failed to rename branch (Current: $CURRENT_BRANCH)"
+fi
+
+# 3. Check if status is planning
+STATUS=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['status'])")
+if [[ "$STATUS" == "planning" ]]; then
+    emit_pass "light: status set to planning after promotion"
+else
+    emit_fail "light: failed to set status to planning"
 fi
 
 # Cleanup
