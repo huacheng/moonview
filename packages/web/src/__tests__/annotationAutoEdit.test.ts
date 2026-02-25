@@ -511,4 +511,36 @@ describe('scaleHighlightCoordsWithOffset — applies offset-aware scaling to all
     // bottomY: 20 + (548-20)*1.5 = 20 + 792 = 812
     expect(scaled.bottomY).toBe(812);
   });
+
+  it('text format (capturedScale=1) at zoom 2.0 scales by full zoom', () => {
+    // Text format uses CSS zoom; getClientRects returns unzoomed coords.
+    // capturedScale=1 so scaleHl computes ratio = pdfScale / 1 = 2.0
+    const hl = {
+      rects: [{ x: 124, y: 520, width: 300, height: 20 }],
+      bottomY: 548,
+      type: 'comment' as const,
+      capturedScale: 1,
+    };
+    const pdfScale = 2.0;
+    const ratio = pdfScale / (hl.capturedScale || 1); // 2.0 / 1 = 2.0
+    const result = scaleHighlightCoordsWithOffset(hl, ratio, 24, 20);
+    // x: 24 + (124-24)*2 = 224
+    // y: 20 + (520-20)*2 = 1020
+    expect(result.rects[0]).toEqual({ x: 224, y: 1020, width: 600, height: 40 });
+  });
+
+  it('text format vs pdf format: capturedScale=1 gives full zoom, capturedScale=pdfScale gives no zoom', () => {
+    const rects = [{ x: 124, y: 520, width: 300, height: 20 }];
+    const pdfScale = 1.5;
+
+    // Text format: capturedScale=1 → ratio = 1.5/1 = 1.5 → highlight scales with zoom
+    const textHl = addHighlight({}, 'a1', rects, 'comment', 1);
+    const textRatio = pdfScale / (textHl.a1.capturedScale || 1);
+    expect(textRatio).toBe(1.5);
+
+    // PDF format: capturedScale=pdfScale → ratio = 1.5/1.5 = 1.0 → no change needed
+    const pdfHl = addHighlight({}, 'a1', rects, 'comment', pdfScale);
+    const pdfRatio = pdfScale / (pdfHl.a1.capturedScale || 1);
+    expect(pdfRatio).toBe(1.0);
+  });
 });
