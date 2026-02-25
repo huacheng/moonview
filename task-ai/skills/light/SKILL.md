@@ -26,7 +26,7 @@ A "fast-track" mode for small, self-contained tasks (e.g., typos, simple CSS twe
 2. **Start shadow session** (if `objective` provided):
    - **Registry**: Record the task goal in `$PROJECT_ROOT/.light-tasks.jsonl`.
    - **Branch**: `git checkout -b light/<slug>-<timestamp>`.
-   - **Verify**: Output a confirmation message. Do NOT create any physical directory in `AiTasks/`.
+   - **Verify**: Output a confirmation message. A minimalist notebook directory is created under the project to maintain the notebook-bound architecture.
 3. **Execute change**:
    - The agent modifies files directly in the codebase.
    - **No intermediate commits**: All changes stay in the working tree/index of the shadow branch.
