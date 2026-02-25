@@ -403,8 +403,7 @@ export function FileViewerRender({
         <div
           className="fv-render__text-zoom-wrapper"
           style={{
-            transform: `scale(${pdfScale})`,
-            transformOrigin: 'top left',
+            zoom: pdfScale,
             width: `${100 / pdfScale}%`,
           }}
         >
