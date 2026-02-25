@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# /moonview:plan implementation
+# Usage: plan.sh <notebook> [--generate]
+
+set -uo pipefail
+
+NOTEBOOK="${1:-}"
+GENERATE=1
+
+if [[ -z "$NOTEBOOK" ]]; then
+    echo "[ERROR] Notebook name is required." >&2
+    exit 1
+fi
+
+NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
+WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
+INDEX_JSON="$WORK_DIR/.index.json"
+
+if [[ ! -d "$WORK_DIR" ]]; then
+    echo "[ERROR] Working directory not found." >&2
+    exit 1
+fi
+
+# 1. Invoke Research for Type Discovery (Simulated)
+# In real execution, this would call research.sh. For plumbing:
+TYPE=$(python3 -c "import json; print(json.load(open('$INDEX_JSON')).get('type', ''))")
+if [[ -z "$TYPE" ]]; then
+    TYPE="software" # Default for plan testing
+    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['type']='$TYPE'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+fi
+
+echo "Planning for task type: $TYPE"
+
+# 2. Generate .plan.md (Scaffold)
+cat > "$WORK_DIR/.plan.md" <<EOF
+# Implementation Plan: $NOTEBOOK
+
+## Step 1: Initialize Project
+- Setup basic structure
+[VH: test-init]
+
+## Step 2: Implement Core Logic
+- Write main functions
+[VH: test-core]
+EOF
+
+# 3. Generate VH Stubs (for software types)
+if [[ "$TYPE" == *"software"* ]]; then
+    TEST_DIR="$WORK_DIR/../.test"
+    mkdir -p "$TEST_DIR"
+    DATE=$(date +%Y-%m-%d)
+    STUB_FILE="$TEST_DIR/$DATE-vh-stubs.test.js"
+    
+    cat > "$STUB_FILE" <<EOF
+// VH: auto-generated stubs for $NOTEBOOK
+test('test-init', () => {
+  // VH: not implemented
+  throw new Error('VH: not implemented');
+});
+
+test('test-core', () => {
+  // VH: not implemented
+  throw new Error('VH: not implemented');
+});
+EOF
+    
+    # Create VH Baseline
+    cat > "$TEST_DIR/$DATE-vh-baseline.md" <<EOF
+# VH Baseline: $NOTEBOOK
+- Total stubs: 2
+- Status: All failing (Red)
+EOF
+    echo "Generated VH stubs and baseline."
+fi
+
+# 4. Update Index Status
+python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='planning'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+
+echo "Plan generated successfully."

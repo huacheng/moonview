@@ -21,24 +21,38 @@ pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 // ── Lazy PDF Page — only renders when near viewport ───────────────────────
 const PAGE_PLACEHOLDER_HEIGHT = 842; // A4 height in px (approx)
 
-function LazyPage({ pageNumber }: { pageNumber: number }) {
+function LazyPage({ pageNumber, scale, onVisible }: { pageNumber: number; scale: number; onVisible?: (n: number, vis: boolean) => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
+  // Lazy load: start rendering once near viewport
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { rootMargin: '2500px' }, // pre-render ~3 pages ahead
+      ([entry]) => { if (entry.isIntersecting) { setLoaded(true); observer.disconnect(); } },
+      { rootMargin: '2500px' },
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
+  // Track which page is currently visible for page indicator
+  useEffect(() => {
+    if (!loaded || !onVisible) return;
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => onVisible(pageNumber, entry.isIntersecting),
+      { threshold: 0.5 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loaded, pageNumber, onVisible]);
+
   return (
-    <div ref={ref} style={visible ? undefined : { minHeight: PAGE_PLACEHOLDER_HEIGHT }}>
-      {visible && <Page pageNumber={pageNumber} renderTextLayer={true} renderAnnotationLayer={false} />}
+    <div ref={ref} style={loaded ? undefined : { minHeight: PAGE_PLACEHOLDER_HEIGHT }}>
+      {loaded && <Page pageNumber={pageNumber} scale={scale} renderTextLayer={true} renderAnnotationLayer={false} />}
     </div>
   );
 }
@@ -120,15 +134,29 @@ interface FileViewerRenderProps {
   filePath: string;
   onAnnotationsChange: (a: FileAnnotations) => void;
   onSendToPrompt: (text: string) => void;
+  pdfScale?: number;
+  onPdfPagesLoaded?: (n: number) => void;
+  onPdfVisiblePage?: (n: number) => void;
 }
 
 export function FileViewerRender({
   format, content, binaryBuffer, filename, annotations, filePath, onAnnotationsChange, onSendToPrompt,
+  pdfScale = 1.0, onPdfPagesLoaded, onPdfVisiblePage,
 }: FileViewerRenderProps) {
   const [float, setFloat] = useState<{ x: number; y: number; text: string } | null>(null);
   const [pdfPages, setPdfPages] = useState(0);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const visiblePagesRef = useRef(new Set<number>());
+
+  const handlePageVisible = useCallback((pageNum: number, isVisible: boolean) => {
+    const set = visiblePagesRef.current;
+    if (isVisible) set.add(pageNum);
+    else set.delete(pageNum);
+    if (set.size > 0 && onPdfVisiblePage) {
+      onPdfVisiblePage(Math.min(...set));
+    }
+  }, [onPdfVisiblePage]);
   const isMd = filename.endsWith('.md');
   const isJson = isJsonFile(filename);
 
@@ -245,13 +273,13 @@ export function FileViewerRender({
           {pdfError && <div className="fv-render__pdf-error">Failed to load PDF: {pdfError}</div>}
           <Document
             file={pdfFile}
-            onLoadSuccess={(pdf: { numPages: number }) => setPdfPages(pdf.numPages)}
+            onLoadSuccess={(pdf: { numPages: number }) => { setPdfPages(pdf.numPages); onPdfPagesLoaded?.(pdf.numPages); }}
             onLoadError={(err: Error) => setPdfError(err.message)}
             loading={<div className="fv-render__pdf-loading">Loading PDF…</div>}
             className="fv-render__pdf"
           >
             {Array.from({ length: pdfPages }, (_, i) => (
-              <LazyPage key={i + 1} pageNumber={i + 1} />
+              <LazyPage key={i + 1} pageNumber={i + 1} scale={pdfScale} onVisible={handlePageVisible} />
             ))}
           </Document>
         </div>

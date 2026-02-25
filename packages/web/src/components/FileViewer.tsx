@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import { useFileStream } from '../hooks/useFileStream';
 import { useAnnotationPersistence } from '../hooks/useAnnotationPersistence';
@@ -22,6 +22,11 @@ export function FileViewer() {
   const [mode, setMode] = useState<'render' | 'edit'>('render');
   const [annotations, setAnnotations] = useState<FileAnnotations>(EMPTY_FILE_ANNOTATIONS);
   const annLoadedRef = useRef(false);
+
+  // PDF controls: page tracking + zoom
+  const [pdfPage, setPdfPage] = useState(1);
+  const [pdfPages, setPdfPages] = useState(0);
+  const [pdfScale, setPdfScale] = useState(1.0);
 
   const fileState = useFileStream(
     activeFile?.sessionId ?? null,
@@ -55,10 +60,18 @@ export function FileViewer() {
     }
   }, [fileState.status, fileState.format, activeFile, activeFileTabId, closeFileTab]);
 
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 3.0;
+  const ZOOM_STEP = 0.25;
+  const clampScale = useCallback((s: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(s * 100) / 100)), []);
+  const handleZoomIn = useCallback(() => setPdfScale((s) => clampScale(s + ZOOM_STEP)), [clampScale]);
+  const handleZoomOut = useCallback(() => setPdfScale((s) => clampScale(s - ZOOM_STEP)), [clampScale]);
+
   if (!activeFile) return null;
 
   const filename = activeFile.path.split('/').pop() ?? activeFile.path;
   const canEdit = fileState.format !== null && !fileState.format.endsWith('-binary') && fileState.format !== 'unsupported';
+  const isPdf = fileState.format === 'pdf-binary';
 
   return (
     <div className="file-viewer">
@@ -70,6 +83,11 @@ export function FileViewer() {
         onToggleMode={() => { if (canEdit) setMode((m) => m === 'render' ? 'edit' : 'render'); }}
         onToggleMaximize={toggleFileViewerMaximized}
         onClose={() => closeFileTab(activeFileTabId!)}
+        pdfPage={isPdf ? pdfPage : undefined}
+        pdfPages={isPdf ? pdfPages : undefined}
+        pdfScale={isPdf ? pdfScale : undefined}
+        onZoomIn={isPdf ? handleZoomIn : undefined}
+        onZoomOut={isPdf ? handleZoomOut : undefined}
       />
       {fileState.status === 'loading' && <div className="fv-loading">Loading…</div>}
       {fileState.status === 'converting' && <div className="fv-loading">Converting document…</div>}
@@ -84,6 +102,9 @@ export function FileViewer() {
           filePath={activeFile.path}
           onAnnotationsChange={setAnnotations}
           onSendToPrompt={submitPrompt}
+          pdfScale={pdfScale}
+          onPdfPagesLoaded={setPdfPages}
+          onPdfVisiblePage={setPdfPage}
         />
       )}
       {fileState.status === 'complete' && mode === 'edit' && canEdit && (

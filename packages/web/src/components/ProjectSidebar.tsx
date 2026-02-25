@@ -59,7 +59,7 @@ function FileBrowser() {
   const activeProjectPath = useStore(s => s.activeProjectPath);
   const goBackToProjectList = useStore(s => s.goBackToProjectList);
   const authToken = useStore(s => s.authToken);
-  const setOpenFile = useStore(s => s.setOpenFile);
+  const openFileTab = useStore(s => s.openFileTab);
 
   const projectTitle = useStore(s => s.projects.find(p => p.id === s.activeProjectId)?.title ?? 'Project');
 
@@ -92,9 +92,9 @@ function FileBrowser() {
       const { sessionId } = useStore.getState();
       if (!sessionId) return;
       const relPath = subPath === '.' ? filename : `${subPath}/${filename}`;
-      setOpenFile({ path: relPath, source: 'workspace', sessionId });
+      openFileTab({ path: relPath, source: 'workspace', sessionId });
     }
-  }, [activeProjectPath, setOpenFile]);
+  }, [activeProjectPath, openFileTab]);
 
   const handleCreateNotebook = async () => {
     if (!nbTitle.trim() || !activeProjectId || nbCreating) return;
@@ -152,7 +152,8 @@ export function ProjectSidebar() {
   const authToken = useStore(s => s.authToken);
   const workspaceDir = useStore(s => s.workspaceDir);
   const sessionId = useStore(s => s.sessionId);
-  const setOpenFile = useStore(s => s.setOpenFile);
+  const openFileTab = useStore(s => s.openFileTab);
+  const sidebarWidth = useStore(s => s.sidebarWidth);
 
   const sidebarRef = useRef<HTMLElement>(null);
   const dragging = useRef(false);
@@ -174,7 +175,7 @@ export function ProjectSidebar() {
   }, [setLeftSidebarSplitRatio]);
 
   return (
-    <aside className="sidebar" ref={sidebarRef}>
+    <aside className="sidebar" ref={sidebarRef} style={{ width: sidebarWidth }}>
       <div className="sidebar-top" style={{ flex: leftSidebarSplitRatio }}>
         {sidebarLevel === 'L1' ? <ProjectList /> : <FileBrowser />}
       </div>
@@ -195,7 +196,7 @@ export function ProjectSidebar() {
           workspaceDir={workspaceDir}
           onFileClick={(subPath, name) => {
             const relPath = subPath === '.' ? name : `${subPath}/${name}`;
-            setOpenFile({ path: relPath, source: 'library', sessionId: sessionId ?? '' });
+            openFileTab({ path: relPath, source: 'library', sessionId: sessionId ?? '' });
           }}
         />
       </div>
