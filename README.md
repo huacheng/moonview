@@ -9,7 +9,7 @@ A Claude Code plugin marketplace for structured task lifecycle management.
 ## Installation
 
 ```bash
-claude plugin add huacheng/moonview
+gemini plugin add huacheng/moonview
 ```
 
 ## Plugins
@@ -25,18 +25,22 @@ Structured task lifecycle management with **18 skills** for AI-driven developmen
 ## Lifecycle
 
 ```
-init → research(target) → plan → research(test) → verify → check → exec → merge → report
+init → target → research(target) → plan → research(test) → verify → check → exec → merge → report
             ↑                ↑         ↑              ↑       ↑       ↑
             └──────────────── research callable at every phase ────────┘
 ```
 
 Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
 
-### Skills (14)
+### Skills (18)
 
 | Skill | Tier | Description |
 |-------|------|-------------|
-| `init` | light | Create notebook — directory, `.index.json`, git branch, optional worktree |
+| `init` | light | Create notebook — directory, git branch, optional worktree |
+| `target` | light | **Demand Anchor** — define/review objectives in .target.md |
+| `light` | light | **Shadow Task** — fast-track fixes, transient notebook |
+| `read` | medium | **System Immunity** — ingest local docs safely |
+| `security` | heavy | **Runtime Guardian** — audit plans and commands |
 | `research` | medium | Intelligence officer — target deepening, reference collection, type discovery |
 | `plan` | heavy | Generate implementation plan from `.target.md` with domain-adapted methodology |
 | `verify` | medium | Run domain-adapted tests, produce result files |
@@ -50,10 +54,6 @@ Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate`
 | `annotate` | medium | Process Plan panel annotations (Insert/Delete/Replace/Comment) |
 | `summarize` | light | Regenerate `.summary.md` for context recovery |
 | `library` | light | Knowledge library management (search/list/status/maintain) |
-| `target` | light | **Demand Anchor** — define/review objectives in .target.md |
-| `light` | light | **Shadow Task** — fast-track fixes, transient notebook |
-| `read` | medium | **System Immunity** — ingest local docs safely |
-| `security` | heavy | **Runtime Guardian** — audit plans and commands |
 
 ### Status State Machine
 
@@ -149,7 +149,7 @@ $NB_WORKSPACES_ROOT/
 
 ## Related
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface for Claude Code with Plan annotation panel and Chat editor
+- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface  with Plan annotation panel and Chat editor
 
 ## License
 
