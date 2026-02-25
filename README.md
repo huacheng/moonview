@@ -46,11 +46,11 @@ Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate`
 | Skill | Tier | Description |
 |-------|------|-------------|
 | `init` | light | Create notebook — directory, git branch, optional worktree |
-| `target` | light | **Demand Anchor** — define/review objectives in .target.md |
+| `target` | heavy | **Demand Anchor** — define/review objectives in .target.md |
 | `light` | light | **Shadow Task** — fast-track fixes, transient notebook |
 | `read` | medium | **System Immunity** — ingest local docs safely |
 | `security` | heavy | **Runtime Guardian** — audit plans and commands |
-| `research` | medium | Intelligence officer — target deepening, reference collection, type discovery |
+| `research` | heavy | Intelligence officer — target deepening, reference collection, type discovery |
 | `plan` | heavy | Generate implementation plan from `.target.md` with domain-adapted methodology |
 | `verify` | medium | Run domain-adapted tests, produce result files |
 | `check` | heavy | Six-perspective audit at post-plan, mid-exec, post-exec checkpoints |
@@ -68,11 +68,14 @@ Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate`
 
 ```
 draft → planning → review → executing → complete
-                 ↗            ↘
-          re-planning    ←    blocked
+                 ↗            ↘           ↑
+          re-planning    ←    blocked     |
+                                    light-exec
+                                          ↓
+          any non-terminal ──────→ cancelled
 ```
 
-9 statuses with validated transitions (including `light-exec`). Terminal states: `complete`, `cancelled`.
+9 statuses with validated transitions. Terminal states: `complete`, `cancelled`.
 
 ## Quick Start
 
