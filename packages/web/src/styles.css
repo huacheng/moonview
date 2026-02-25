@@ -3739,13 +3739,13 @@ button:focus-visible {
 .fv-render__pdf {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
 }
 .fv-render__pdf-wrapper {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
   min-height: 100%;
 }
