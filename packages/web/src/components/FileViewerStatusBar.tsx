@@ -10,7 +10,7 @@ interface FileViewerStatusBarProps {
   onClose: () => void;
   pdfPage?: number;
   pdfPages?: number;
-  pdfScale?: number;
+  scale?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
 }
@@ -21,21 +21,22 @@ const FORMAT_LABEL: Partial<Record<FileFormat, string>> = {
 
 export function FileViewerStatusBar({
   filename, format, mode, maximized, onToggleMode, onToggleMaximize, onClose,
-  pdfPage, pdfPages, pdfScale, onZoomIn, onZoomOut,
+  pdfPage, pdfPages, scale, onZoomIn, onZoomOut,
 }: FileViewerStatusBarProps) {
   const canEdit = format !== null && !format.endsWith('-binary') && format !== 'unsupported';
-  const showPdfControls = pdfPages !== undefined && pdfPages > 0;
+  const showZoom = scale !== undefined;
+  const showPdfPage = pdfPages !== undefined && pdfPages > 0;
   return (
     <div className="fv-statusbar">
       <span className="fv-statusbar__name" title={filename}>{filename}</span>
       {format && <span className="fv-statusbar__format">{FORMAT_LABEL[format] ?? format}</span>}
 
-      {/* PDF page & zoom controls */}
-      {showPdfControls && (
+      {/* Page & zoom controls */}
+      {showZoom && (
         <div className="fv-statusbar__pdf-controls">
-          <span className="fv-statusbar__page-info">{pdfPage} / {pdfPages}</span>
+          {showPdfPage && <span className="fv-statusbar__page-info">{pdfPage} / {pdfPages}</span>}
           <button className="fv-statusbar__btn" onClick={onZoomOut} title="Zoom out">−</button>
-          <span className="fv-statusbar__zoom-level">{Math.round((pdfScale ?? 1) * 100)}%</span>
+          <span className="fv-statusbar__zoom-level">{Math.round((scale ?? 1) * 100)}%</span>
           <button className="fv-statusbar__btn" onClick={onZoomIn} title="Zoom in">+</button>
         </div>
       )}

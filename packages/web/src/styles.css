@@ -3702,6 +3702,9 @@ button:focus-visible {
   padding: 20px 24px;
   position: relative;
 }
+.fv-render__text-zoom-wrapper {
+  /* Semantic container for CSS-scaled text content; transform is inline */
+}
 .fv-render__text {
   white-space: pre-wrap;
   font-family: var(--font-mono);

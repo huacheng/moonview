@@ -23,10 +23,10 @@ export function FileViewer() {
   const [annotations, setAnnotations] = useState<FileAnnotations>(EMPTY_FILE_ANNOTATIONS);
   const annLoadedRef = useRef(false);
 
-  // PDF controls: page tracking + zoom
+  // Zoom controls: page tracking (PDF) + scale (PDF & text)
   const [pdfPage, setPdfPage] = useState(1);
   const [pdfPages, setPdfPages] = useState(0);
-  const [pdfScale, setPdfScale] = useState(1.0);
+  const [contentScale, setContentScale] = useState(1.0);
 
   const fileState = useFileStream(
     activeFile?.sessionId ?? null,
@@ -64,14 +64,16 @@ export function FileViewer() {
   const ZOOM_MAX = 3.0;
   const ZOOM_STEP = 0.25;
   const clampScale = useCallback((s: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(s * 100) / 100)), []);
-  const handleZoomIn = useCallback(() => setPdfScale((s) => clampScale(s + ZOOM_STEP)), [clampScale]);
-  const handleZoomOut = useCallback(() => setPdfScale((s) => clampScale(s - ZOOM_STEP)), [clampScale]);
+  const handleZoomIn = useCallback(() => setContentScale((s) => clampScale(s + ZOOM_STEP)), [clampScale]);
+  const handleZoomOut = useCallback(() => setContentScale((s) => clampScale(s - ZOOM_STEP)), [clampScale]);
 
   if (!activeFile) return null;
 
   const filename = activeFile.path.split('/').pop() ?? activeFile.path;
   const canEdit = fileState.format !== null && !fileState.format.endsWith('-binary') && fileState.format !== 'unsupported';
   const isPdf = fileState.format === 'pdf-binary';
+  const isText = fileState.format === 'text';
+  const showZoom = isPdf || isText;
 
   return (
     <div className="file-viewer">
@@ -85,9 +87,9 @@ export function FileViewer() {
         onClose={() => closeFileTab(activeFileTabId!)}
         pdfPage={isPdf ? pdfPage : undefined}
         pdfPages={isPdf ? pdfPages : undefined}
-        pdfScale={isPdf ? pdfScale : undefined}
-        onZoomIn={isPdf ? handleZoomIn : undefined}
-        onZoomOut={isPdf ? handleZoomOut : undefined}
+        scale={showZoom ? contentScale : undefined}
+        onZoomIn={showZoom ? handleZoomIn : undefined}
+        onZoomOut={showZoom ? handleZoomOut : undefined}
       />
       {fileState.status === 'loading' && <div className="fv-loading">Loading…</div>}
       {fileState.status === 'converting' && <div className="fv-loading">Converting document…</div>}
@@ -102,7 +104,7 @@ export function FileViewer() {
           filePath={activeFile.path}
           onAnnotationsChange={setAnnotations}
           onSendToPrompt={submitPrompt}
-          pdfScale={pdfScale}
+          pdfScale={contentScale}
           onPdfPagesLoaded={setPdfPages}
           onPdfVisiblePage={setPdfPage}
         />

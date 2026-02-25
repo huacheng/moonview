@@ -20,7 +20,7 @@ import {
   formatTagLabel,
   computeScrollTarget,
   computeMarginAnchor,
-  scaleHighlightCoords,
+  scaleHighlightCoordsWithOffset,
 } from '../utils/annotationHighlight';
 
 import { isJsonFile, formatJsonContent } from '../utils/jsonFormat';
@@ -61,7 +61,7 @@ function LazyPage({ pageNumber, scale, onVisible }: { pageNumber: number; scale:
   }, [loaded, pageNumber, onVisible]);
 
   return (
-    <div ref={ref} style={loaded ? undefined : { minHeight: PAGE_PLACEHOLDER_HEIGHT }}>
+    <div ref={ref} style={loaded ? undefined : { minHeight: PAGE_PLACEHOLDER_HEIGHT * scale }}>
       {loaded && <Page pageNumber={pageNumber} scale={scale} renderTextLayer={true} renderAnnotationLayer={false} />}
     </div>
   );
@@ -196,6 +196,16 @@ export function FileViewerRender({
   const containerRef = useRef<HTMLDivElement>(null);
   const visiblePagesRef = useRef(new Set<number>());
 
+  // Container padding — fixed offset that doesn't participate in PDF scaling
+  const PADDING_X = 24;
+  const PADDING_Y = 20;
+
+  // Helper: scale a highlight's coords with padding offset excluded
+  const scaleHl = useCallback((hl: HighlightsMap[string]) => {
+    const ratio = pdfScale / (hl.capturedScale || 1);
+    return scaleHighlightCoordsWithOffset(hl, ratio, PADDING_X, PADDING_Y);
+  }, [pdfScale]);
+
   const handlePageVisible = useCallback((pageNum: number, isVisible: boolean) => {
     const set = visiblePagesRef.current;
     if (isVisible) set.add(pageNum);
@@ -309,20 +319,17 @@ export function FileViewerRender({
     if (!hl) return;
     const container = containerRef.current;
     const containerW = container?.clientWidth ?? 600;
-    const ratio = pdfScale / (hl.capturedScale || 1);
-    const scaled = scaleHighlightCoords(hl, ratio);
+    const scaled = scaleHl(hl);
     setActiveHighlightId(annId);
     setEditFloat({ x: Math.max(containerW - 320, 0), y: computeMarginAnchor(scaled.rects) + 10, annotationId: annId, isNew: false });
-  }, [annotations, highlights, pdfScale]);
+  }, [annotations, highlights, scaleHl]);
 
   const handleScrollTo = useCallback((annId: string) => {
     const container = containerRef.current;
     if (!container) return;
     const hl = highlights[annId];
     if (!hl) return;
-    // Build a scaled version for scroll target computation
-    const ratio = pdfScale / (hl.capturedScale || 1);
-    const scaled = scaleHighlightCoords(hl, ratio);
+    const scaled = scaleHl(hl);
     const scaledMap: HighlightsMap = { [annId]: { ...hl, rects: scaled.rects, bottomY: scaled.bottomY } };
     const target = computeScrollTarget(scaledMap, annId, container.clientHeight);
     if (target !== null) {
@@ -330,7 +337,7 @@ export function FileViewerRender({
       setActiveHighlightId(annId);
       setTimeout(() => setActiveHighlightId(null), 2000);
     }
-  }, [highlights, pdfScale]);
+  }, [highlights, scaleHl]);
 
   return (
     <div ref={containerRef} className="fv-render" onMouseUp={handleMouseUp}>
@@ -352,8 +359,7 @@ export function FileViewerRender({
         if (!ann) return null;
         const isActive = activeHighlightId === annId;
         // Scale rects proportionally when zoom changes
-        const ratio = pdfScale / (hl.capturedScale || 1);
-        const scaled = scaleHighlightCoords(hl, ratio);
+        const scaled = scaleHl(hl);
         const anchorY = computeMarginAnchor(scaled.rects);
         const rightX = Math.max(...scaled.rects.map(r => r.x + r.width));
         return (
@@ -393,16 +399,27 @@ export function FileViewerRender({
       )}
 
       {/* File content */}
-      {format === 'text' && isMd && (
-        <div className="fv-render__markdown">
-          <ReactMarkdown>{content}</ReactMarkdown>
+      {format === 'text' && (
+        <div
+          className="fv-render__text-zoom-wrapper"
+          style={{
+            transform: `scale(${pdfScale})`,
+            transformOrigin: 'top left',
+            width: `${100 / pdfScale}%`,
+          }}
+        >
+          {isMd && (
+            <div className="fv-render__markdown">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
+          )}
+          {!isMd && isJson && (
+            <pre className="fv-render__json">{formatJsonContent(content)}</pre>
+          )}
+          {!isMd && !isJson && (
+            <pre className="fv-render__text">{content}</pre>
+          )}
         </div>
-      )}
-      {format === 'text' && !isMd && isJson && (
-        <pre className="fv-render__json">{formatJsonContent(content)}</pre>
-      )}
-      {format === 'text' && !isMd && !isJson && (
-        <pre className="fv-render__text">{content}</pre>
       )}
       {format === 'html' && (
         <div
