@@ -2,7 +2,7 @@
 
 [中文文档](README_CN.md)
 
-A Claude Code plugin marketplace for structured task lifecycle management.
+A plugin marketplace for structured task lifecycle management.
 
 > *"Standing on the moon, looking at Earth"* — [老王来了@dlw2023](https://www.youtube.com/@dlw2023)
 
@@ -11,13 +11,13 @@ A Claude Code plugin marketplace for structured task lifecycle management.
 Add the Moonview marketplace to your preferred agent:
 
 ```bash
-# For Gemini CLI
+# Gemini CLI
 gemini plugin add huacheng/moonview
 
-# For Claude Code
+# Claude Code
 claude plugin add huacheng/moonview
 
-# For Codex CLI
+# Codex CLI
 codex plugin add huacheng/moonview
 ```
 
@@ -25,15 +25,74 @@ codex plugin add huacheng/moonview
 
 ### task-ai (v0.8.1)
 
-Structured task lifecycle management with **18 skills** for AI-driven development. Git-integrated branch-per-task workflow with project/notebook hierarchy, domain-aware verification, knowledge library, and autonomous execution.
+## I. Overview
 
+task-ai is a **pure Markdown instruction-driven** task lifecycle management framework. It runs as a model-agnostic plugin, managing the complete lifecycle from task initialization to completion reporting. The framework supports domain-adaptive verification (VFP protocol), cross-task knowledge reuse, and highly automated autonomous execution.
+
+**Core philosophy**: "Task as Notebook". Every task is bound to an independent Notebook structure, ensuring clear responsibility boundaries and complete audit trails.
+
+**Entry command**: Type `/moonview:<subcommand> [args]` in the prompt
+
+---
+
+## II. 18 Skills
+
+### Core Lifecycle (typical order)
+
+| Skill | Tier | Role | Notes |
+|-------|------|------|-------|
+| `init` | light | Initialize working directory, Git branch | Requires `<project> <notebook>` |
+| `target` | heavy | **Define/review task objectives** | Bidirectional sync with `.target.md` |
+| `research` | heavy | Intelligence gathering, type discovery | Callable independently at any phase |
+| `plan` | heavy | Generate implementation plan `.plan.md` | Auto-generates VH verification stubs |
+| `verify` | medium | Run domain-adapted tests (VH/CGG) | Produces test result files |
+| `check` | heavy | Plan/execution review and gating | Three checkpoints control state transitions |
+| `exec` | heavy | Step-by-step plan execution | Follows VFP protocol (Red → Green → Refactor) |
+| `merge` | medium | Merge task branch, clean up metadata | Auto-deletes task branch |
+| `report` | medium | Generate completion report, distill experience | Syncs knowledge to `.library` |
+
+### Auxiliary & System Commands
+
+| Skill | Tier | Role |
+|-------|------|------|
+| `light` | light | **Shadow Task**: blitz mode, transient notebook, auto-cleanup on completion |
+| `read` | medium | **System Immunity**: safely ingest external docs/URLs into the library |
+| `security` | heavy | **Security Gateway**: pre-audit plans and validate high-risk commands |
+| `auto` | heavy | Autonomous execution loop: single-session orchestration via `.auto-signal` |
+| `cancel` | light | Cancel task, clean up state |
+| `list` | light | Query task inventory, dependency graph, and shadow task status |
+| `annotate` | medium | Process interactive annotations from the Plan panel |
+| `summarize` | light | Regenerate `.summary.md` for context compression |
+| `library` | light | Knowledge library management (search, reindex, archive maintenance) |
+
+### Auto Context Detection
+
+Except for `init` and `light` (which require project/task names), all commands auto-detect context via **Git branch** (`task/<notebook>`) or **working directory path** — no manual arguments needed.
+
+### Quick Start
+
+```bash
+# 1. Initialize a task (creates branch and switches to it)
+/moonview:init my-project auth-refactor --title "Refactor auth to JWT"
+
+# 2. Define objectives, let research deepen them (auto-detects context)
+/moonview:target "Refactor auth module from session cookies to JWT"
+/moonview:research --caller target
+
+# 3. Generate plan → review → execute → merge → report
+/moonview:plan --generate
+/moonview:check --checkpoint post-plan
+/moonview:exec
+/moonview:merge
+/moonview:report
+
+# Or run the full lifecycle automatically:
+/moonview:auto --start
 ```
-/moonview:task-ai <subcommand> [args]
-```
 
-## Lifecycle
+### Lifecycle Flow Diagrams
 
-### 1. Standard Path
+#### 1. Standard Path
 
 ```mermaid
 graph TD
@@ -54,7 +113,7 @@ graph TD
     merge --> report[report]
 ```
 
-### 2. Light Path (Shadow Task)
+#### 2. Light Path (Shadow Task)
 
 ```mermaid
 graph LR
@@ -64,37 +123,17 @@ graph LR
     promote --> plan[Standard: planning]
 ```
 
-### 3. Auxiliary Commands
+#### 3. Auxiliary & Global Commands
 
 - **`auto`**: Wraps the standard path, driven by `.auto-signal` file
 - **`read`**: Global — ingest external docs into `.library`
-- **`research`**: Callable at every phase for domain knowledge and methodology
-- **`list` · `summarize` · `library`**: Status and management tools (available anytime)
+- **`list` / `summarize` / `library`**: Status and management tools (available anytime)
 
-### Skills (18)
+---
 
-| Skill | Tier | Description |
-|-------|------|-------------|
-| `init` | light | Create notebook — directory, git branch, optional worktree |
-| `target` | heavy | **Demand Anchor** — define/review objectives in .target.md |
-| `light` | light | **Shadow Task** — fast-track fixes, transient notebook |
-| `read` | medium | **System Immunity** — ingest local docs safely |
-| `security` | heavy | **Runtime Guardian** — audit plans and commands |
-| `research` | heavy | Intelligence officer — target deepening, reference collection, type discovery |
-| `plan` | heavy | Generate implementation plan from `.target.md` with domain-adapted methodology |
-| `verify` | medium | Run domain-adapted tests, produce result files |
-| `check` | heavy | Six-perspective audit at post-plan, mid-exec, post-exec checkpoints |
-| `exec` | heavy | Execute plan step-by-step with per-step verification |
-| `merge` | medium | Merge task branch to main with conflict resolution (up to 3 retries) |
-| `report` | medium | Generate completion report, distill experience to knowledge library |
-| `auto` | heavy | Autonomous loop: plan → verify → check → exec → merge → report |
-| `cancel` | light | Cancel task, optionally cleanup worktree and branch |
-| `list` | light | Query task status, dependency graph, status timeline (read-only) |
-| `annotate` | medium | Process Plan panel annotations (Insert/Delete/Replace/Comment) |
-| `summarize` | light | Regenerate `.summary.md` for context recovery |
-| `library` | light | Knowledge library management (search/list/status/maintain) |
+## III. State Machine (9 states, 23 transitions)
 
-### Status State Machine (9 states, 23 transitions)
+### Transition Diagram
 
 ```
                         ┌─────────────────────────────────────┐
@@ -116,40 +155,50 @@ light-exec ─┤─────────────────────
                                                 complete ◉ ◄──┘
 ```
 
-9 statuses — `draft`, `planning`, `review`, `executing`, `re-planning`, `blocked`, `light-exec`, `complete`, `cancelled`. Terminal: `complete` ◉, `cancelled` ◉.
+### 9 States
 
-## Quick Start
+| State | Description |
+|-------|-------------|
+| `draft` | Initial state — entered after `init` |
+| `planning` | Plan generation in progress (supports self-loop revision) |
+| `review` | Plan passed `check`, awaiting execution |
+| `executing` | Step-by-step plan implementation |
+| `re-planning` | Issues found during execution, re-planning (supports self-loop) |
+| `blocked` | External dependency blocked, recoverable to `planning` |
+| `light-exec` | `light` mode exclusive — shadow task execution |
+| `complete` ◉ | Terminal: task completed |
+| `cancelled` ◉ | Terminal: task cancelled |
 
-```bash
-# 1. Initialize a notebook under a project (creates branch + switches to it)
-/moonview:init my-project auth-refactor --title "Refactor auth to JWT"
+### Key Design Constraints
 
-# 2. Define objectives, then let research deepen them
-#    (auto-detects context from branch — no notebook arg needed)
-/moonview:target "Refactor auth module from session cookies to JWT"
-/moonview:research --caller target
+1. **Light limits**: If a `light` mode task modifies > 3 files or fails > 3 times, it must `--promote` to the standard workflow
+2. **Notebook binding**: Even `light` mode creates a temporary Notebook directory to host state
+3. **Security first**: All `exec` runs must pass `security` validation
 
-# 3. Generate plan
-/moonview:plan --generate
+---
 
-# 4. Verify → check plan quality
-/moonview:verify
-/moonview:check --checkpoint post-plan
+## IV. VFP Protocol & Quality Assurance
 
-# 5. Execute the plan
-/moonview:exec
+### Verification-First Protocol (VFP)
 
-# 6. Merge to main + generate report
-/moonview:merge
-/moonview:report
+The framework enforces **Verification-First Protocol**:
+- **VH (Verification Hypothesis)**: Define failure baselines during planning
+- **HS (Hypothesis Satisfied)**: Verify success after implementation
+- **CGG (Cumulative Green Gate)**: Every change must pass full regression
 
-# Or run the full lifecycle automatically (from step 2 onward):
-/moonview:auto --start
-```
+### Automated Audit (Six-Perspective Audit)
 
-> After `init`, all commands auto-detect the active notebook via Git branch (`task/<notebook>`) or working directory path. No need to pass the notebook name.
+Built-in `.dev/validate.sh` performs six-dimension deep checks across all 18 skills:
+1. **Structural consistency**: Step numbering, cross-references
+2. **Routing compliance**: `.auto-signal` state machine transitions
+3. **Technical integrity**: Lock mechanisms, data flow closure
+4. **Functional robustness**: TDD contract test coverage
+5. **Security protection**: 10-category injection sanitization, path traversal defense
+6. **Protocol compliance**: Authoritative protocol section (`§`) references
 
-## Features
+---
+
+## V. Features
 
 - **Project hierarchy** — `$NB_WORKSPACES_ROOT/<project>/<notebook>/` two-level organization
 - **18 skills** — full lifecycle from init to report, plus utility commands
@@ -165,16 +214,41 @@ light-exec ─┤─────────────────────
 - **Contract test suite** — 632 assertions (L1 structural + L2 functional) covering all skills, scripts, and state transitions
 - **Security hardening** — fixed-string path comparison, input sanitization (tags, title, awk), validated `find()` results
 
-## Environment Variables
+## VI. Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `NB_WORKSPACES_ROOT` | `$HOME/nb-workspaces` | Root directory for all projects and notebooks |
 | `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` | Shared knowledge library directory |
 
+## VII. Compatibility
+
+### Model Agnostic
+- No hardcoded references to any specific LLM
+- Uses generic terminology (`the agent`) instead of model-specific names
+- Documentation fully in English, prompts support multiple CLI environments (Gemini/Claude Code/Codex)
+
+### Infrastructure
+- **No inline Python**: All Bash scripts operate data through standalone utilities (`state.py`, `json_get.py`) — no Python embedded in shell
+- **Shared function library**: `lib.sh` provides `resolve_workdir()`, `find_nb_context()` and other shared functions, called uniformly by 9 scripts
+
+---
+
+## VIII. Current Stats
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Total skills | 18 | Covers full lifecycle from research to delivery |
+| Contract tests | **632 PASS** (L1: 421, L2: 211) | 0 FAIL, 0 ERROR |
+| State machine states | 9 | Including light-exec extension |
+| Documentation coverage | 100% | Every skill has a complete SKILL.md |
+
+---
+*Generated and verified by task-ai (v0.8.1).*
+
 ## Related
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface  with Plan annotation panel and Chat editor
+- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface with Plan annotation panel and Chat editor
 
 ## License
 
