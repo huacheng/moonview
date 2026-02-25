@@ -33,13 +33,43 @@ Structured task lifecycle management with **18 skills** for AI-driven developmen
 
 ## Lifecycle
 
-```
-init → target → research(target) → plan → research(test) → verify → check → exec → merge → report
-            ↑                ↑         ↑              ↑       ↑       ↑
-            └──────────────── research callable at every phase ────────┘
+### 1. Standard Path
+
+```mermaid
+graph TD
+    init[init] --> target[target]
+    target --> res_obj[research:objective]
+    res_obj --> plan[plan]
+    plan --> sec_plan{security:audit-plan}
+    sec_plan -- PASS --> verify[verify]
+    sec_plan -- REJECT --> plan
+    verify --> check[check]
+    check -- PASS --> exec[exec]
+    check -- REPLAN --> plan
+    exec --> sec_cmd{security:verify-cmd}
+    sec_cmd -- PASS --> hs[Verification: HS]
+    hs --> check_post[check:post-exec]
+    check_post -- ACCEPT --> merge[merge]
+    check_post -- NEEDS_FIX --> exec
+    merge --> report[report]
 ```
 
-Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
+### 2. Light Path (Shadow Task)
+
+```mermaid
+graph LR
+    light[light] --> exec_l[exec]
+    exec_l --> finish[light --finish]
+    exec_l --> promote[light --promote]
+    promote --> plan[Standard: planning]
+```
+
+### 3. Auxiliary Commands
+
+- **`auto`**: Wraps the standard path, driven by `.auto-signal` file
+- **`read`**: Global — ingest external docs into `.library`
+- **`research`**: Callable at every phase for domain knowledge and methodology
+- **`list` · `summarize` · `library`**: Status and management tools (available anytime)
 
 ### Skills (18)
 
