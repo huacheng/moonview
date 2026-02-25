@@ -64,18 +64,29 @@ Utility commands (available anytime): `auto` · `cancel` · `list` · `annotate`
 | `summarize` | light | Regenerate `.summary.md` for context recovery |
 | `library` | light | Knowledge library management (search/list/status/maintain) |
 
-### Status State Machine
+### Status State Machine (9 states, 23 transitions)
 
 ```
-draft → planning → review → executing → complete
-                 ↗            ↘           ↑
-          re-planning    ←    blocked     |
-                                    light-exec
-                                          ↓
-          any non-terminal ──────→ cancelled
+                        ┌─────────────────────────────────────┐
+                        ▼                                     │
+draft ──→ planning ──→ review ──→ executing ──→ complete      │
+            ▲  │  ▲      │          │  │                      │
+            │  └──┘      │          │  ▼                      │
+            │ (self)     │       re-planning                  │
+            │            │          ▲  │  ▲                   │
+            ├────────────┼──────────┘  └──┘                   │
+            │            │            (self)                   │
+            │            ▼                                     │
+            ├───────── blocked                                │
+            │                                                  │
+light-exec ─┤──────────────────────────────────→ complete      │
+            │                                                  │
+            └── any non-terminal ──────────────→ cancelled ◉  │
+                                                               │
+                                                complete ◉ ◄──┘
 ```
 
-9 statuses with validated transitions. Terminal states: `complete`, `cancelled`.
+9 statuses — `draft`, `planning`, `review`, `executing`, `re-planning`, `blocked`, `light-exec`, `complete`, `cancelled`. Terminal: `complete` ◉, `cancelled` ◉.
 
 ## Quick Start
 
