@@ -156,21 +156,21 @@ When writing to any history directory (`.analysis/`, `.bugfix/`, `.test/`), also
 
 ## State Transitions
 
-```
-post-plan PASS:          planning → review
-post-plan PASS:          re-planning → review, phase: "" (cleared)
-post-plan NEEDS_REVISION: (no change, files committed). If current status is `re-planning`, set `phase: needs-plan`; if `planning`, phase stays `""`
-post-plan BLOCKED:       → blocked
-
-mid-exec CONTINUE:       (no change)
-mid-exec NEEDS_FIX:      (no change, files committed)
-mid-exec REPLAN:         executing → re-planning, phase: needs-plan
-mid-exec BLOCKED:        → blocked
-
-post-exec ACCEPT:        (no change, signal → merge)
-post-exec NEEDS_FIX:     (no change, files committed)
-post-exec REPLAN:        executing → re-planning, phase: needs-plan
-```
+| Current Status | After Check | Condition |
+|----------------|-------------|-----------|
+| `planning` | `review` | post-plan PASS |
+| `re-planning` | `review` | post-plan PASS |
+| `planning` | `planning` | post-plan NEEDS_REVISION |
+| `re-planning` | `re-planning` | post-plan NEEDS_REVISION |
+| `planning` | `blocked` | post-plan BLOCKED |
+| `re-planning` | `blocked` | post-plan BLOCKED |
+| `executing` | `executing` | mid-exec CONTINUE |
+| `executing` | `executing` | mid-exec NEEDS_FIX |
+| `executing` | `re-planning` | mid-exec REPLAN |
+| `executing` | `blocked` | mid-exec BLOCKED |
+| `executing` | `executing` | post-exec ACCEPT |
+| `executing` | `executing` | post-exec NEEDS_FIX |
+| `executing` | `re-planning` | post-exec REPLAN |
 
 ## Git
 

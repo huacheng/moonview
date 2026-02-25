@@ -12,7 +12,7 @@ const TYPE_META = {
   insert:  { label: 'Insert',  color: 'var(--color-completed)' },
   delete:  { label: 'Delete',  color: 'var(--color-error)' },
   replace: { label: 'Replace', color: 'var(--color-primary)' },
-  comment: { label: 'Comment', color: 'var(--text-secondary)' },
+  comment: { label: 'Comment', color: '#d97706' },
 } as const;
 
 export function FileAnnotationCard({ annotation, onEdit, onRemove, onSend }: FileAnnotationCardProps) {
@@ -37,7 +37,7 @@ export function FileAnnotationCard({ annotation, onEdit, onRemove, onSend }: Fil
     if (editing) {
       requestAnimationFrame(() => {
         const el = editRef.current;
-        if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+        if (el) { el.focus({ preventScroll: true }); el.selectionStart = el.selectionEnd = el.value.length; }
       });
     }
   }, [editing]);

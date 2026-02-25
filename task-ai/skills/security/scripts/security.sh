@@ -13,6 +13,11 @@ if [[ -z "$NOTEBOOK" || -z "$ACTION" ]]; then
     exit 1
 fi
 
+if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "[ERROR] Invalid notebook name." >&2
+    exit 1
+fi
+
 NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
 # Locate working dir securely
 WORK_DIR=$(find "$NB_ROOT" -maxdepth 2 -name "$NOTEBOOK" -type d | head -n 1)/.working
@@ -54,6 +59,14 @@ verify_cmd() {
     if echo "$cmd" | grep -qE "LD_PRELOAD=|PYTHONPATH="; then
         risk="high"
         reason="Environment manipulation"
+    fi
+
+    # 5. Path Traversal & Absolute Paths
+    if echo "$cmd" | grep -qE "\.\./|~| /"; then
+        if ! echo "$cmd" | grep -qE "$NB_ROOT"; then
+            risk="high"
+            reason="Path traversal or absolute path outside workspace"
+        fi
     fi
 
     if [[ "$risk" == "high" ]]; then

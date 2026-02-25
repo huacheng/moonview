@@ -57,7 +57,16 @@ Cancel a task module, stopping any active auto loop and optionally cleaning up t
 
 ## State Transitions
 
-Any non-terminal status → `cancelled`. Terminal statuses (`complete`, `cancelled`) → REJECT.
+| Current Status | After Cancel | Condition |
+|----------------|--------------|-----------|
+| `draft` | `cancelled` | Always |
+| `planning` | `cancelled` | Always |
+| `review` | `cancelled` | Always |
+| `executing` | `cancelled` | Always |
+| `re-planning` | `cancelled` | Always |
+| `blocked` | `cancelled` | Always |
+| `complete` | REJECT | Terminal state |
+| `cancelled` | REJECT | Terminal state |
 
 ## Notes
 

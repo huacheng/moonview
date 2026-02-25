@@ -38,3 +38,7 @@ Style analysis, consistency checks, readability
 - **Key Sources**: Craft books, genre writing guides, editing technique references
 - **Implementation Approach**: Draft/revise text, maintain character/plot notes, apply style guidelines
 - **Step Verification**: Narrative consistency check, structural completeness, style coherence review
+
+### Verification Cycle
+
+Default verification cycle not specified.

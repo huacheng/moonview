@@ -111,7 +111,11 @@ The report is written to `[deliverables-dir]/.report.md` (the notebook's deliver
 
 ## State Transitions
 
-No status change — report generation is informational. The task must already be `complete`, `blocked`, or `cancelled`.
+| Current Status | After Report | Condition |
+|----------------|--------------|-----------|
+| `complete` | `complete` | Always |
+| `blocked` | `blocked` | Always |
+| `cancelled` | `cancelled` | Always |
 
 ## Git
 

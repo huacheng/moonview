@@ -85,11 +85,13 @@ Parse commit messages to reconstruct the timeline of status changes with timesta
 
 ## State Transitions
 
-None — `list` is a pure read-only query. No status changes.
+| Current Status | After List | Condition |
+|----------------|------------|-----------|
+| Any | (unchanged) | Read-only query |
 
 ## Git
 
-None — `list` does not create any commits.
+None — `list` does not create any commits (e.g., it will never create a `task-ai(<notebook>):feat ...` commit).
 
 ## .auto-signal
 

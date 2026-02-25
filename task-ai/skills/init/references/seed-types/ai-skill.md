@@ -38,3 +38,7 @@ Prompt testing, edge cases, context window efficiency
 - **Key Sources**: Anthropic docs, MCP SDK reference, skill file format specification
 - **Implementation Approach**: Write SKILL.md/frontmatter, design prompts/agents, configure hooks/MCP servers, test invocations
 - **Step Verification**: Skill invocation test, prompt output review, frontmatter schema validation, trigger condition testing
+
+### Verification Cycle
+
+Default verification cycle not specified.

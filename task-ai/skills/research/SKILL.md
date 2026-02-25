@@ -403,11 +403,14 @@ Research writes to shared directories (`$NB_WORKSPACES_LIBRARY/.memory/.referenc
 
 ## State Transitions
 
-**None.** Research is a utility sub-command — it does not change task status. Like `report`, it operates on the side without affecting the state machine.
-
 | Current Status | After Research | Condition |
 |----------------|---------------|-----------|
-| Any non-terminal | (unchanged) | Research is status-neutral |
+| `draft` | `draft` | Always |
+| `planning` | `planning` | Always |
+| `review` | `review` | Always |
+| `executing` | `executing` | Always |
+| `re-planning` | `re-planning` | Always |
+| `blocked` | `blocked` | Always |
 | `complete` | REJECT | Completed tasks don't need research |
 | `cancelled` | REJECT | Cancelled tasks don't need research |
 
@@ -431,12 +434,18 @@ Research writes to shared directories (`$NB_WORKSPACES_LIBRARY/.memory/.referenc
 | `target` | `objective` | `(o3-collected)` | `(stop)` | `post-o3` |
 | `target` | `objective` | `(objective-complete)` | `(stop)` | — |
 | `target` | `requirements` | `(collected)` | `plan` | `post-research` |
-| `plan` | — | `(collected)` / `(sufficient)` | `plan` | `post-research` |
-| `test` | status=`planning`/`draft` | `(collected)` / `(sufficient)` | `plan` | `post-research` |
-| `test` | status=`executing`/`review` | `(collected)` / `(sufficient)` | `verify` | `post-research` |
-| `verify` | — | `(collected)` / `(sufficient)` | `verify` | `post-research` |
-| `check` | — | `(collected)` / `(sufficient)` | `check` | `post-research` |
-| `exec` | — | `(collected)` / `(sufficient)` | `exec` | `post-research` |
+| `plan` | — | `(collected)` | `plan` | `post-research` |
+| `plan` | — | `(sufficient)` | `plan` | `post-research` |
+| `test` | status=`planning`/`draft` | `(collected)` | `plan` | `post-research` |
+| `test` | status=`planning`/`draft` | `(sufficient)` | `plan` | `post-research` |
+| `test` | status=`executing`/`review` | `(collected)` | `verify` | `post-research` |
+| `test` | status=`executing`/`review` | `(sufficient)` | `verify` | `post-research` |
+| `verify` | — | `(collected)` | `verify` | `post-research` |
+| `verify` | — | `(sufficient)` | `verify` | `post-research` |
+| `check` | — | `(collected)` | `check` | `post-research` |
+| `check` | — | `(sufficient)` | `check` | `post-research` |
+| `exec` | — | `(collected)` | `exec` | `post-research` |
+| `exec` | — | `(sufficient)` | `exec` | `post-research` |
 
 **`next: "(stop)"` for `--caller target --phase objective`**: Each O-stage stops after writing its Insights. Task status remains `draft` — no state transition. User reviews `[PROPOSED]` items, confirms/modifies, then re-runs research to advance to the next stage.
 

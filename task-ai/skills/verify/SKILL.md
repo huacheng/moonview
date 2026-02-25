@@ -73,7 +73,9 @@ Run domain-adapted tests and verification procedures for a task module, producin
 
 ## State Transitions
 
-None — `verify` is a utility sub-command. It does not change task status.
+| Current Status | After Verify | Condition |
+|----------------|--------------|-----------|
+| Any | (unchanged) | Pure utility sub-command |
 
 ## Git
 

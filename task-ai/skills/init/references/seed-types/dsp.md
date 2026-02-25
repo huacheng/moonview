@@ -38,3 +38,7 @@ SNR, THD, spectral analysis, listening tests
 - **Key Sources**: scipy/numpy API, MATLAB function reference, DSP implementation cookbooks
 - **Implementation Approach**: Run signal processing tools (scipy, sox, MATLAB/Octave, etc.), generate/measure signals
 - **Step Verification**: SNR measurement, frequency response verification, golden reference comparison
+
+### Verification Cycle
+
+Default verification cycle not specified.

@@ -179,11 +179,10 @@ Terminal: BLOCKED at any check → (stop, status → blocked)
 Terminal: merge conflict → (stop, status stays executing — retryable)
 ```
 
-## Internal Loop Logic
+## Execution Steps
 
 The auto skill runs this loop within a single Claude session:
 
-```
 1. Read .index.json → determine entry point (status-based routing). For `draft` status: also read `.target.md` to detect `## Research Insights` presence and `[PROPOSED]` residuals before routing
 2. LOOP:
    a. Check for .auto-stop file → if exists, break loop
@@ -198,11 +197,12 @@ The auto skill runs this loop within a single Claude session:
    g. If next == "(stop)" → break loop
    h. Set current step = next step → continue loop
 3. Cleanup: delete .auto-signal, report final status
-```
 
 **Signal ownership in auto mode**: Each sub-command's SKILL.md includes a "write `.auto-signal`" step. In auto mode, the auto loop **subsumes** that step — Claude writes the signal once at step 2e (with the `iteration` field included). The sub-command's own signal-write instruction is skipped to avoid double-writing. In manual (non-auto) execution, sub-commands write `.auto-signal` themselves (without `iteration` field).
 
 **How to detect auto mode** (for inline execution): When executing a sub-command's steps inline within the auto loop, skip any step that says "Write `.auto-signal`". The auto loop's step 2e handles it. This is implicit — the auto loop code simply does not execute the signal-write step from each SKILL.md. No environment variable or flag is needed because auto mode always uses inline execution (Read + execute steps), never Skill tool invocation.
+
+## Detailed Loop Logic
 
 ### Entry Point (Status-Based Routing)
 
@@ -229,11 +229,11 @@ After each step, Claude evaluates the result and determines the next step intern
 | check | NEEDS_FIX | exec | mid-exec / post-exec | Minor issues, re-execute to fix first |
 | check | REPLAN | plan | — | Fundamental issues, revise plan |
 | check | BLOCKED | (stop) | — | Cannot continue |
-| check (mid-exec) | CONTINUE | exec | — | Progress OK, resume execution |
-| check (mid-exec) | NEEDS_FIX | exec | mid-exec | Fixable issues, exec addresses then continues |
-| check (mid-exec) | REPLAN | plan | — | Fundamental issues, revise plan |
-| check (mid-exec) | BLOCKED | (stop) | — | Cannot continue |
-| plan | (any) | verify | post-plan | Plan ready, run verification before assessment |
+| check | CONTINUE | exec | — | Progress OK, resume execution |
+| check | NEEDS_FIX | exec | mid-exec | Fixable issues, exec addresses then continues |
+| check | REPLAN | plan | — | Fundamental issues, revise plan |
+| check | BLOCKED | (stop) | — | Cannot continue |
+| plan | (generated) | verify | post-plan | Plan ready, run verification before assessment |
 | exec | (done) | verify | post-exec | All steps completed, run verification before assessment |
 | exec | (mid-exec) | verify | mid-exec | Significant issue encountered, run verification before checkpoint |
 | exec | (step-N) | verify | mid-exec | Single step completed (manual `--step N` only) |
@@ -241,14 +241,17 @@ After each step, Claude evaluates the result and determines the next step intern
 | merge | success | report | — | Merge complete, generate report |
 | merge | conflict | (stop) | — | Merge conflict unresolvable |
 | merge | rejected | (stop) | dependency-blocked / no-accept | Prerequisite not met (dependency or missing ACCEPT verdict) |
-| research | (collected)/(sufficient) | `<caller>` (plan/verify/check/exec) | post-research | References collected, resume calling phase |
+| research | (collected) | `<caller>` (plan/verify/check/exec) | post-research | References collected, resume calling phase |
+| research | (sufficient) | `<caller>` (plan/verify/check/exec) | post-research | References sufficient, resume calling phase |
 | research | (o1-collected) | (stop) | post-o1 | O1 background research done, wait for user confirmation |
 | research | (o2-collected) | (stop) | post-o2 | O2 feasibility analysis done, wait for user confirmation |
 | research | (o3-collected) | (stop) | post-o3 | O3 refined objective done, wait for user confirmation |
 | research | (objective-complete) | (stop) | — | All O-stages confirmed, suggest --phase requirements |
-| verify | (pass/fail/partial) | check | (from trigger context) | Verification done, check renders verdict. Auto loop uses the **triggering context** to determine check checkpoint: plan→post-plan, exec(done)→post-exec, exec(mid-exec)→mid-exec |
+| verify | (pass) | check | (from trigger context) | Verification done, check renders verdict. Auto loop uses the **triggering context** to determine check checkpoint: plan→post-plan, exec(done)→post-exec, exec(mid-exec)→mid-exec |
+| verify | (fail) | check | (from trigger context) | Verification done, check renders verdict. Auto loop uses the **triggering context** to determine check checkpoint: plan→post-plan, exec(done)→post-exec, exec(mid-exec)→mid-exec |
+| verify | (partial) | check | (from trigger context) | Verification done, check renders verdict. Auto loop uses the **triggering context** to determine check checkpoint: plan→post-plan, exec(done)→post-exec, exec(mid-exec)→mid-exec |
 | annotate | (processed) | verify | post-plan | Annotations processed, verify then assess |
-| report | (any) | (stop) | — | Loop complete |
+| report | (generated) | (stop) | — | Loop complete |
 
 ### Context Advantage
 
@@ -301,7 +304,7 @@ Daemon-side cleanup details are in `references/backend-api.md`.
 
 ## Git
 
-Auto mode inherits git behavior from each sub-command it invokes. No additional git commits are made by auto itself — each plan, check, exec, merge, and report step handles its own state commits on the task branch.
+Auto mode inherits git behavior from each sub-command it invokes. No additional git commits are made by auto itself (e.g., no `task-ai-[notebook]:auto` commits) — each plan, check, exec, merge, and report step handles its own state commits on the task branch (e.g., `task-ai(<notebook>):exec ...`).
 
 ## Notes
 

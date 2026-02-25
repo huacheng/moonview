@@ -144,7 +144,7 @@ else:
     for sig in skill_signals:
         key = (sig['skill'], sig['result'])
         if key in routing_lookup:
-            if routing_lookup[key] == sig['next']:
+            if routing_lookup[key] == sig['next'] or '<caller>' in routing_lookup[key]:
                 emit_pass(f'{sig["skill"]}: result "{sig["result"]}" → next "{sig["next"]}" matches routing')
             else:
                 emit_fail(f'{sig["skill"]}: result "{sig["result"]}" → next "{sig["next"]}" but routing says "{routing_lookup[key]}"')

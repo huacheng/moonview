@@ -6,13 +6,15 @@ interface FileAnnotationDropdownProps {
   onSendAll: () => void;
   onSendSingle: (id: string) => void;
   onRemove: (id: string) => void;
+  onCancelAll?: () => void;
+  onScrollTo?: (id: string) => void;
 }
 
 const TYPE_SYMBOL: Record<string, string> = {
   insert: '+', delete: '−', replace: '⇄', comment: '?',
 };
 
-export function FileAnnotationDropdown({ annotations, onSendAll, onSendSingle, onRemove }: FileAnnotationDropdownProps) {
+export function FileAnnotationDropdown({ annotations, onSendAll, onSendSingle, onRemove, onCancelAll, onScrollTo }: FileAnnotationDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const count = annotations.items.length;
@@ -37,6 +39,9 @@ export function FileAnnotationDropdown({ annotations, onSendAll, onSendSingle, o
         <div className="fv-ann-dropdown__panel">
           <div className="fv-ann-dropdown__header">
             <button className="fv-ann-dropdown__send-all" onClick={onSendAll}>Send All</button>
+            {onCancelAll && (
+              <button className="fv-ann-dropdown__cancel-all" onClick={onCancelAll}>Cancel All</button>
+            )}
           </div>
           <div className="fv-ann-dropdown__list">
             {annotations.items.map((a) => (
@@ -44,7 +49,10 @@ export function FileAnnotationDropdown({ annotations, onSendAll, onSendSingle, o
                 <span className={`fv-ann-dropdown__type fv-ann-dropdown__type--${a.type}`}>
                   {TYPE_SYMBOL[a.type]}
                 </span>
-                <span className="fv-ann-dropdown__text">
+                <span
+                  className={`fv-ann-dropdown__text${onScrollTo ? ' fv-ann-dropdown__text--clickable' : ''}`}
+                  onClick={onScrollTo ? () => onScrollTo(a.id) : undefined}
+                >
                   {(a.content ?? a.selected_text).slice(0, 60)}
                 </span>
                 <button className="fv-ann-dropdown__btn" onClick={() => onSendSingle(a.id)}>Send</button>

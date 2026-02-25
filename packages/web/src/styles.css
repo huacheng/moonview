@@ -3893,6 +3893,54 @@ button:focus-visible {
 .fv-sf-comment:hover { color: var(--text-secondary); }
 .fv-sf-insert:hover { color: var(--color-completed); }
 
+/* ── Annotation Edit Float (in-place editing near selection) ────────── */
+.fv-edit-float {
+  position: absolute;
+  z-index: 200;
+  background: var(--bg-cell);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fv-edit-float__textarea {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  resize: vertical;
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+.fv-edit-float__textarea:focus { outline: none; border-color: var(--color-primary); }
+.fv-edit-float__actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.fv-edit-float__btn {
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.fv-edit-float__btn:hover { background: var(--color-primary-dark); }
+.fv-edit-float__btn--cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+.fv-edit-float__btn--cancel:hover { background: var(--bg-cell-hover); }
+
 /* ── FileAnnotationCard ──────────────────────────────────────────────── */
 .fv-ann-card {
   display: flex;
@@ -3910,7 +3958,7 @@ button:focus-visible {
 .fv-ann-card--insert { border-left-color: var(--color-completed); }
 .fv-ann-card--delete { border-left-color: var(--color-error); }
 .fv-ann-card--replace { border-left-color: var(--color-primary); }
-.fv-ann-card--comment { border-left-color: var(--text-secondary); }
+.fv-ann-card--comment { border-left-color: #d97706; }
 .fv-ann-card__type {
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -3992,6 +4040,9 @@ button:focus-visible {
 .fv-ann-dropdown__header {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-default);
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 .fv-ann-dropdown__send-all {
   border: none;
@@ -4021,7 +4072,7 @@ button:focus-visible {
 .fv-ann-dropdown__type--insert { color: var(--color-completed); }
 .fv-ann-dropdown__type--delete { color: var(--color-error); }
 .fv-ann-dropdown__type--replace { color: var(--color-primary); }
-.fv-ann-dropdown__type--comment { color: var(--text-secondary); }
+.fv-ann-dropdown__type--comment { color: #d97706; }
 .fv-ann-dropdown__text {
   flex: 1;
   overflow: hidden;
@@ -4042,6 +4093,86 @@ button:focus-visible {
 }
 .fv-ann-dropdown__btn:hover { background: var(--bg-cell-hover); color: var(--text-primary); }
 .fv-ann-dropdown__btn--danger:hover { color: var(--color-error); }
+.fv-ann-dropdown__cancel-all {
+  border: 1px solid var(--color-error);
+  background: transparent;
+  color: var(--color-error);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.fv-ann-dropdown__cancel-all:hover { background: var(--bg-error); }
+.fv-ann-dropdown__text--clickable { cursor: pointer; }
+.fv-ann-dropdown__text--clickable:hover { color: var(--color-primary); text-decoration: underline; }
+
+/* ── Annotation Highlight Overlays ─────────────────────────────────── */
+.fv-ann-hl {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+  z-index: 50;
+}
+.fv-ann-hl--insert  { background: rgba(21, 128, 61, 0.15); }
+.fv-ann-hl--delete  { background: rgba(220, 38, 38, 0.15); }
+.fv-ann-hl--replace { background: rgba(14, 165, 233, 0.15); }
+.fv-ann-hl--comment { background: rgba(217, 119, 6, 0.18); }
+.fv-ann-hl--active.fv-ann-hl--insert  { background: rgba(21, 128, 61, 0.30); }
+.fv-ann-hl--active.fv-ann-hl--delete  { background: rgba(220, 38, 38, 0.30); }
+.fv-ann-hl--active.fv-ann-hl--replace { background: rgba(14, 165, 233, 0.30); }
+.fv-ann-hl--active.fv-ann-hl--comment { background: rgba(217, 119, 6, 0.35); }
+.fv-ann-hl--active {
+  animation: fv-hl-pulse 1s ease-in-out 2;
+}
+@keyframes fv-hl-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Annotation Connecting Lines (highlight → margin tag) ──────────── */
+.fv-ann-line {
+  position: absolute;
+  height: 8px;
+  right: 0;
+  z-index: 55;
+  pointer-events: none;
+  overflow: visible;
+}
+.fv-ann-line__stroke {
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.fv-ann-line__stroke--insert  { stroke: var(--color-completed); opacity: 0.5; }
+.fv-ann-line__stroke--delete  { stroke: var(--color-error); opacity: 0.5; }
+.fv-ann-line__stroke--replace { stroke: var(--color-primary); opacity: 0.5; }
+.fv-ann-line__stroke--comment { stroke: #d97706; opacity: 0.5; }
+
+/* ── Annotation Margin Tags ────────────────────────────────────────── */
+.fv-ann-tag {
+  position: absolute;
+  right: 8px;
+  z-index: 60;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateY(-50%);
+  border-left: 3px solid transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.fv-ann-tag--insert  { background: rgba(21, 128, 61, 0.10); color: var(--color-completed); border-left-color: var(--color-completed); }
+.fv-ann-tag--delete  { background: rgba(220, 38, 38, 0.10); color: var(--color-error); border-left-color: var(--color-error); }
+.fv-ann-tag--replace { background: rgba(14, 165, 233, 0.10); color: var(--color-primary); border-left-color: var(--color-primary); }
+.fv-ann-tag--comment { background: rgba(217, 119, 6, 0.10); color: #b45309; border-left-color: #d97706; }
+.fv-ann-tag:hover { filter: brightness(0.95); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+.fv-ann-tag--active { box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.4); }
 
 /* ── FileViewerEditor ────────────────────────────────────────────────── */
 .fv-editor {

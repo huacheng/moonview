@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, Fragment } from 'react';
 import ReactMarkdown from 'react-markdown';
 import DOMPurify from 'dompurify';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -12,6 +12,16 @@ import { uid, buildAnnotationText } from '../types/fileAnnotations';
 import { FileSelectionFloat } from './FileSelectionFloat';
 import { FileAnnotationCard } from './FileAnnotationCard';
 import { FileAnnotationDropdown } from './FileAnnotationDropdown';
+import type { HighlightsMap } from '../utils/annotationHighlight';
+import {
+  captureSelectionRects,
+  addHighlight,
+  removeHighlight,
+  formatTagLabel,
+  computeScrollTarget,
+  computeMarginAnchor,
+  scaleHighlightCoords,
+} from '../utils/annotationHighlight';
 
 import { isJsonFile, formatJsonContent } from '../utils/jsonFormat';
 
@@ -125,6 +135,40 @@ function PptxPlaceholder({ buffer, filename }: { buffer: Uint8Array; filename: s
   );
 }
 
+// ── Edit Float — in-place editing near selected text ─────────────────────
+function AnnotationEditFloat({ x, y, initialContent, onSave, onCancel }: {
+  x: number; y: number; initialContent?: string;
+  onSave: (content: string) => void; onCancel: () => void;
+}) {
+  const [text, setText] = useState(initialContent ?? '');
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    requestAnimationFrame(() => ref.current?.focus({ preventScroll: false }));
+  }, []);
+
+  return (
+    <div className="fv-edit-float" style={{ top: y, left: x }}>
+      <textarea
+        ref={ref}
+        className="fv-edit-float__textarea"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onSave(text); }
+          if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+        }}
+        rows={3}
+        placeholder="Enter content… (Ctrl+Enter to save, Esc to cancel)"
+      />
+      <div className="fv-edit-float__actions">
+        <button className="fv-edit-float__btn" onMouseDown={(e) => { e.preventDefault(); onSave(text); }}>Save</button>
+        <button className="fv-edit-float__btn fv-edit-float__btn--cancel" onMouseDown={(e) => { e.preventDefault(); onCancel(); }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 interface FileViewerRenderProps {
   format: FileFormat;
   content: string;
@@ -143,7 +187,10 @@ export function FileViewerRender({
   format, content, binaryBuffer, filename, annotations, filePath, onAnnotationsChange, onSendToPrompt,
   pdfScale = 1.0, onPdfPagesLoaded, onPdfVisiblePage,
 }: FileViewerRenderProps) {
-  const [float, setFloat] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [float, setFloat] = useState<{ x: number; y: number; selectionBottom: number; text: string; rects: { x: number; y: number; width: number; height: number }[] } | null>(null);
+  const [editFloat, setEditFloat] = useState<{ x: number; y: number; annotationId: string; isNew: boolean } | null>(null);
+  const [highlights, setHighlights] = useState<HighlightsMap>({});
+  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState(0);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -173,8 +220,9 @@ export function FileViewerRender({
   }, [binaryBuffer]);
 
   const addAnnotation = useCallback((type: FileAnnotation['type'], selectedText: string, defaultContent?: string) => {
+    const id = uid();
     const ann: FileAnnotation = {
-      id: uid(),
+      id,
       type,
       file_path: filePath,
       selected_text: selectedText.slice(0, 80),
@@ -184,12 +232,22 @@ export function FileViewerRender({
       updatedAt: Date.now(),
     };
     onAnnotationsChange({ items: [...annotations.items, ann], updatedAt: Date.now() });
+    // Persist selection rects as highlight (record current scale for proportional re-scaling)
+    if (float?.rects && float.rects.length > 0) {
+      setHighlights(prev => addHighlight(prev, id, float.rects, type, pdfScale));
+    }
+    // Transition: selection float → edit float (at same position) for non-delete types
+    if (type !== 'delete') {
+      setEditFloat({ x: float!.x, y: float!.selectionBottom, annotationId: id, isNew: true });
+    }
     setFloat(null);
-  }, [annotations, filePath, onAnnotationsChange]);
+  }, [annotations, filePath, onAnnotationsChange, float, pdfScale]);
 
   const removeAnnotation = useCallback((id: string) => {
     onAnnotationsChange({ items: annotations.items.filter((a) => a.id !== id), updatedAt: Date.now() });
-  }, [annotations, onAnnotationsChange]);
+    setHighlights(prev => removeHighlight(prev, id));
+    if (activeHighlightId === id) setActiveHighlightId(null);
+  }, [annotations, onAnnotationsChange, activeHighlightId]);
 
   const editAnnotation = useCallback((id: string, newContent: string) => {
     onAnnotationsChange({
@@ -198,16 +256,31 @@ export function FileViewerRender({
     });
   }, [annotations, onAnnotationsChange]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) { setFloat(null); return; }
     const text = sel.toString().trim();
     if (!text) { setFloat(null); return; }
+    const container = containerRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
     const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    setFloat({ x: rect.left - containerRect.left, y: rect.top - containerRect.top - 40, text });
+    const rangeRect = range.getBoundingClientRect();
+    const scrollTop = container.scrollTop;
+    const scrollLeft = container.scrollLeft;
+    const rects = captureSelectionRects(
+      Array.from(range.getClientRects()),
+      containerRect,
+      scrollTop,
+      scrollLeft,
+    );
+    setFloat({
+      x: e.clientX - containerRect.left + scrollLeft,
+      y: e.clientY - containerRect.top + scrollTop - 40,
+      selectionBottom: rangeRect.bottom - containerRect.top + scrollTop + 8,
+      text,
+      rects,
+    });
   }, []);
 
   const handleSendSingle = useCallback((id: string) => {
@@ -221,6 +294,44 @@ export function FileViewerRender({
     onSendToPrompt(buildAnnotationText(annotations));
   }, [annotations, onSendToPrompt]);
 
+  const handleCancelAll = useCallback(() => {
+    onAnnotationsChange({ items: [], updatedAt: Date.now() });
+    setHighlights({});
+    setEditFloat(null);
+    setFloat(null);
+    setActiveHighlightId(null);
+  }, [onAnnotationsChange]);
+
+  const handleHighlightClick = useCallback((annId: string) => {
+    const ann = annotations.items.find(a => a.id === annId);
+    if (!ann) return;
+    const hl = highlights[annId];
+    if (!hl) return;
+    const container = containerRef.current;
+    const containerW = container?.clientWidth ?? 600;
+    const ratio = pdfScale / (hl.capturedScale || 1);
+    const scaled = scaleHighlightCoords(hl, ratio);
+    setActiveHighlightId(annId);
+    setEditFloat({ x: Math.max(containerW - 320, 0), y: computeMarginAnchor(scaled.rects) + 10, annotationId: annId, isNew: false });
+  }, [annotations, highlights, pdfScale]);
+
+  const handleScrollTo = useCallback((annId: string) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const hl = highlights[annId];
+    if (!hl) return;
+    // Build a scaled version for scroll target computation
+    const ratio = pdfScale / (hl.capturedScale || 1);
+    const scaled = scaleHighlightCoords(hl, ratio);
+    const scaledMap: HighlightsMap = { [annId]: { ...hl, rects: scaled.rects, bottomY: scaled.bottomY } };
+    const target = computeScrollTarget(scaledMap, annId, container.clientHeight);
+    if (target !== null) {
+      container.scrollTo({ top: target, behavior: 'smooth' });
+      setActiveHighlightId(annId);
+      setTimeout(() => setActiveHighlightId(null), 2000);
+    }
+  }, [highlights, pdfScale]);
+
   return (
     <div ref={containerRef} className="fv-render" onMouseUp={handleMouseUp}>
       {/* Annotation dropdown — top-right corner */}
@@ -230,8 +341,44 @@ export function FileViewerRender({
           onSendAll={handleSendAll}
           onSendSingle={handleSendSingle}
           onRemove={removeAnnotation}
+          onCancelAll={handleCancelAll}
+          onScrollTo={handleScrollTo}
         />
       </div>
+
+      {/* Highlight overlays + margin tags with connecting lines */}
+      {Object.entries(highlights).map(([annId, hl]) => {
+        const ann = annotations.items.find(a => a.id === annId);
+        if (!ann) return null;
+        const isActive = activeHighlightId === annId;
+        // Scale rects proportionally when zoom changes
+        const ratio = pdfScale / (hl.capturedScale || 1);
+        const scaled = scaleHighlightCoords(hl, ratio);
+        const anchorY = computeMarginAnchor(scaled.rects);
+        const rightX = Math.max(...scaled.rects.map(r => r.x + r.width));
+        return (
+          <Fragment key={annId}>
+            {scaled.rects.map((r, i) => (
+              <div
+                key={i}
+                className={`fv-ann-hl fv-ann-hl--${hl.type}${isActive ? ' fv-ann-hl--active' : ''}`}
+                style={{ left: r.x, top: r.y, width: r.width, height: r.height }}
+              />
+            ))}
+            {/* SVG connecting line from highlight to margin tag */}
+            <svg className="fv-ann-line" style={{ top: anchorY - 2, left: rightX }}>
+              <line x1="0" y1="4" x2="100%" y2="4" className={`fv-ann-line__stroke fv-ann-line__stroke--${hl.type}`} />
+            </svg>
+            <div
+              className={`fv-ann-tag fv-ann-tag--${hl.type}${isActive ? ' fv-ann-tag--active' : ''}`}
+              style={{ top: anchorY }}
+              onClick={() => handleHighlightClick(annId)}
+            >
+              {formatTagLabel(hl.type, ann.content)}
+            </div>
+          </Fragment>
+        );
+      })}
 
       {/* Selection float */}
       {float && (
@@ -287,6 +434,28 @@ export function FileViewerRender({
       {format === 'docx-binary' && binaryBuffer && <DocxRenderer buffer={binaryBuffer} />}
       {format === 'xlsx-binary' && binaryBuffer && <XlsxRenderer buffer={binaryBuffer} />}
       {format === 'pptx-binary' && binaryBuffer && <PptxPlaceholder buffer={binaryBuffer} filename={filename} />}
+
+      {/* Edit float — in-place editing near selected text */}
+      {editFloat && (
+        <AnnotationEditFloat
+          key={editFloat.annotationId}
+          x={editFloat.x}
+          y={editFloat.y}
+          initialContent={editFloat.isNew ? '' : (annotations.items.find(a => a.id === editFloat.annotationId)?.content ?? '')}
+          onSave={(content) => {
+            const trimmed = content.trim();
+            if (trimmed) editAnnotation(editFloat.annotationId, trimmed);
+            else removeAnnotation(editFloat.annotationId);
+            setEditFloat(null);
+            setActiveHighlightId(null);
+          }}
+          onCancel={() => {
+            if (editFloat.isNew) removeAnnotation(editFloat.annotationId);
+            setEditFloat(null);
+            setActiveHighlightId(null);
+          }}
+        />
+      )}
 
       {/* Inline annotation cards */}
       {annotations.items.length > 0 && (

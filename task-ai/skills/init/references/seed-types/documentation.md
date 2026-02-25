@@ -38,3 +38,7 @@ Prose linting, link validation, reading level
 - **Key Sources**: Markdown/AsciiDoc specs, static site generator docs, PDF/EPUB toolchain guides
 - **Implementation Approach**: Write/edit content, validate links, check formatting
 - **Step Verification**: Completeness checklist, link validation, spell check
+
+### Verification Cycle
+
+Default verification cycle not specified.

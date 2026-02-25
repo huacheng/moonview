@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../store';
-import { cacheSet, cacheGet, TTL } from '../utils/localCache';
+import { cacheSet, cacheGet, cacheRemove, TTL } from '../utils/localCache';
 
 export type FileFormat = 'text' | 'html' | 'pdf-binary' | 'docx-binary' | 'xlsx-binary' | 'pptx-binary' | 'unsupported';
 
@@ -23,6 +23,8 @@ const INITIAL_STATE: FileStreamState = {
 };
 
 const THROTTLE_MS = 200;
+
+import { b64ToUint8Array } from '../utils/b64';
 
 export function useFileStream(
   sessionId: string | null,
@@ -64,6 +66,7 @@ export function useFileStream(
     b64Ref.current = '';
     formatRef.current = null;
     skipStreamRef.current = false;
+    let stale = false;
     setState({ ...INITIAL_STATE, status: 'loading' });
 
     // Check localStorage cache (text and binary both cached as strings)
@@ -107,14 +110,22 @@ export function useFileStream(
           formatRef.current = format;
           // If mtime matches cache, skip streaming — use cached content
           if (mtime === cachedMtime && cachedContent && cachedFormat === format) {
-            skipStreamRef.current = true;
             if (format.endsWith('-binary')) {
-              // Decode cached base64 → Uint8Array
-              const bin = window.atob(cachedContent);
-              const buf = new Uint8Array(bin.length);
-              for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-              setState({ status: 'complete', format, content: '', binaryBuffer: buf, mtime, error: null });
+              skipStreamRef.current = true;
+              b64ToUint8Array(cachedContent).then((buf) => {
+                if (stale) return;
+                setState({ status: 'complete', format, content: '', binaryBuffer: buf, mtime, error: null });
+              }).catch(() => {
+                if (stale) return;
+                // Corrupted cache — clear and re-request
+                cacheRemove(cacheKey);
+                skipStreamRef.current = false;
+                contentRef.current = '';
+                b64Ref.current = '';
+                ws?.send(JSON.stringify({ type: 'file-open', session_id: effectiveSessionId, path: filePath, source }));
+              });
             } else {
+              skipStreamRef.current = true;
               setState({ status: 'complete', format, content: cachedContent, binaryBuffer: null, mtime, error: null });
             }
           } else {
@@ -140,20 +151,15 @@ export function useFileStream(
           const fmt = formatRef.current;
           const mtime = (msg as unknown as { mtime: number }).mtime;
           if (fmt?.endsWith('-binary')) {
-            try {
-              const b64 = b64Ref.current;
-              const binaryString = window.atob(b64);
-              const len = binaryString.length;
-              const buffer = new Uint8Array(len);
-              for (let i = 0; i < len; i++) {
-                buffer[i] = binaryString.charCodeAt(i);
-              }
-              // Cache base64 string for next open (avoids re-download)
+            const b64 = b64Ref.current;
+            b64ToUint8Array(b64).then((buffer) => {
+              if (stale) return;
               cacheSet(cacheKey, { content: b64, mtime, format: fmt });
               setState({ status: 'complete', format: fmt, content: '', binaryBuffer: buffer, mtime, error: null });
-            } catch (err) {
+            }).catch((err) => {
+              if (stale) return;
               setState((prev) => ({ ...prev, status: 'error', error: `Failed to decode binary data: ${String(err)}` }));
-            }
+            });
           } else {
             cacheSet(cacheKey, { content: contentRef.current, mtime, format: fmt });
             setState({ status: 'complete', format: fmt ?? 'text', content: contentRef.current, binaryBuffer: null, mtime, error: null });
@@ -171,6 +177,7 @@ export function useFileStream(
     ws.send(JSON.stringify({ type: 'file-open', session_id: effectiveSessionId, path: filePath, source }));
 
     return () => {
+      stale = true;
       ws.removeEventListener('message', handleMessage);
       if (throttleRef.current !== null) { clearTimeout(throttleRef.current); throttleRef.current = null; }
     };

@@ -44,3 +44,9 @@ If a command is `REJECT`ed during `exec`:
 1. The execution step is aborted (signal: `(mid-exec)`, state: `NEEDS_FIX`).
 2. **Lineage Tracing**: Agent must identify which `.references/` or `.experiences/` file proposed the command.
 3. **Quarantine**: Update the source file's frontmatter to `injection_risk: high` and `status: invalidated`.
+
+## State Transitions
+
+| Current Status | After Security | Condition |
+|----------------|----------------|-----------|
+| Any | (unchanged) | Pre-hook utility |

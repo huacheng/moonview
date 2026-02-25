@@ -106,9 +106,18 @@ Both files exist at each directory level. Sub-commands read `.summary.md` for qu
 
 ---
 
-## Operations
+## Execution Steps
 
-### 1. `search "<query>"`
+The sub-command executes one of the following operations based on the provided argument:
+
+1. **search**: Find relevant library files matching query text.
+2. **list**: List library contents by category.
+3. **status**: Audit library health across six dimensions.
+4. **maintain**: Maintenance operations including index rebuild and changelog compaction.
+
+## Operation Details
+
+### search "<query>"
 
 Find relevant library files matching query text, with optional type or topic filter.
 
@@ -119,7 +128,7 @@ Search follows a three-tier progressive disclosure model to minimise token cost:
 
 By default, `search` returns Layer 1 results and their Layer 2 summaries. Full content (Layer 3) is loaded only when the user or sub-command explicitly requests a specific file.
 
-**Execution Steps:**
+**Detailed Steps:**
 
 1.  **Read** `.memory/.references/.summary.md` — keyword match against query
 2.  **Read** `.memory/.experiences/.summary.md` — match by type or notebook keyword
@@ -137,7 +146,7 @@ By default, `search` returns Layer 1 results and their Layer 2 summaries. Full c
 
 List library contents by category.
 
-**Execution Steps:**
+**Detailed Steps:**
 
 1.  **Read** `.memory/.references/.index.md` — list all topics, version count, marked version, staleness flag
 2.  **Read** `.memory/.experiences/.index.md` — list all types and notebook entry counts
@@ -151,7 +160,7 @@ List library contents by category.
 
 Audit library health across six dimensions.
 
-**Execution Steps:**
+**Detailed Steps:**
 
 1.  **Consistency check**: for each `.index.md` entry, verify the referenced file exists; append any missing file to `.inconsistency.log` (format: `timestamp | missing-file | <path>`)
 2.  **Staleness check**: for each `.memory/.references/<topic>-v*.md`, compute `now − last_verified_at`; flag entries where result exceeds `staleness_threshold_days`
@@ -169,7 +178,7 @@ Maintenance operations. `report` automatically triggers a lightweight compact-ch
 
 Rebuild all `.index.md` files and `.master-index.md` from actual filesystem state.
 
-**Execution Steps:**
+**Detailed Steps:**
 
 1.  **For each library sub-directory**: glob all `.md` files, read their frontmatter
 2.  **Rebuild each `.index.md`** from ground truth — file frontmatter wins over stale index entries
@@ -184,7 +193,7 @@ Rebuild all `.index.md` files and `.master-index.md` from actual filesystem stat
 
 Archive `.changelog` entries older than 90 days.
 
-**Execution Steps:**
+**Detailed Steps:**
 
 1.  **Read** `.changelog`; identify entries with timestamp < (now − 90 days)
 2.  **Group aged entries** by month; write/append to `.changelog-archive/YYYY-MM.md`
@@ -200,7 +209,7 @@ Archive `.changelog` entries older than 90 days.
 
 Report stale knowledge without auto-triggering `research`.
 
-**Execution Steps:**
+**Detailed Steps:**
 
 1.  **For each** `.memory/.references/<topic>-v*.md`: compute `now − last_verified_at`; flag if result > `staleness_threshold_days`
 2.  **For each** `.memory/.experiences/<type>/<notebook>-*.md`: flag `quality_status: provisional` entries older than 90 days with no corresponding `verified` sibling file
@@ -266,7 +275,9 @@ All external content written to `.library/.memory/.references/` MUST be sanitise
 
 ## State Transitions
 
-None. `library` is a pure utility sub-command — no task `status` or `phase` fields are modified.
+| Current Status | After Library | Condition |
+|----------------|---------------|-----------|
+| Any | (unchanged) | Pure utility sub-command |
 
 ## Git
 

@@ -12,6 +12,11 @@ if [[ -z "$NOTEBOOK" ]]; then
     exit 1
 fi
 
+if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "[ERROR] Invalid notebook name." >&2
+    exit 1
+fi
+
 NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
 WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
 INDEX_JSON="$WORK_DIR/.index.json"

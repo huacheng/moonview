@@ -12,6 +12,11 @@ if [[ -z "$NOTEBOOK" ]]; then
     exit 1
 fi
 
+if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "[ERROR] Invalid notebook name." >&2
+    exit 1
+fi
+
 shift || true
 while [[ $# -gt 0 ]]; do
   case "$1" in
