@@ -1,7 +1,7 @@
 ---
 name: research
 description: "Target objective deepening & lifecycle intelligence — default mode guides multi-stage objective refinement through background research, feasibility analysis, and goal synthesis; also callable from any phase for reference collection"
-model_tier: medium
+model_tier: heavy
 auto_delegatable: true
 arguments:
   - name: notebook
