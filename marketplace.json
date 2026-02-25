@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "moonview",
+  "description": "Task lifecycle management for Claude Code",
+  "owner": {
+    "name": "huacheng"
+  },
+  "plugins": [
+    {
+      "name": "task-ai",
+      "description": "Structured task lifecycle management with 14 skills: init, plan, research, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library. Git-integrated workflow with branch-per-task, worktree support, and annotation-driven planning.",
+      "version": "0.0.6",
+      "author": {
+        "name": "huacheng"
+      },
+      "source": "./plugins/task-ai",
+      "category": "productivity",
+      "homepage": "https://github.com/huacheng/moonview",
+      "tags": ["task-management", "annotation", "plan", "execution", "lifecycle", "git-workflow", "knowledge-base"]
+    }
+  ]
+}
