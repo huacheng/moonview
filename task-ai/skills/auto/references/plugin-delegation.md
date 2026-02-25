@@ -29,7 +29,7 @@ When a lifecycle skill reaches a delegation point, discover matching plugins in 
 
 Match the current context against the 6 named slots above (`doc-parse` through `tdd`). Use the Trigger Condition column — if the condition is met, attempt to find a plugin matching the slot's Semantic Description.
 
-**How to find plugins**: Use the system's available skill/tool list (Claude Code's installed plugins, MCP tools, slash commands). Match by semantic similarity between the slot description and the plugin's declared description/name.
+**How to find plugins**: Use the system's available skill/tool list (the agent's installed plugins, MCP tools, slash commands). Match by semantic similarity between the slot description and the plugin's declared description/name.
 
 ### Level 2: Registry Lookup
 

@@ -1,6 +1,6 @@
 ---
 name: auto
-description: Autonomous execution loop — single Claude session orchestrates plan/check/exec cycle internally
+description: Autonomous execution loop — single the agent session orchestrates plan/check/exec cycle internally
 model_tier: heavy
 auto_delegatable: false
 arguments:
@@ -15,7 +15,7 @@ arguments:
 
 # /moonview:auto — Autonomous Execution Loop
 
-Coordinate the full task lifecycle autonomously: plan → verify → check → exec → verify → check(mid) → exec → verify → check(post) → merge → report, with self-correction on failures. Runs as a **single Claude session** that internally dispatches sub-commands, preserving context across all steps.
+Coordinate the full task lifecycle autonomously: plan → verify → check → exec → verify → check(mid) → exec → verify → check(post) → merge → report, with self-correction on failures. Runs as a **single the agent session** that internally dispatches sub-commands, preserving context across all steps.
 
 ## Usage
 
@@ -25,13 +25,13 @@ Coordinate the full task lifecycle autonomously: plan → verify → check → e
 
 ## Architecture
 
-Auto mode runs as a **single long-lived Claude session** started by the daemon via `claude "/moonview:auto <notebook_name>"`. The daemon starts the session and monitors it externally; it does NOT dispatch individual commands.
+Auto mode runs as a **single long-lived the agent session** started by the daemon via `gemini "/moonview:auto <notebook_name>"`. The daemon starts the session and monitors it externally; it does NOT dispatch individual commands.
 
 ### Components
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Claude (single session)                         │
+│  the agent (single session)                         │
 │                                                  │
 │  /moonview:auto <module>                      │
 │    ├→ execute plan logic    ─┐                   │
@@ -61,13 +61,13 @@ Auto mode runs as a **single long-lived Claude session** started by the daemon v
 |--------|-------------------|--------------------------|
 | Context | Lost between steps, rebuilt from `.summary.md` | Naturally shared across all steps |
 | Token cost | Re-read files each step, duplicate context loading | Read once, incrementally update |
-| Coherence | Each step is blind to implicit decisions | Claude remembers why it made choices |
-| Latency | Shell prompt wait + Claude startup per step | Zero inter-step overhead |
+| Coherence | Each step is blind to implicit decisions | the agent remembers why it made choices |
+| Latency | Shell prompt wait + the agent startup per step | Zero inter-step overhead |
 | Daemon complexity | Command construction + dispatch + readiness check | Just monitoring + stop signal |
 
 ### Signal File (`.auto-signal`)
 
-After each sub-command step completes, Claude writes a progress signal to the task module. This is a **monitoring report** for the daemon, NOT a dispatch trigger:
+After each sub-command step completes, the agent writes a progress signal to the task module. This is a **monitoring report** for the daemon, NOT a dispatch trigger:
 
 ```json
 {
@@ -83,7 +83,7 @@ After each sub-command step completes, Claude writes a progress signal to the ta
 Fields:
 - `step`: the sub-command that just completed
 - `result`: outcome of the step
-- `next`: what Claude will execute next (or `"(stop)"`)
+- `next`: what the agent will execute next (or `"(stop)"`)
 - `checkpoint`: context hint (e.g., `"post-plan"`, `"mid-exec"`, `"post-exec"`). Empty when not applicable
 - `iteration`: current iteration count (for daemon progress tracking). **Auto-mode only** — absent when sub-commands write `.auto-signal` in manual execution
 - `compaction_count`: number of context compaction prompt invocations within the current iteration. **Auto-mode only** — absent in manual execution. Reset to `0` at the start of each iteration. If `>= 3` within one iteration, auto loop stops with warning (see Compaction frequency limit below)
@@ -100,7 +100,7 @@ The daemon does **NOT** construct or send commands based on the signal.
 
 ### Stop File (`.auto-stop`)
 
-The daemon writes `.auto-stop` to the task module directory to request graceful termination. Claude checks for this file before each iteration:
+The daemon writes `.auto-stop` to the task module directory to request graceful termination. the agent checks for this file before each iteration:
 
 ```json
 {
@@ -126,26 +126,26 @@ The daemon validates `.auto-signal` fields for monitoring integrity:
 | `vfp_cycles_completed` | Integer (optional) | ≥ 0 (present only for software types in auto mode) |
 | `timestamp` | Format check | ISO 8601 |
 
-Invalid signals are logged but do not affect Claude's internal loop (daemon is observer, not dispatcher).
+Invalid signals are logged but do not affect the agent's internal loop (daemon is observer, not dispatcher).
 
 ### Stall Detection & Recovery
 
-Claude Code may stall mid-execution. The daemon detects stalls via heartbeat polling (60s interval, 3 consecutive unchanged captures = suspected stall) and recovers via pattern matching (continuation prompts, y/n prompts, shell prompt restart). Recovery limits: 3 per iteration, 10 total.
+the agent may stall mid-execution. The daemon detects stalls via heartbeat polling (60s interval, 3 consecutive unchanged captures = suspected stall) and recovers via pattern matching (continuation prompts, y/n prompts, shell prompt restart). Recovery limits: 3 per iteration, 10 total.
 
 > **See `references/stall-detection.md`** for the full heartbeat polling logic, stall determination rules, pattern matching recovery table, and recovery limits.
 
 ### Context Window Management & Quota Handling
 
-Proactive context compaction (prompt: "请对我们目前的对话上下文进行一次全面的总结和压缩，保留关键状态和未完成的任务，以便我们清理上下文窗口继续工作。") at >= 70% context usage prevents overflow. `.summary.md` files provide compaction recovery context. Quota exhaustion is NOT a stall — daemon enters quota-wait mode with timeout clock paused.
+Proactive context compaction (prompt: "Please summarize and compress our current conversation context, retaining key states and unfinished tasks, so that we can clear the context window and continue working.") at >= 70% context usage prevents overflow. `.summary.md` files provide compaction recovery context. Quota exhaustion is NOT a stall — daemon enters quota-wait mode with timeout clock paused.
 
-**Compaction frequency limit**: If 3 or more compactions occur within the same iteration (indicating the task generates more context per sub-command than compaction can reclaim), the auto loop should stop with a warning: "context budget insufficient for this task — consider breaking into smaller sub-tasks or increasing context window". Claude tracks compaction count in memory and persists it to `.auto-signal` via the `compaction_count` field (step 2e). On compaction recovery, the count is restored from the signal file (see Compaction recovery below). The daemon can also monitor `compaction_count` in the signal for observability.
+**Compaction frequency limit**: If 3 or more compactions occur within the same iteration (indicating the task generates more context per sub-command than compaction can reclaim), the auto loop should stop with a warning: "context budget insufficient for this task — consider breaking into smaller sub-tasks or increasing context window". the agent tracks compaction count in memory and persists it to `.auto-signal` via the `compaction_count` field (step 2e). On compaction recovery, the count is restored from the signal file (see Compaction recovery below). The daemon can also monitor `compaction_count` in the signal for observability.
 
-> **See `references/context-quota.md`** for the full context management strategy, quota exhaustion handling (daemon + Claude behavior), and SQLite `quota_wait_since` extension.
+> **See `references/context-quota.md`** for the full context management strategy, quota exhaustion handling (daemon + the agent behavior), and SQLite `quota_wait_since` extension.
 
 ## State Machine
 
 ```
-AUTO LOOP (4 phases — all within single Claude session)
+AUTO LOOP (4 phases — all within single the agent session)
 
 Phase 1: Planning
   plan ──→ verify ──→ check(post-plan) ─── PASS ──────────→ [Phase 2]
@@ -181,12 +181,12 @@ Terminal: merge conflict → (stop, status stays executing — retryable)
 
 ## Execution Steps
 
-The auto skill runs this loop within a single Claude session:
+The auto skill runs this loop within a single the agent session:
 
 1. Read .index.json → determine entry point (status-based routing). For `draft` status: also read `.target.md` to detect `## Research Insights` presence and `[PROPOSED]` residuals before routing
 2. LOOP:
    a. Check for .auto-stop file → if exists, break loop
-   b. Context check: if context window usage ≥ 70%, run prompt "请对我们目前的对话上下文进行一次全面的总结和压缩，保留关键状态和未完成的任务，以便我们清理上下文窗口继续工作。" to compress context
+   b. Context check: if context window usage ≥ 70%, run prompt "Please summarize and compress our current conversation context, retaining key states and unfinished tasks, so that we can clear the context window and continue working." to compress context
    c. Execute current step — read target SKILL.md metadata (`model_tier`, `auto_delegatable`):
       - **If `auto_delegatable: true`**: Invoke via Task subagent with `model = tier_to_model(model_tier)` (heavy→opus, medium→sonnet, light→haiku). Subagent receives SKILL.md + `.summary.md` + `.index.json` + input files. On subagent completion, read output files (`.auto-signal`, `.summary.md`, result files) to restore context. On subagent failure/timeout → fallback to inline execution below
       - **If `auto_delegatable: false`**: Execute inline (Read SKILL.md steps, execute in main session)
@@ -198,7 +198,7 @@ The auto skill runs this loop within a single Claude session:
    h. Set current step = next step → continue loop
 3. Cleanup: delete .auto-signal, report final status
 
-**Signal ownership in auto mode**: Each sub-command's SKILL.md includes a "write `.auto-signal`" step. In auto mode, the auto loop **subsumes** that step — Claude writes the signal once at step 2e (with the `iteration` field included). The sub-command's own signal-write instruction is skipped to avoid double-writing. In manual (non-auto) execution, sub-commands write `.auto-signal` themselves (without `iteration` field).
+**Signal ownership in auto mode**: Each sub-command's SKILL.md includes a "write `.auto-signal`" step. In auto mode, the auto loop **subsumes** that step — the agent writes the signal once at step 2e (with the `iteration` field included). The sub-command's own signal-write instruction is skipped to avoid double-writing. In manual (non-auto) execution, sub-commands write `.auto-signal` themselves (without `iteration` field).
 
 **How to detect auto mode** (for inline execution): When executing a sub-command's steps inline within the auto loop, skip any step that says "Write `.auto-signal`". The auto loop's step 2e handles it. This is implicit — the auto loop code simply does not execute the signal-write step from each SKILL.md. No environment variable or flag is needed because auto mode always uses inline execution (Read + execute steps), never Skill tool invocation.
 
@@ -219,7 +219,7 @@ The auto skill runs this loop within a single Claude session:
 
 ### Result-Based Routing
 
-After each step, Claude evaluates the result and determines the next step internally:
+After each step, the agent evaluates the result and determines the next step internally:
 
 | step | result | next | checkpoint | Rationale |
 |------|--------|------|------------|-----------|
@@ -255,7 +255,7 @@ After each step, Claude evaluates the result and determines the next step intern
 
 ### Context Advantage
 
-Because all steps run in one session, Claude naturally retains:
+Because all steps run in one session, the agent naturally retains:
 - Plan decisions and trade-offs from the planning phase
 - Check feedback and evaluation rationale
 - Implementation details and workarounds from execution
@@ -263,7 +263,7 @@ Because all steps run in one session, Claude naturally retains:
 
 The `.summary.md` file is still written by each sub-command as a **compaction safety net** — if the context window overflows and compaction occurs, `.summary.md` provides the condensed recovery context. But during normal auto execution, live conversation context is the primary source of truth.
 
-**Compaction recovery**: If context compaction occurs mid-loop, Claude loses the iteration counter, compaction counter, and current step position. To recover:
+**Compaction recovery**: If context compaction occurs mid-loop, the agent loses the iteration counter, compaction counter, and current step position. To recover:
 1. Read `.auto-signal` — the `iteration` field gives the last completed iteration count; `compaction_count` gives the compaction counter for the current iteration; `step` and `next` give the position in the loop. **If `.auto-signal` doesn't exist** (cleaned up or never written): fall back to step 2 — use `.index.json` status for position recovery, start iteration from 0 and compaction_count from 0
 2. Read `.index.json` — status confirms the current lifecycle phase
 3. Read `.summary.md` — condensed task context from the last sub-command
@@ -287,16 +287,16 @@ When `type` contains `software`, the auto loop tracks VH→HS cycle progress dur
 - **Max iterations**: user-configurable (default 20), daemon writes `.auto-stop` when reached
 - **Timeout**: user-configurable (default 30 min), daemon writes `.auto-stop` when elapsed
 - **Stall detection**: heartbeat polling (60s) + pattern matching recovery, with per-iteration (3) and total (10) recovery limits
-- **Context management**: proactive context compaction (prompt: "请对我们目前的对话上下文进行一次全面的总结和压缩，保留关键状态和未完成的任务，以便我们清理上下文窗口继续工作。") at ≥ 70% context window usage, with `.summary.md` as compaction safety net
+- **Context management**: proactive context compaction (prompt: "Please summarize and compress our current conversation context, retaining key states and unfinished tasks, so that we can clear the context window and continue working.") at ≥ 70% context window usage, with `.summary.md` as compaction safety net
 - **Quota exhaustion**: detected and handled as wait (not stall), timeout clock paused during quota-wait
-- **Pause on blocked**: Auto stops immediately on `blocked` status (Claude's internal loop exits)
+- **Pause on blocked**: Auto stops immediately on `blocked` status (the agent's internal loop exits)
 - **Manual override**: User can `/moonview:auto --stop` at any time, or daemon writes `.auto-stop` via `DELETE` API
-- **Graceful stop**: Claude checks for `.auto-stop` before each iteration, ensuring clean exit between steps (not mid-step)
+- **Graceful stop**: the agent checks for `.auto-stop` before each iteration, ensuring clean exit between steps (not mid-step)
 - **Single instance per session/task**: enforced by SQLite constraints (see `references/backend-api.md`)
 
-## Cleanup (Claude-side)
+## Cleanup (the agent-side)
 
-At loop exit, Claude performs:
+At loop exit, the agent performs:
 1. Delete `.auto-signal` file if exists
 2. Delete `.auto-stop` file if exists (consumed, no longer needed)
 
@@ -308,10 +308,10 @@ Auto mode inherits git behavior from each sub-command it invokes. No additional 
 
 ## Notes
 
-- Auto mode starts with a single `claude "/moonview:auto <notebook_name>"` CLI invocation; all subsequent steps execute within that same session
+- Auto mode starts with a single `gemini "/moonview:auto <notebook_name>"` CLI invocation; all subsequent steps execute within that same session
 - The daemon's only active intervention is writing `.auto-stop`; all other daemon activity is passive monitoring
 - `.auto-signal` and `.auto-stop` are transient files — should be in `.gitignore`
 - The daemon logs all signal events and stall detections to server console for debugging
 - **Known trade-off**: First entry on `executing` status always runs `check --checkpoint post-exec`. If execution was incomplete (`completed_steps` < total), check will detect this and route back to exec via NEEDS_FIX, adding one extra iteration. This is acceptable because the auto skill does not re-parse `.plan.md` to count total steps at entry
-- **Context window overflow**: If Claude's context compacts during a long auto run, `.summary.md` (written by each sub-command) provides recovery context. The auto loop continues normally after compaction — each sub-command re-reads relevant files as specified in its SKILL.md
+- **Context window overflow**: If the agent's context compacts during a long auto run, `.summary.md` (written by each sub-command) provides recovery context. The auto loop continues normally after compaction — each sub-command re-reads relevant files as specified in its SKILL.md
 - **Plugin delegation in auto mode**: External plugin delegation (see `auto/references/plugin-delegation.md`) works naturally in auto mode. Each skill's delegation steps invoke plugins via the Task tool, creating isolated subagents that prevent external plugin output from inflating the auto session context. Trust context compaction prompts to handle context pressure; all delegation slots are always attempted when their trigger conditions are met

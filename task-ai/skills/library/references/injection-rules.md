@@ -233,7 +233,7 @@ Medium-risk — annotate + flag:
 
 - High-risk patterns: strip entire code block; replace with `[REMOVED: two-stage download-execute pattern]`; risk → `high` (non-degradable)
 - Medium-risk patterns: strip code block; `[REMOVED: download-then-execute sequence]`; risk → `high` (severity unchanged — intent is same)
-- Note: even if contained in a "legitimate installation guide", these patterns are still removed. Code blocks are not a safe context for these patterns when loaded as Claude's context.
+- Note: even if contained in a "legitimate installation guide", these patterns are still removed. Code blocks are not a safe context for these patterns when loaded as the agent's context.
 
 ---
 

@@ -22,7 +22,7 @@
 | 模式 | 判定 | 适用 |
 |------|------|------|
 | executable | exit code 0/1/>1 | software, data-pipeline, infrastructure |
-| inspectable | Claude 按标准判定 | documentation, ml, dsp |
+| inspectable | the agent 按标准判定 | documentation, ml, dsp |
 | human | 人工 approve/reject | literary, screenwriting, image/video |
 
 mixed 模式 = 部分 auto + 部分 human（`human_vhs` 列表标注）
@@ -53,7 +53,7 @@ mixed 模式 = 部分 auto + 部分 human（`human_vhs` 列表标注）
 ## Cumulative Green Gate (CGG)
 - 触发: 每步 HS 后
 - 范围: step-1..N-1 所有已通过 VH
-- executable: 运行累积测试; inspectable: Claude 重审; human: CGG Proxy (产物 diff)
+- executable: 运行累积测试; inspectable: the agent 重审; human: CGG Proxy (产物 diff)
 - 回归 → 修复(≤1次) → 重跑; 仍失败 → (mid-exec)
 - 产物: `.test/<date>-cumulative-green.jsonl` (追加)
 - 跳过: step=1, generation_failed, 无 VC 节

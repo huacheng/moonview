@@ -64,7 +64,7 @@ Paths are relative to `.library/` root (e.g., `.memory/.references/jwt-auth-v3.m
 
 **Build**: `maintain --rebuild-relations` computes from changelog + frontmatter + index files.
 **Incremental**: `report` appends new `used-by`, `derived-from`, `inspired` edges after distillation.
-**Query**: Claude uses Grep tool on the JSONL file — no Python query layer.
+**Query**: the agent uses Grep tool on the JSONL file — no Python query layer.
 
 ### C. Search Integration
 

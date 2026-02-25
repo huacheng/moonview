@@ -326,6 +326,6 @@ Per-type seed methodology files are centralized in `skills/init/references/seed-
 
 **Main SKILL.md** contains the workflow: prerequisites, execution steps, state transitions, git conventions, `.auto-signal` definitions, and notes. It should be self-sufficient for understanding the sub-command's behavior.
 
-**references/** contains large reference tables and domain-specific details that are only needed in specific situations. The main SKILL.md references these files with `See references/<file>.md` directives — Claude reads them on demand when the context requires it.
+**references/** contains large reference tables and domain-specific details that are only needed in specific situations. The main SKILL.md references these files with `See references/<file>.md` directives — the agent reads them on demand when the context requires it.
 
 16 sub-commands: `init`, `plan`, `research`, `read`, `security`, `check`, `verify`, `exec`, `merge`, `report`, `auto`, `cancel`, `list`, `annotate`, `summarize`, `library`. Each skill's SKILL.md frontmatter contains the authoritative description, arguments, model tier, and delegation flag. Read `skills/<name>/SKILL.md` for full details.
