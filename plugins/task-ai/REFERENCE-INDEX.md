@@ -14,18 +14,24 @@
 | `depends-on-format.md` | Dependency format spec and enforcement rules |
 | `directory-convention.md` | Full directory tree structure and path resolution |
 | `git-details.md` | Branch/commit conventions, worktree, rollback, `.gitignore` |
+| `library-repo-protocol.md` | Independent git repository protocol for knowledge library |
 | `library-write-protocol.md` | 6-step library write protocol, changelog format |
 | `lifecycle-hooks.md` | Status transition hooks configuration |
 | `model-routing.md` | Tier definitions (heavy/medium/light), routing table |
 | `state-matrix.md` | State x command matrix with all combinations |
 | `summary-formats.md` | `.summary.md` table formats for experiences/references |
 | `type-field.md` | Type format, auto-discovery, validation, directory-safe transform |
+| `verification-first-protocol.md` | VFP v1.0 — verification hypothesis lifecycle, CGG, HIL, compliance scoring |
 
-## Skills (14)
+## Skills (18)
 
 | Skill | Description |
 |-------|-------------|
 | `init` | Initialize notebook working directory, git branch, optional worktree |
+| `target` | **Demand Anchor** — defines objectives and requirements in .target.md |
+| `read` | Knowledge Synthesizer — ingests local documents, deduplicates against library |
+| `security` | Runtime Guardian — audits plans and intercepts high-risk shell commands |
+| `light` | **Shadow Task** — lightweight闪击模式, no permanent directory, squash delivery |
 | `research` | Target objective deepening & lifecycle intelligence collection |
 | `plan` | Generate implementation plans from `.target.md` |
 | `verify` | Run domain-adapted tests, produce result files |
@@ -47,7 +53,20 @@
 | File | Description |
 |------|-------------|
 | `references/seed-types/.summary.md` | Index of 14 seed type files (19 types) |
-| `references/seed-types/<type>.md` | Per-type Phase Intelligence (plan/verify/check/exec) |
+| `references/seed-types/ai-skill.md` | Phase Intelligence for ai-skill type |
+| `references/seed-types/chip-design.md` | Phase Intelligence for chip-design type |
+| `references/seed-types/data-pipeline.md` | Phase Intelligence for data-pipeline type |
+| `references/seed-types/documentation.md` | Phase Intelligence for documentation type |
+| `references/seed-types/dsp.md` | Phase Intelligence for dsp type |
+| `references/seed-types/image-processing.md` | Phase Intelligence for image-processing type |
+| `references/seed-types/infrastructure.md` | Phase Intelligence for infrastructure type |
+| `references/seed-types/literary.md` | Phase Intelligence for literary type |
+| `references/seed-types/mechatronics.md` | Phase Intelligence for mechatronics type |
+| `references/seed-types/ml.md` | Phase Intelligence for ml type |
+| `references/seed-types/science.md` | Phase Intelligence for science type |
+| `references/seed-types/screenwriting.md` | Phase Intelligence for screenwriting type |
+| `references/seed-types/software.md` | Phase Intelligence for software type |
+| `references/seed-types/video-production.md` | Phase Intelligence for video-production type |
 
 ### plan
 
@@ -81,6 +100,6 @@
 | File | Description |
 |------|-------------|
 | `references/blocked-sources.md` | Three-tier source classification (reject/high-risk/caution) |
-| `references/injection-rules.md` | Nine-category injection protection rules |
+| `references/injection-rules.md` | Ten-category injection protection rules |
 | `references/quality-rubric.md` | H/M/L thinking quality self-assessment rubric |
 | `references/write-protocol.md` | Per-directory lock table, hold duration, stale-lock recovery |

@@ -43,3 +43,7 @@ Covers all science subtypes: `science:physics`, `science:chemistry`, `science:bi
 - **Key Sources**: Tool documentation, Jupyter/R notebooks, plotting library guides (matplotlib/ggplot2)
 - **Implementation Approach**: Run experiments/simulations, collect data, perform statistical analysis, write up findings
 - **Step Verification**: Reproducibility verification, statistical significance, numerical cross-check against literature
+
+### Verification Cycle
+
+Default verification cycle not specified.

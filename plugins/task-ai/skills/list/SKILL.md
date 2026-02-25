@@ -79,17 +79,20 @@ Parse commit messages to reconstruct the timeline of status changes with timesta
 ## Execution Steps
 
 1. **Scan** `$NB_WORKSPACES_ROOT/` — list project directories, then within each project list notebook directories that contain `.working/.index.json` to discover notebooks
-2. **For each target notebook**: read `<project>/<notebook_name>/.working/.index.json` to get task metadata
-3. **If `--deps`**: build dependency graph from all notebooks' `depends_on` fields; **if `--timeline`**: extract history via `git log --oneline --grep="task-ai(<notebook>)"`
-4. **Format** and print output (table, details, Mermaid graph, or timeline)
+2. **Metadata extraction**: For each discovered notebook, read `.working/.index.json` to extract `title`, `status`, `type`, `mode`, and `branch`.
+3. **Light mode identification**: If `mode == "light"`, flag the notebook as a "Lightweight Shadow Task" in the output. Highlight that it is transient and bound to a shadow branch.
+4. **If `--deps`**: build dependency graph from all notebooks' `depends_on` fields; **if `--timeline`**: extract history via `git log --oneline --grep="task-ai(<notebook>)"`
+5. **Display**: Format and print output (table, details, Mermaid graph, or timeline)
 
 ## State Transitions
 
-None — `list` is a pure read-only query. No status changes.
+| Current Status | After List | Condition |
+|----------------|------------|-----------|
+| Any | (unchanged) | Read-only query |
 
 ## Git
 
-None — `list` does not create any commits.
+None — `list` does not create any commits (e.g., it will never create a `task-ai(<notebook>):feat ...` commit).
 
 ## .auto-signal
 

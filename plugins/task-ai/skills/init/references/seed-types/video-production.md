@@ -38,3 +38,7 @@ Frame analysis, render quality, timeline verification
 - **Key Sources**: ffmpeg cookbook, DaVinci Resolve manual, codec encoding guides (x264/x265/AV1)
 - **Implementation Approach**: Operate video editing tools (ffmpeg, DaVinci Resolve CLI, melt/MLT, etc.), assemble timelines, apply effects
 - **Step Verification**: Frame-accurate comparison, codec validation, timeline continuity, render output verification
+
+### Verification Cycle
+
+Default verification cycle not specified.

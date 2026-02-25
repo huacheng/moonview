@@ -6,7 +6,7 @@ auto_delegatable: true
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: format
     description: "Report format: full (default) or summary"
     required: false
@@ -111,7 +111,11 @@ The report is written to `[deliverables-dir]/.report.md` (the notebook's deliver
 
 ## State Transitions
 
-No status change — report generation is informational. The task must already be `complete`, `blocked`, or `cancelled`.
+| Current Status | After Report | Condition |
+|----------------|--------------|-----------|
+| `complete` | `complete` | Always |
+| `blocked` | `blocked` | Always |
+| `cancelled` | `cancelled` | Always |
 
 ## Git
 

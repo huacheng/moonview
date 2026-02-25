@@ -5,8 +5,8 @@ model_tier: heavy
 auto_delegatable: false
 arguments:
   - name: notebook
-    description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    description: "Notebook name (optional — detected from context if omitted)"
+    required: false
   - name: generate
     description: "Generate or regenerate the implementation plan (flag, no value). Default behavior when invoked — the flag exists for explicitness in auto mode commands"
     required: false
@@ -49,15 +49,23 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
     - **Optional delegation — brainstorm**: On first plan generation (no existing `.plan.md`), follow `auto/references/plugin-delegation.md` to attempt matching the `brainstorm` capability slot. If matched, invoke via Task subagent — exploration results serve as supplementary planning input. No match or failure → continue normally
 16. Write plan to `.plan.md` in the task module
 17. Write `.test/<YYYY-MM-DD>-plan-criteria.md` with **domain-appropriate** verification criteria: acceptance criteria from `.target.md` + per-step test cases using methods standard in the task domain. On re-plan, write `.test/<YYYY-MM-DD>-replan-criteria.md` incorporating lessons from previous `.test/` results files
-18. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
-19. Create `.notes/<YYYY-MM-DD>-<summary>-plan.md` with research findings and key decisions
-20. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
-21. Write task-level `.summary.md` with condensed context: plan overview, key decisions, requirements summary, known constraints (integrate from directory summaries)
-22. Update `.index.json`: set `type` field (if not already set or if task nature changed), status → `planning` (from `draft`/`planning`/`blocked`) or `re-planning` (from `review`/`executing`/`re-planning`), update timestamp. If the **new** status is `re-planning`, set `phase: needs-check`. For all other **new** statuses, clear `phase` to `""`. Reset `completed_steps` to `0` (new/revised plan invalidates prior progress)
-23. **CoT capture** (optional, encouraged): If this planning session involved complex or novel reasoning, write `.memory/.thinking/raw/<notebook>-plan-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND (no lock needed — filename is unique). Append one row to `.memory/.thinking/raw/.index.md` on first creation (O_APPEND). See `skills/library/SKILL.md` `.memory/.thinking/raw/` Entry Format and `library/references/quality-rubric.md` for format and H/M/L rubric
-24. **Git commit**: `task-ai(<notebook>):plan generate implementation plan`
-25. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
-26. Report plan summary to user
+18. **VH stub generation** (software types only): When `type` (from `.index.json`) contains `software`, generate executable failing verification hypothesis stubs from the criteria:
+    - Extract each plan step's verification points from the criteria file written in step 17
+    - Generate `<workspace>/.test/<YYYY-MM-DD>-vh-stubs.test.*` (language/framework determined by `.type-profile.md` or project conventions)
+    - Each stub contains: test description, assertion placeholder, expected failure marker `// VH: not implemented`
+    - Run the VH stubs once to confirm **all fail** (VH baseline state)
+    - Write `.test/<YYYY-MM-DD>-vh-baseline.md` recording: total VH stubs count, per-step stub mapping, run output confirming all failures
+    - In `.plan.md`, annotate each implementation step with its corresponding VH stub references (e.g., `[VH: test-auth-login, test-auth-logout]`)
+    - If any stub unexpectedly passes → log warning in baseline file ("stub X passed without implementation — test may be trivially satisfied, review assertion strength")
+19. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
+20. Create `.notes/<YYYY-MM-DD>-<summary>-plan.md` with research findings and key decisions
+21. **Update** `.notes/.summary.md` — overwrite with condensed summary of ALL notes files in `.notes/`
+22. Write task-level `.summary.md` with condensed context: plan overview, key decisions, requirements summary, known constraints (integrate from directory summaries)
+23. Update `.index.json`: set `type` field (if not already set or if task nature changed), status → `planning` (from `draft`/`planning`/`blocked`) or `re-planning` (from `review`/`executing`/`re-planning`), update timestamp. If the **new** status is `re-planning`, set `phase: needs-check`. For all other **new** statuses, clear `phase` to `""`. Reset `completed_steps` to `0` (new/revised plan invalidates prior progress)
+24. **CoT capture** (optional, encouraged): If this planning session involved complex or novel reasoning, write `.memory/.thinking/raw/<notebook>-plan-<YYYY-MM-DD>.md` with quality self-assessment. Use O_APPEND (no lock needed — filename is unique). Append one row to `.memory/.thinking/raw/.index.md` on first creation (O_APPEND). See `skills/library/SKILL.md` `.memory/.thinking/raw/` Entry Format and `library/references/quality-rubric.md` for format and H/M/L rubric
+25. **Git commit**: `task-ai(<notebook>):plan generate implementation plan`
+26. **Write** `.auto-signal`: `{ "step": "plan", "result": "(generated)", "next": "verify", "checkpoint": "post-plan", "timestamp": "..." }`
+27. Report plan summary to user
 
 **Context management**: When `.summary.md` exists, read it as the primary context source instead of reading all files from `.analysis/`, `.bugfix/`, `.notes/`. Only read the latest (last by filename sort) file from each directory for detailed info on the most recent assessment/issue/note.
 

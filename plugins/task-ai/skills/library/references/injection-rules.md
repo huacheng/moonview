@@ -28,7 +28,7 @@ failure_count: 0
 ---
 ```
 
-`injection_risk` starts at `none` and is upgraded by each category's findings. Final risk = max level reached across all nine categories. `content_hash_sanitized` mismatch from `content_hash_original` of > 30% → force upgrade to `high`.
+`injection_risk` starts at `none` and is upgraded by each category's findings. Final risk = max level reached across all ten categories. `content_hash_sanitized` mismatch from `content_hash_original` of > 30% → force upgrade to `high`.
 
 ---
 
@@ -233,7 +233,7 @@ Medium-risk — annotate + flag:
 
 - High-risk patterns: strip entire code block; replace with `[REMOVED: two-stage download-execute pattern]`; risk → `high` (non-degradable)
 - Medium-risk patterns: strip code block; `[REMOVED: download-then-execute sequence]`; risk → `high` (severity unchanged — intent is same)
-- Note: even if contained in a "legitimate installation guide", these patterns are still removed. Code blocks are not a safe context for these patterns when loaded as Claude's context.
+- Note: even if contained in a "legitimate installation guide", these patterns are still removed. Code blocks are not a safe context for these patterns when loaded as the agent's context.
 
 ---
 
@@ -280,6 +280,31 @@ Scan for direct IPs in outbound URLs (regex \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):
 
 ---
 
+## Category 10: Command Semantics Injection (VFP)
+
+**Targets**: Malicious CLI flags, environment manipulation, and test configuration injection that bypasses traditional sandboxing by exploiting the semantics of project-local test runners.
+
+**Detection patterns:**
+
+```
+Malicious flags in code blocks:
+  - --conftest=, --require=, --include=, --import= (can load external python/js)
+  - --exec=, --run=, --eval= (direct command execution)
+Environment manipulation:
+  - LD_PRELOAD=, NODE_OPTIONS=, PYTHONPATH=, JAVA_TOOL_OPTIONS=
+  - Alias or function definitions for standard commands (npm, pytest, cargo)
+Test configuration:
+  - Content resembling pytest.ini, jest.config.js, or .babelrc that points to external files
+```
+
+**Sanitisation:**
+
+- Remove dangerous flags from command examples; risk → `high`
+- Strip environment variable overrides from shell blocks; risk → `high`
+- Wrap entire suspicious test config blocks in `[sanitised-vfp-injection]`; risk → `medium`
+
+---
+
 ## Final Risk Assignment
 
 ```
@@ -288,6 +313,7 @@ injection_risk = max(risk levels from all triggered categories)
 non-degradable rules (cannot be reduced by other factors):
   - Category 7 confirmed decoded executable → always high
   - Category 8 any pattern matched        → always high
+  - Category 10 command semantics matched → always high
   - source_url IP address                 → always reject (not stored)
 ```
 
@@ -297,7 +323,7 @@ When `research` re-fetches a stale reference:
 
 1. Fetch fresh content
 2. Compute `content_hash_original` of fresh content
-3. Run all nine categories fresh (do not trust prior sanitisation)
+3. Run all ten categories fresh (do not trust prior sanitisation)
 4. If `content_hash_sanitized` differs from previous → treat as content-changed (new version)
 5. Update `sanitized_at` regardless of version change
 6. Compare new `injection_findings` with old — escalating findings upgrade `injection_risk`; de-escalating findings MAY downgrade (with human review for `high → medium` transitions)

@@ -6,7 +6,7 @@ auto_delegatable: true
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: all
     description: "Also regenerate each sub-directory's .summary.md"
     required: false
@@ -54,7 +54,9 @@ Regenerate `.summary.md` files for a task module. Used to recover lost context o
 
 ## State Transitions
 
-None — `summarize` is a utility sub-command. It does not change task status.
+| Current Status | After Summarize | Condition |
+|----------------|-----------------|-----------|
+| Any | (unchanged) | Pure utility sub-command |
 
 ## Git
 

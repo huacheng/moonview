@@ -38,3 +38,7 @@ SSIM/PSNR metrics, visual diff, perceptual quality
 - **Key Sources**: ImageMagick/ffmpeg CLI docs, PIL/OpenCV API, format-specific encoding guides
 - **Implementation Approach**: Invoke image processing tools (ImageMagick, ffmpeg, PIL, etc.), generate/compare visual outputs
 - **Step Verification**: Visual diff (SSIM/PSNR), reference image comparison, metadata validation
+
+### Verification Cycle
+
+Default verification cycle not specified.

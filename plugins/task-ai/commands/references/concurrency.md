@@ -22,6 +22,20 @@ Three shared directories require locks before writing (all use the same lock pro
 
 Additionally, `$NB_WORKSPACES_LIBRARY/.changelog.lock` is held briefly by any library writer during the write protocol (step 4 — single-line append). See Lock Ordering Convention below for the full lock list and acquisition order.
 
+## VFP File Pattern Lock Coverage
+
+The following VFP (Verification-First Protocol) file patterns reside under `$NB_TASK_WORKING` and are protected by the task module lock (`.working/.lock`). No additional locks are needed — the task module lock provides exclusive access:
+
+| VFP Pattern | Location | Writers | Purpose |
+|-------------|----------|---------|---------|
+| `vh-stubs.*` | `$NB_TASK_WORKING/vh-stubs.*` | `plan` | VH stub files generated during planning |
+| `vh-baseline.md` | `$NB_TASK_WORKING/vh-baseline.md` | `plan` | Initial VH failure state baseline |
+| `cumulative-green.jsonl` | `$NB_TASK_WORKING/.test/<date>-cumulative-green.jsonl` | `exec` | CGG cumulative pass records (append) |
+| `hil-snapshots/` | `$NB_TASK_WORKING/.test/hil-snapshots/` | `exec` | HIL approval snapshot artifacts |
+| `vfp_cycles_completed` | `$NB_TASK_WORKING/.auto-signal` (field) | `auto`, `exec` | VFP cycle counter in auto-signal JSON |
+
+All VFP files are scoped to a single notebook's `.working/` directory. Since the task module lock already serializes all sub-command access to `.working/`, these files inherit that protection automatically.
+
 ## Lock Ordering Convention
 
 When a sub-command acquires multiple locks within a single operation, it MUST acquire them in the following order to prevent deadlocks:
