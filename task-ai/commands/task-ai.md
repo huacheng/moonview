@@ -1,8 +1,8 @@
 ---
-description: "Structured task lifecycle management with 14 skills for AI-driven development. Use when tasks need structured planning, domain-aware verification, and tracked execution through $NB_WORKSPACES_ROOT/ directory workflow. Sub-commands: init, plan, research, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library."
+description: "Structured task lifecycle management with 16 skills for AI-driven development. Use when tasks need structured planning, domain-aware verification, and tracked execution through $NB_WORKSPACES_ROOT/ directory workflow. Sub-commands: init, plan, research, read, security, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library."
 arguments:
   - name: subcommand
-    description: "Sub-command: init, plan, research, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library"
+    description: "Sub-command: init, plan, research, read, security, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library"
     required: true
   - name: args
     description: "Sub-command arguments (varies by sub-command)"
@@ -223,7 +223,7 @@ Lifecycle skills can discover and delegate to system-installed external plugins 
 
 Sub-commands have different cognitive demands. Each SKILL.md frontmatter declares `model_tier` (heavy/medium/light) and `auto_delegatable` (true/false) to enable the auto loop to dispatch lighter sub-commands to cheaper/faster model tiers via Task subagent.
 
-> **See `commands/references/model-routing.md`** for tier definitions, the full routing table for all 14 skills, and the auto mode delegation protocol.
+> **See `commands/references/model-routing.md`** for tier definitions, the full routing table for all 16 skills, and the auto mode delegation protocol.
 
 ### Lifecycle Hooks (Extension Point)
 
@@ -328,4 +328,4 @@ Per-type seed methodology files are centralized in `skills/init/references/seed-
 
 **references/** contains large reference tables and domain-specific details that are only needed in specific situations. The main SKILL.md references these files with `See references/<file>.md` directives — Claude reads them on demand when the context requires it.
 
-14 sub-commands: `init`, `plan`, `research`, `check`, `verify`, `exec`, `merge`, `report`, `auto`, `cancel`, `list`, `annotate`, `summarize`, `library`. Each skill's SKILL.md frontmatter contains the authoritative description, arguments, model tier, and delegation flag. Read `skills/<name>/SKILL.md` for full details.
+16 sub-commands: `init`, `plan`, `research`, `read`, `security`, `check`, `verify`, `exec`, `merge`, `report`, `auto`, `cancel`, `list`, `annotate`, `summarize`, `library`. Each skill's SKILL.md frontmatter contains the authoritative description, arguments, model tier, and delegation flag. Read `skills/<name>/SKILL.md` for full details.

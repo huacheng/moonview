@@ -34,6 +34,8 @@ L2_SCRIPTS=(
   exec-functional.sh
   merge-functional.sh
   auto-functional.sh
+  read-functional.sh
+  security-functional.sh
   signal-field-names.py
   injection-category-count.sh
   plugin-slot-consistency.py
