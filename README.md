@@ -8,8 +8,17 @@ A Claude Code plugin marketplace for structured task lifecycle management.
 
 ## Installation
 
+Add the Moonview marketplace to your preferred agent:
+
 ```bash
+# For Gemini CLI
 gemini plugin add huacheng/moonview
+
+# For Claude Code
+claude plugin add huacheng/moonview
+
+# For Codex CLI
+codex plugin add huacheng/moonview
 ```
 
 ## Plugins

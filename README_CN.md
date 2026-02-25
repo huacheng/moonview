@@ -8,8 +8,17 @@
 
 ## 安装
 
+将 Moonview 插件市场添加到您首选的智能体中：
+
 ```bash
+# Gemini CLI
 gemini plugin add huacheng/moonview
+
+# Claude Code
+claude plugin add huacheng/moonview
+
+# Codex CLI
+codex plugin add huacheng/moonview
 ```
 
 ## 插件
