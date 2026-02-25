@@ -3740,7 +3740,7 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--pdf-page-gap, 12px);
 }
 .fv-render__pdf-wrapper {
   display: flex;

@@ -432,7 +432,7 @@ export function FileViewerRender({
         </div>
       )}
       {format === 'pdf-binary' && pdfFile && (
-        <div className="fv-render__pdf-wrapper">
+        <div className="fv-render__pdf-wrapper" style={{ '--pdf-page-gap': `${12 * pdfScale}px` } as React.CSSProperties}>
           {pdfError && <div className="fv-render__pdf-error">Failed to load PDF: {pdfError}</div>}
           <Document
             file={pdfFile}
