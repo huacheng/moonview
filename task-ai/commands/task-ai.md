@@ -1,8 +1,8 @@
 ---
-description: "Structured task lifecycle management with 16 skills for AI-driven development. Use when tasks need structured planning, domain-aware verification, and tracked execution through $NB_WORKSPACES_ROOT/ directory workflow. Sub-commands: init, plan, research, read, security, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library."
+description: "Structured task lifecycle management with 18 skills for AI-driven development. Use when tasks need structured planning, domain-aware verification, and tracked execution through $NB_WORKSPACES_ROOT/ directory workflow. Sub-commands: init, target, light, plan, research, read, security, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library."
 arguments:
   - name: subcommand
-    description: "Sub-command: init, plan, research, read, security, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library"
+    description: "Sub-command: init, target, light, plan, research, read, security, check, verify, exec, merge, report, auto, cancel, list, annotate, summarize, library"
     required: true
   - name: args
     description: "Sub-command arguments (varies by sub-command)"
@@ -20,12 +20,12 @@ Single entry point for task lifecycle management in the `$NB_WORKSPACES_ROOT/` d
 ## Lifecycle Overview
 
 ```
-init → research(target) → plan → research(test) → verify → check → exec → merge → report
+init → target → research(target) → plan → research(test) → verify → check → exec → merge → report
             ↑                ↑         ↑              ↑       ↑       ↑
             └──────────────── research 可在任意阶段独立调用 ─────────────────────┘
 ```
 
-辅助命令（随时可用）: `auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
+辅助命令（随时可用）: `light` · `read` · `security` · `auto` · `cancel` · `list` · `annotate` · `summarize` · `library`
 
 > **research** acts as the **intelligence officer** — the only sub-command callable at every phase independently. See [research standalone invocation examples](#research--intelligence-collection-) below.
 
@@ -242,6 +242,7 @@ Status transitions can optionally trigger external notifications via `$NB_WORKSP
 | 命令 | 角色 | 说明 |
 |------|------|------|
 | `init` | 初始化 | 创建任务模块、分支、目标模板 |
+| `target` | 目标定义 | 定义/评审任务目标与需求 (`.target.md`) |
 | `research` ★ | **情报收集** | 全阶段情报官，独立可调（见下方专节） |
 | `plan` | 规划 | 生成实施计划 |
 | `verify` | 验证 | 执行测试，产出结果文件 |
@@ -260,6 +261,7 @@ Status transitions can optionally trigger external notifications via `$NB_WORKSP
 
 | 命令 | 说明 |
 |------|------|
+| `light` | 轻量级影子任务（无目录、影子分支、自动合并） |
 | `cancel` | 取消任务 |
 | `list` | 查询任务状态与依赖 |
 | `annotate` | 处理 Plan 面板批注 |
@@ -328,4 +330,4 @@ Per-type seed methodology files are centralized in `skills/init/references/seed-
 
 **references/** contains large reference tables and domain-specific details that are only needed in specific situations. The main SKILL.md references these files with `See references/<file>.md` directives — the agent reads them on demand when the context requires it.
 
-16 sub-commands: `init`, `plan`, `research`, `read`, `security`, `check`, `verify`, `exec`, `merge`, `report`, `auto`, `cancel`, `list`, `annotate`, `summarize`, `library`. Each skill's SKILL.md frontmatter contains the authoritative description, arguments, model tier, and delegation flag. Read `skills/<name>/SKILL.md` for full details.
+18 sub-commands: `init`, `target`, `light`, `plan`, `research`, `read`, `security`, `check`, `verify`, `exec`, `merge`, `report`, `auto`, `cancel`, `list`, `annotate`, `summarize`, `library`. Each skill's SKILL.md frontmatter contains the authoritative description, arguments, model tier, and delegation flag. Read `skills/<name>/SKILL.md` for full details.

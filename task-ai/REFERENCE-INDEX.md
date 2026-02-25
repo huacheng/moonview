@@ -23,13 +23,15 @@
 | `type-field.md` | Type format, auto-discovery, validation, directory-safe transform |
 | `verification-first-protocol.md` | VFP v1.0 — verification hypothesis lifecycle, CGG, HIL, compliance scoring |
 
-## Skills (16)
+## Skills (18)
 
 | Skill | Description |
 |-------|-------------|
 | `init` | Initialize notebook working directory, git branch, optional worktree |
+| `target` | **Demand Anchor** — defines objectives and requirements in .target.md |
 | `read` | Knowledge Synthesizer — ingests local documents, deduplicates against library |
 | `security` | Runtime Guardian — audits plans and intercepts high-risk shell commands |
+| `light` | **Shadow Task** — lightweight闪击模式, no permanent directory, squash delivery |
 | `research` | Target objective deepening & lifecycle intelligence collection |
 | `plan` | Generate implementation plans from `.target.md` |
 | `verify` | Run domain-adapted tests, produce result files |
