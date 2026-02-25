@@ -21,12 +21,14 @@ if [[ ! -d "$WORK_DIR" ]]; then
     exit 1
 fi
 
+STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
+
 # 1. Invoke Research for Type Discovery (Simulated)
 # In real execution, this would call research.sh. For plumbing:
-TYPE=$(python3 -c "import json; print(json.load(open('$INDEX_JSON')).get('type', ''))")
+TYPE=$(python3 "$STATE_PY" get "$INDEX_JSON" type)
 if [[ -z "$TYPE" ]]; then
     TYPE="software" # Default for plan testing
-    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['type']='$TYPE'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    python3 "$STATE_PY" set "$INDEX_JSON" type "$TYPE"
 fi
 
 echo "Planning for task type: $TYPE"
@@ -74,6 +76,6 @@ EOF
 fi
 
 # 4. Update Index Status
-python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='planning'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+python3 "$STATE_PY" transition "$INDEX_JSON" --status planning
 
 echo "Plan generated successfully."

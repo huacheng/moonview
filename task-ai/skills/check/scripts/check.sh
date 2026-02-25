@@ -31,6 +31,8 @@ if [[ ! -d "$WORK_DIR" ]]; then
     exit 1
 fi
 
+STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
+
 # 1. Decision Logic (Simulated for plumbing)
 # In real AI agent run, this would be a reasoned verdict.
 VERDICT="PASS"
@@ -41,16 +43,16 @@ echo "Checking $NOTEBOOK at $CHECKPOINT... Verdict: $VERDICT"
 # 2. State Transitions
 case "$VERDICT" in
   PASS)
-    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='review'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status review
     ;;
   ACCEPT)
     # ACCEPT keeps 'executing' status but signals 'merge'
     ;;
   REPLAN)
-    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='re-planning'; d['phase']='needs-plan'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status re-planning --phase needs-plan
     ;;
   BLOCKED)
-    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='blocked'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status blocked
     ;;
 esac
 

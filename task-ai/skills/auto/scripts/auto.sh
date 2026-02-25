@@ -26,6 +26,7 @@ NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
 WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
 INDEX_JSON="$WORK_DIR/.index.json"
 SIGNAL_FILE="$WORK_DIR/.auto-signal"
+STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
 
 if [[ ! -d "$WORK_DIR" ]]; then
     echo "[ERROR] Working directory not found." >&2
@@ -33,7 +34,7 @@ if [[ ! -d "$WORK_DIR" ]]; then
 fi
 
 # 1. Entry Point Routing (Simulated)
-STATUS=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['status'])")
+STATUS=$(python3 "$STATE_PY" get "$INDEX_JSON" status)
 echo "Auto-mode: Starting loop from status: $STATUS"
 
 # 2. Simulated Loop (Executing one step for plumbing)

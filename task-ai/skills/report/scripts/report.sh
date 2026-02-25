@@ -31,13 +31,16 @@ if [[ ! -d "$WORK_DIR" ]]; then
 fi
 
 echo "Generating report for $NOTEBOOK..."
+STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
+INDEX_JSON="$WORK_DIR/.index.json"
 
 # 1. Gather Metadata
-TITLE=$(python3 -c "import json; print(json.load(open('$WORK_DIR/.index.json'))['title'])")
-STATUS=$(python3 -c "import json; print(json.load(open('$WORK_DIR/.index.json'))['status'])")
-CREATED=$(python3 -c "import json; print(json.load(open('$WORK_DIR/.index.json'))['created'])")
+TITLE=$(python3 "$STATE_PY" get "$INDEX_JSON" title)
+STATUS=$(python3 "$STATE_PY" get "$INDEX_JSON" status)
+CREATED=$(python3 "$STATE_PY" get "$INDEX_JSON" created)
 COMPLETED=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-TYPE=$(python3 -c "import json; d=json.load(open('$WORK_DIR/.index.json')); print(d.get('type', 'generic'))")
+TYPE=$(python3 "$STATE_PY" get "$INDEX_JSON" type)
+TYPE=${TYPE:-generic}
 
 # 2. Compose Report (Simplified for script)
 REPORT_FILE="$WORK_DIR/../.report.md"

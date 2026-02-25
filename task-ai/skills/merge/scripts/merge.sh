@@ -15,14 +15,15 @@ fi
 NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
 WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
 INDEX_JSON="$WORK_DIR/.index.json"
+STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
 
 if [[ ! -d "$WORK_DIR" ]]; then
     echo "[ERROR] Working directory not found." >&2
     exit 1
 fi
 
-BRANCH_NAME=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['branch'])")
-WORKTREE=$(python3 -c "import json; print(json.load(open('$INDEX_JSON'))['worktree'])")
+BRANCH_NAME=$(python3 "$STATE_PY" get "$INDEX_JSON" branch)
+WORKTREE=$(python3 "$STATE_PY" get "$INDEX_JSON" worktree)
 
 # 1. Pre-merge Refactoring (Simulated)
 echo "Executing pre-merge refactoring..."
@@ -61,7 +62,7 @@ done
 if [[ $SUCCESS -eq 1 ]]; then
     # 3. Post-merge Cleanup
     echo "Merge successful. Cleaning up..."
-    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['status']='complete'; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    python3 "$STATE_PY" transition "$INDEX_JSON" --status complete
     
     if [[ -n "$WORKTREE" ]]; then
         git worktree remove "$WORKTREE" 2>/dev/null || true
@@ -69,7 +70,7 @@ if [[ $SUCCESS -eq 1 ]]; then
     git branch -d "$BRANCH_NAME" 2>/dev/null || true
     
     # Final metadata clear
-    python3 -c "import json; d=json.load(open('$INDEX_JSON')); d['branch']=''; d['worktree']=''; json.dump(d, open('$INDEX_JSON', 'w'), indent=2)"
+    python3 "$STATE_PY" transition "$INDEX_JSON" --branch "" --worktree ""
     echo "Cleanup completed. Task $NOTEBOOK is complete."
 else
     echo "[ERROR] Merge failed after $MAX_RETRIES attempts." >&2

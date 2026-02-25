@@ -34,38 +34,10 @@ if [[ ! -f "$TARGET_MD" ]]; then
     exit 1
 fi
 
+DETECT_STAGE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/detect_stage.py"
+
 detect_stage() {
-    python3 -c "
-import re, os
-with open('$TARGET_MD', 'r') as f:
-    t = f.read()
-has_ri = '## Research Insights' in t
-has_o1 = '### O1:' in t
-has_o2 = '### O2:' in t
-has_o3 = '### O3:' in t
-
-def get_proposed_in_section(text, start_marker, next_marker=None):
-    if start_marker not in text: return False
-    section = text.split(start_marker)[1]
-    if next_marker and next_marker in section:
-        section = section.split(next_marker)[0]
-    return '[PROPOSED]' in section
-
-if not has_ri or not has_o1:
-    print('O1')
-elif get_proposed_in_section(t, '### O1:', '### O2:' if has_o2 else None):
-    print('PENDING')
-elif not has_o2:
-    print('O2')
-elif get_proposed_in_section(t, '### O2:', '### O3:' if has_o3 else None):
-    print('PENDING')
-elif not has_o3:
-    print('O3')
-elif get_proposed_in_section(t, '### O3:'):
-    print('PENDING')
-else:
-    print('COMPLETE')
-"
+    python3 "$DETECT_STAGE_PY" "$TARGET_MD"
 }
 
 if [[ "$CALLER" == "target" && "$PHASE" == "objective" ]]; then
