@@ -7,7 +7,8 @@ export function RightPanel() {
   const activeProjectId = useStore(s => s.activeProjectId);
   const authToken = useStore(s => s.authToken);
   const sessionId = useStore(s => s.sessionId);
-  const setOpenFile = useStore(s => s.setOpenFile);
+  const openFileTab = useStore(s => s.openFileTab);
+  const rightPanelWidth = useStore(s => s.rightPanelWidth);
 
   if (!rightPanelOpen) {
     return (
@@ -18,7 +19,7 @@ export function RightPanel() {
   }
 
   return (
-    <div className="right-panel">
+    <div className="right-panel" style={{ width: rightPanelWidth }}>
       <div className="right-panel-toolbar">
         <span className="right-panel-title">Deliverables</span>
         <button className="right-panel-collapse-btn" onClick={toggleRightPanel}>&rsaquo;</button>
@@ -31,7 +32,7 @@ export function RightPanel() {
           initialPath=".deliverables"
           onFileClick={(subPath, name) => {
             const relPath = subPath === '.' ? name : `${subPath}/${name}`;
-            setOpenFile({ path: relPath, source: 'deliverables', sessionId: sessionId ?? '' });
+            openFileTab({ path: relPath, source: 'deliverables', sessionId: sessionId ?? '' });
           }}
         />
       ) : (
