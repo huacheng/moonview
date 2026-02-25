@@ -25,7 +25,7 @@ Coordinate the full task lifecycle autonomously: plan → verify → check → e
 
 ## Architecture
 
-Auto mode runs as a **single long-lived the agent session** started by the daemon via `gemini "/moonview:auto <notebook_name>"`. The daemon starts the session and monitors it externally; it does NOT dispatch individual commands.
+Auto mode runs as a **single long-lived the agent session** started by entering `/moonview:auto <notebook_name>` into the prompt input window. The daemon starts the session and monitors it externally; it does NOT dispatch individual commands.
 
 ### Components
 
@@ -308,7 +308,7 @@ Auto mode inherits git behavior from each sub-command it invokes. No additional 
 
 ## Notes
 
-- Auto mode starts with a single `gemini "/moonview:auto <notebook_name>"` CLI invocation; all subsequent steps execute within that same session
+- Auto mode starts by entering the `/moonview:auto <notebook_name>` command in the prompt input window; all subsequent steps execute within that same session
 - The daemon's only active intervention is writing `.auto-stop`; all other daemon activity is passive monitoring
 - `.auto-signal` and `.auto-stop` are transient files — should be in `.gitignore`
 - The daemon logs all signal events and stall detections to server console for debugging

@@ -4,7 +4,7 @@ the agent may stall mid-execution (e.g., context window overflow prompt, waiting
 
 ## Heartbeat Polling
 
-The daemon runs a periodic heartbeat (every 60 seconds) while an auto loop is active. Detection is based on the **stream-json output** from the `ClaudeProcess` (`gemini -p --output-format stream-json`):
+The daemon runs a periodic heartbeat (every 60 seconds) while an auto loop is active. Detection is based on the **stream-json output** from the agent process:
 
 1. Track the timestamp of the last received stream-json message (any type: `assistant`, `tool_use`, `tool_result`, `result`, etc.)
 2. Compute `idle_seconds = now - last_message_timestamp`
