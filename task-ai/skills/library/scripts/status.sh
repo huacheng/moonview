@@ -6,7 +6,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUDIT_PY="${AUDIT_PY:-$SCRIPT_DIR/audit-library.py}"
-LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT}/.library}"
+LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT:-.}/.library}"
 
 export NB_WORKSPACES_LIBRARY="$LIB_PATH"
 

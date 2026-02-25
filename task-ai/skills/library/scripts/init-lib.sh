@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT}/.library}"
+LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT:-.}/.library}"
 
 echo "Checking Library at: $LIB_PATH"
 

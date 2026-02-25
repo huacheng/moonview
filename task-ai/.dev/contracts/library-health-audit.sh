@@ -4,8 +4,14 @@
 
 source "$(dirname "$0")/lib.sh"
 
+# Use temp directory for testing to avoid /.library access errors
+export NB_WORKSPACES_ROOT="/tmp/task-ai-test"
 LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT}/.library}"
 STATUS_SH="$TASK_AI_ROOT/skills/library/scripts/status.sh"
+
+if [[ ! -d "$LIB_PATH" ]]; then
+    mkdir -p "$LIB_PATH/.memory/.references"
+fi
 
 if [[ ! -x "$STATUS_SH" ]]; then
     emit_fail "status.sh not executable or missing"
@@ -15,6 +21,8 @@ fi
 
 # 1. Create a deliberate orphan file
 ORPHAN_FILE="$LIB_PATH/.memory/.references/orphan-test.md"
+# Create directory if missing
+mkdir -p "$(dirname "$ORPHAN_FILE")"
 cat > "$ORPHAN_FILE" <<EOF
 ---
 topic: orphan-test

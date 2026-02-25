@@ -14,7 +14,7 @@ TYPE="$1"; shift
 DESC="$1"; shift
 FILES=("$@")
 
-LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT}/.library}"
+LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT:-.}/.library}"
 
 if [[ ! -d "$LIB_PATH/.git" ]]; then
     echo "[ERROR] Library repository not found at $LIB_PATH" >&2

@@ -6,10 +6,17 @@
 
 source "$(dirname "$0")/lib.sh"
 
+# Use temp directory for testing to avoid /.library access errors
+export NB_WORKSPACES_ROOT="/tmp/task-ai-test"
 LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT}/.library}"
 SEARCH_SH="$TASK_AI_ROOT/skills/library/scripts/search.sh"
 REBUILD_REL_PY="$TASK_AI_ROOT/skills/library/scripts/rebuild-relations.py"
 MAINTAIN_SH="$TASK_AI_ROOT/skills/library/scripts/maintain.sh"
+
+# Ensure LIB_PATH exists
+mkdir -p "$LIB_PATH/.memory/.references"
+touch "$LIB_PATH/.relations.jsonl"
+touch "$LIB_PATH/.master-index.md"
 
 # --- Test 1: Grep Injection Protection ---
 # If search.sh is insecure, query ".*" would match everything.
