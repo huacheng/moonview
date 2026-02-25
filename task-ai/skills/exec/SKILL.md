@@ -6,7 +6,7 @@ auto_delegatable: false
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: step
     description: "Execute a specific step number (optional, executes all if omitted)"
     required: false

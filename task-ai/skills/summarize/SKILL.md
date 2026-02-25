@@ -6,7 +6,7 @@ auto_delegatable: true
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: all
     description: "Also regenerate each sub-directory's .summary.md"
     required: false

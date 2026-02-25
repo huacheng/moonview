@@ -6,7 +6,7 @@ auto_delegatable: false
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
 ---
 
 # /moonview:merge — Merge Task Branch to Main

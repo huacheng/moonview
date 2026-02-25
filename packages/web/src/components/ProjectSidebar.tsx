@@ -89,10 +89,10 @@ function FileBrowser() {
         console.error('Failed to open notebook:', err);
       }
     } else {
-      const { sessionId } = useStore.getState();
-      if (!sessionId) return;
+      const { sessionId, activeProjectId: projId } = useStore.getState();
+      if (!projId) return;
       const relPath = subPath === '.' ? filename : `${subPath}/${filename}`;
-      openFileTab({ path: relPath, source: 'workspace', sessionId });
+      openFileTab({ path: relPath, source: 'workspace', sessionId: sessionId ?? '', projectId: projId });
     }
   }, [activeProjectPath, openFileTab]);
 

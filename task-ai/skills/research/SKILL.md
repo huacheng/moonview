@@ -6,7 +6,7 @@ auto_delegatable: true
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: scope
     description: "Research scope: full (default, comprehensive collection) or gap (incremental, fill missing topics only)"
     required: false

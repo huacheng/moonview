@@ -9,9 +9,10 @@ interface FileViewerEditorProps {
   sessionId: string;
   filePath: string;
   source: 'workspace' | 'library' | 'deliverables';
+  projectId?: string;
 }
 
-export function FileViewerEditor({ content, format, sessionId, filePath, source }: FileViewerEditorProps) {
+export function FileViewerEditor({ content, format, sessionId, filePath, source, projectId }: FileViewerEditorProps) {
   const ws = useStore((s) => s.ws);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -44,15 +45,17 @@ export function FileViewerEditor({ content, format, sessionId, filePath, source 
     if (!editor || !ws) return;
     setSaving(true);
     setSaveStatus('idle');
-    ws.send(JSON.stringify({
+    const msg: Record<string, string> = {
       type: 'file-save',
       session_id: sessionId,
       path: filePath,
       source,
       content: editor.getHTML(),
       format: 'html',
-    }));
-  }, [editor, ws, sessionId, filePath, source]);
+    };
+    if (projectId) msg.project_id = projectId;
+    ws.send(JSON.stringify(msg));
+  }, [editor, ws, sessionId, filePath, source, projectId]);
 
   return (
     <div className="fv-editor">

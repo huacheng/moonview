@@ -6,10 +6,10 @@ auto_delegatable: false
 arguments:
   - name: notebook
     description: "Notebook name"
-    required: true
+    required: false
   - name: action
     description: "Action to perform: audit-plan or verify-cmd"
-    required: true
+    required: false
   - name: payload
     description: "Command string (required for verify-cmd)"
     required: false

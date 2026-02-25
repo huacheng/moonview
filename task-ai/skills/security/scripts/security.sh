@@ -4,33 +4,43 @@
 
 set -uo pipefail
 
+# Load context discovery from lib.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../../.dev/contracts/lib.sh"
+
 NOTEBOOK="${1:-}"
 ACTION="${2:-}"
 PAYLOAD="${3:-}"
 
-if [[ -z "$NOTEBOOK" || -z "$ACTION" ]]; then
-    echo "[ERROR] Notebook and Action are required." >&2
+# 1. Identify Context
+if [[ -z "$NOTEBOOK" ]]; then
+    if ! find_nb_context; then
+        echo "[ERROR] No active task context detected. Enter a notebook directory or specify a name." >&2
+        exit 1
+    fi
+    NOTEBOOK="$NB_NOTEBOOK"
+    WORK_DIR="$NB_WORKING"
+else
+    # Explicit notebook name provided
+    if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "[ERROR] Invalid notebook name." >&2
+        exit 1
+    fi
+    NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
+    WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
+fi
+
+if [[ -z "$ACTION" ]]; then
+    echo "[ERROR] Action is required." >&2
     exit 1
 fi
 
-if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-    echo "[ERROR] Invalid notebook name." >&2
+if [[ ! -d "$WORK_DIR" ]]; then
+    echo "[ERROR] Working directory not found." >&2
     exit 1
 fi
 
 NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
-# Locate working dir securely
-WORK_DIR=$(find "$NB_ROOT" -maxdepth 2 -name "$NOTEBOOK" -type d | head -n 1)/.working
-
-if [[ ! -d "$WORK_DIR" ]]; then
-    # Fallback for simple tests
-    WORK_DIR="$NB_ROOT/$NOTEBOOK/.working"
-fi
-
-if [[ ! -d "$WORK_DIR" ]]; then
-    echo "[ERROR] Working directory not found for $NOTEBOOK." >&2
-    exit 1
-fi
 
 verify_cmd() {
     local cmd="$1"
@@ -88,7 +98,6 @@ audit_plan() {
     local content=$(cat "$plan_md")
     
     # Semantic deviation audit (simulated)
-    # E.g., a plan claiming to fix CSS shouldn't have 'rm -rf'
     if echo "$content" | grep -qE "rm -rf|curl | bash|wget"; then
         echo "[SECURITY] BLOCKED: High risk operations detected in plan"
         return 1

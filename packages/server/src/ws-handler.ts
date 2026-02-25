@@ -226,9 +226,9 @@ export function setupWebSocket(
         }
 
         case 'file-open': {
-          const { session_id, path: filePath, source } = msg;
+          const { session_id, path: filePath, source, project_id } = msg;
           const session = sessionManager.getSession(session_id);
-          if (!session && source !== 'library') {
+          if (!session && source !== 'library' && !project_id) {
             sendToClient(ws, { type: 'file-open-error', session_id, error: 'Session not found' });
             break;
           }
@@ -237,16 +237,25 @@ export function setupWebSocket(
             if (source === 'library') {
               basedir = getLibraryDir();
             } else if (source === 'deliverables') {
-              // Deliverables are in project_root/.deliverables
-              const projectId = session?.notebook.metadata.project_id;
-              const project = projectId ? db.getProject(projectId) : null;
+              const pid = project_id ?? session?.notebook.metadata.project_id;
+              const project = pid ? db.getProject(pid) : null;
               if (!project) {
                 sendToClient(ws, { type: 'file-open-error', session_id, error: 'Project not found for deliverables' });
                 break;
               }
               basedir = project.path;
             } else {
-              basedir = session!.cwd;
+              // workspace
+              if (project_id) {
+                const project = db.getProject(project_id);
+                if (!project) {
+                  sendToClient(ws, { type: 'file-open-error', session_id, error: 'Project not found' });
+                  break;
+                }
+                basedir = project.path;
+              } else {
+                basedir = session!.cwd;
+              }
             }
 
             const safePath = await validateWorkspacePath(filePath, basedir);
@@ -300,9 +309,9 @@ export function setupWebSocket(
         }
 
         case 'file-save': {
-          const { session_id, path: filePath, source, content } = msg;
+          const { session_id, path: filePath, source, content, project_id } = msg;
           const session = sessionManager.getSession(session_id);
-          if (!session && source !== 'library') {
+          if (!session && source !== 'library' && !project_id) {
             sendToClient(ws, { type: 'file-save-error', session_id, error: 'Session not found' });
             break;
           }
@@ -311,15 +320,25 @@ export function setupWebSocket(
             if (source === 'library') {
               basedir = getLibraryDir();
             } else if (source === 'deliverables') {
-              const projectId = session?.notebook.metadata.project_id;
-              const project = projectId ? db.getProject(projectId) : null;
+              const pid = project_id ?? session?.notebook.metadata.project_id;
+              const project = pid ? db.getProject(pid) : null;
               if (!project) {
                 sendToClient(ws, { type: 'file-save-error', session_id, error: 'Project not found for deliverables' });
                 break;
               }
               basedir = project.path;
             } else {
-              basedir = session!.cwd;
+              // workspace
+              if (project_id) {
+                const project = db.getProject(project_id);
+                if (!project) {
+                  sendToClient(ws, { type: 'file-save-error', session_id, error: 'Project not found' });
+                  break;
+                }
+                basedir = project.path;
+              } else {
+                basedir = session!.cwd;
+              }
             }
 
             const safePath = await validateWorkspacePath(filePath, basedir);

@@ -31,6 +31,7 @@ export function useFileStream(
   notebookId: string | null,
   filePath: string | null,
   source: 'workspace' | 'library' | 'deliverables',
+  projectId?: string | null,
 ) {
   const ws = useStore((s) => s.ws);
   const wsStatus = useStore((s) => s.wsStatus);
@@ -59,8 +60,8 @@ export function useFileStream(
 
   useEffect(() => {
     if (!filePath || !ws || wsStatus !== 'connected') return;
-    if (!sessionId && source !== 'library') return;
-    const effectiveSessionId = sessionId || '__library__';
+    if (!sessionId && source !== 'library' && !projectId) return;
+    const effectiveSessionId = sessionId || (projectId ? `__project_${projectId}__` : '__library__');
 
     contentRef.current = '';
     b64Ref.current = '';
@@ -122,7 +123,9 @@ export function useFileStream(
                 skipStreamRef.current = false;
                 contentRef.current = '';
                 b64Ref.current = '';
-                ws?.send(JSON.stringify({ type: 'file-open', session_id: effectiveSessionId, path: filePath, source }));
+                const retryMsg: Record<string, string> = { type: 'file-open', session_id: effectiveSessionId, path: filePath!, source };
+                if (projectId) retryMsg.project_id = projectId;
+                ws?.send(JSON.stringify(retryMsg));
               });
             } else {
               skipStreamRef.current = true;
@@ -174,14 +177,16 @@ export function useFileStream(
     }
 
     ws.addEventListener('message', handleMessage);
-    ws.send(JSON.stringify({ type: 'file-open', session_id: effectiveSessionId, path: filePath, source }));
+    const openMsg: Record<string, string> = { type: 'file-open', session_id: effectiveSessionId, path: filePath, source };
+    if (projectId) openMsg.project_id = projectId;
+    ws.send(JSON.stringify(openMsg));
 
     return () => {
       stale = true;
       ws.removeEventListener('message', handleMessage);
       if (throttleRef.current !== null) { clearTimeout(throttleRef.current); throttleRef.current = null; }
     };
-  }, [sessionId, notebookId, filePath, source, ws, wsStatus, scheduleFlush]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, notebookId, filePath, source, projectId, ws, wsStatus, scheduleFlush]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return state;
 }

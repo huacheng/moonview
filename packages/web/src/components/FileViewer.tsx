@@ -33,10 +33,13 @@ export function FileViewer() {
     activeNotebookId,
     activeFile?.path ?? null,
     activeFile?.source ?? 'workspace',
+    activeFile?.projectId ?? null,
   );
 
+  const effectiveAnnSessionId = activeFile?.sessionId
+    || (activeFile?.projectId ? `__project_${activeFile.projectId}__` : '');
   useAnnotationPersistence({
-    sessionId: activeFile?.sessionId ?? '',
+    sessionId: effectiveAnnSessionId,
     notebookId: activeNotebookId ?? '',
     filePath: activeFile?.path ?? '',
     annotations,
@@ -116,6 +119,7 @@ export function FileViewer() {
           sessionId={activeFile.sessionId}
           filePath={activeFile.path}
           source={activeFile.source}
+          projectId={activeFile.projectId}
         />
       )}
     </div>

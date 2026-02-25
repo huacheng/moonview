@@ -6,7 +6,7 @@ auto_delegatable: false
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: checkpoint
     description: "Evaluation checkpoint: post-plan, mid-exec, post-exec"
     required: false

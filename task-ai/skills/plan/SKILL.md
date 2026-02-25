@@ -5,8 +5,8 @@ model_tier: heavy
 auto_delegatable: false
 arguments:
   - name: notebook
-    description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    description: "Notebook name (optional — detected from context if omitted)"
+    required: false
   - name: generate
     description: "Generate or regenerate the implementation plan (flag, no value). Default behavior when invoked — the flag exists for explicitness in auto mode commands"
     required: false

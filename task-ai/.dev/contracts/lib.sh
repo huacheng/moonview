@@ -116,6 +116,41 @@ find_skill_references() {
   find "$TASK_AI_ROOT/skills" -path "*/references/*.md" -type f | sort
 }
 
+# --- Context Discovery ---
+
+# Identifies the current notebook based on CWD or Git branch.
+# Sets NB_NOTEBOOK and NB_WORKING. Returns 0 if found, 1 otherwise.
+find_nb_context() {
+  # 1. Path-based discovery: look for .working/ in current or parent directories
+  local cur="$PWD"
+  while [[ "$cur" != "/" && "$cur" != "." ]]; do
+    if [[ -d "$cur/.working" && -f "$cur/.working/.index.json" ]]; then
+      export NB_WORKING="$cur/.working"
+      export NB_NOTEBOOK=$(basename "$cur")
+      return 0
+    fi
+    cur=$(dirname "$cur")
+  done
+
+  # 2. Branch-based discovery: check if current branch matches task/<name>
+  local branch
+  branch=$(git branch --show-current 2>/dev/null)
+  if [[ "$branch" =~ ^task/ ]]; then
+    export NB_NOTEBOOK="${branch#task/}"
+    # In branch mode, we might not be in the notebook directory.
+    # We try to find the directory via its unique name under NB_WORKSPACES_ROOT.
+    local root="${NB_WORKSPACES_ROOT:-$(pwd)}"
+    local nb_dir
+    nb_dir=$(find "$root" -maxdepth 3 -name "$NB_NOTEBOOK" -type d -print -quit 2>/dev/null)
+    if [[ -n "$nb_dir" ]]; then
+      export NB_WORKING="$nb_dir/.working"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 # --- Summary ---
 
 summary() {

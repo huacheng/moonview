@@ -4,17 +4,29 @@
 
 set -uo pipefail
 
+# Load context discovery from lib.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../../.dev/contracts/lib.sh"
+
 NOTEBOOK="${1:-}"
 TARGET_STEP=""
 
+# 1. Identify Context
 if [[ -z "$NOTEBOOK" ]]; then
-    echo "[ERROR] Notebook name is required." >&2
-    exit 1
-fi
-
-if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-    echo "[ERROR] Invalid notebook name." >&2
-    exit 1
+    if ! find_nb_context; then
+        echo "[ERROR] No active task context detected. Enter a notebook directory or specify a name." >&2
+        exit 1
+    fi
+    NOTEBOOK="$NB_NOTEBOOK"
+    WORK_DIR="$NB_WORKING"
+else
+    # Explicit notebook name provided
+    if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "[ERROR] Invalid notebook name." >&2
+        exit 1
+    fi
+    NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
+    WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
 fi
 
 shift || true
@@ -25,20 +37,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
-WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
-INDEX_JSON="$WORK_DIR/.index.json"
-STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
-NOTES_DIR="$WORK_DIR/.notes"
-mkdir -p "$NOTES_DIR"
-
 if [[ ! -d "$WORK_DIR" ]]; then
     echo "[ERROR] Working directory not found." >&2
     exit 1
 fi
 
+INDEX_JSON="$WORK_DIR/.index.json"
+STATE_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/core/state.py"
+NOTES_DIR="$WORK_DIR/.notes"
+mkdir -p "$NOTES_DIR"
+
 # 1. Step Discovery
-# (Simulated for plumbing: assume 2 steps from .plan.md)
 TOTAL_STEPS=2
 COMPLETED=$(python3 "$STATE_PY" get "$INDEX_JSON" completed_steps)
 COMPLETED=${COMPLETED:-0}
@@ -46,7 +55,6 @@ COMPLETED=${COMPLETED:-0}
 echo "Executing $NOTEBOOK. Progress: $COMPLETED/$TOTAL_STEPS"
 
 # 2. Execution Loop
-# In TDD/Functional test, we simulate one step at a time
 NEXT_STEP=$((COMPLETED + 1))
 
 if [[ $NEXT_STEP -gt $TOTAL_STEPS ]]; then

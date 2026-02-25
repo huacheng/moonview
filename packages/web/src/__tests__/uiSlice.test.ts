@@ -232,6 +232,34 @@ describe('library empty sessionId tab', () => {
   });
 });
 
+// ── projectId support — file preview without active session ─────────────
+
+describe('openFileTab with projectId', () => {
+  it('preserves projectId in openFiles entry', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'report.pdf', source: 'deliverables', sessionId: '', projectId: 'proj-1' });
+    const entry = state.openFiles['deliverables::report.pdf'];
+    expect(entry).toBeDefined();
+    expect(entry.projectId).toBe('proj-1');
+    expect(entry.sessionId).toBe('');
+  });
+
+  it('works for workspace files with projectId and no sessionId', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'src/main.ts', source: 'workspace', sessionId: '', projectId: 'proj-2' });
+    const entry = state.openFiles['workspace::src/main.ts'];
+    expect(entry).toBeDefined();
+    expect(entry.projectId).toBe('proj-2');
+  });
+
+  it('projectId is undefined when not provided (backward compat)', () => {
+    const { state, getAction } = createTestSlice();
+    getAction('openFileTab')({ path: 'a.txt', source: 'workspace', sessionId: 's1' });
+    const entry = state.openFiles['workspace::a.txt'];
+    expect(entry.projectId).toBeUndefined();
+  });
+});
+
 // ── sidebarWidth / rightPanelWidth ──────────────────────────────────────
 
 describe('sidebarWidth', () => {

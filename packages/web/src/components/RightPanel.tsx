@@ -32,7 +32,7 @@ export function RightPanel() {
           initialPath=".deliverables"
           onFileClick={(subPath, name) => {
             const relPath = subPath === '.' ? name : `${subPath}/${name}`;
-            openFileTab({ path: relPath, source: 'deliverables', sessionId: sessionId ?? '' });
+            openFileTab({ path: relPath, source: 'deliverables', sessionId: sessionId ?? '', projectId: activeProjectId ?? undefined });
           }}
         />
       ) : (

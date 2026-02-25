@@ -286,6 +286,7 @@ export const FileOpenSchema = z.object({
   session_id: z.string(),
   path: z.string(),
   source: z.enum(['workspace', 'library', 'deliverables']),
+  project_id: z.string().optional(),
 });
 
 export const FileSaveSchema = z.object({
@@ -295,6 +296,7 @@ export const FileSaveSchema = z.object({
   source: z.enum(['workspace', 'library', 'deliverables']),
   content: z.string(),
   format: z.enum(['text', 'html']),
+  project_id: z.string().optional(),
 });
 
 export const AnnotationLoadSchema = z.object({

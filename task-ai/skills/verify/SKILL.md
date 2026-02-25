@@ -6,7 +6,7 @@ auto_delegatable: true
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: checkpoint
     description: "Verification scope: quick, full, or step-N"
     required: false

@@ -3,13 +3,28 @@
 # Usage: check.sh <notebook> [--checkpoint post-plan|mid-exec|post-exec]
 
 set -uo pipefail
+# Load context discovery from lib.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../../.dev/contracts/lib.sh"
+
 
 NOTEBOOK="${1:-}"
-CHECKPOINT="post-plan"
-
+# 1. Identify Context
 if [[ -z "$NOTEBOOK" ]]; then
-    echo "[ERROR] Notebook name is required." >&2
-    exit 1
+    if ! find_nb_context; then
+        echo "[ERROR] No active task context detected. Enter a notebook directory or specify a name." >&2
+        exit 1
+    fi
+    NOTEBOOK="$NB_NOTEBOOK"
+    WORK_DIR="$NB_WORKING"
+else
+    # Explicit notebook name provided
+    if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "[ERROR] Invalid notebook name." >&2
+        exit 1
+    fi
+    NB_ROOT="${NB_WORKSPACES_ROOT:-$(pwd)}"
+    WORK_DIR=$(find "$NB_ROOT" -name "$NOTEBOOK" -type d | head -n 1)/.working
 fi
 
 if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then

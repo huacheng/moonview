@@ -6,7 +6,7 @@ auto_delegatable: false
 arguments:
   - name: notebook
     description: "Notebook name (e.g., auth-refactor)"
-    required: true
+    required: false
   - name: action
     description: "Action: start, stop, or status"
     required: false
