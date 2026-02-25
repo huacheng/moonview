@@ -18,6 +18,8 @@ Sub-commands have different cognitive demands. The `model_tier` and `auto_delega
 | **exec** | heavy | false | Code generation + multi-file implementation; needs plan/check context |
 | **check** | heavy | false | Six-perspective audit + judgment; needs plan/exec implicit context |
 | **auto** | heavy | — (orchestration) | Loop management + decision routing; IS the main session |
+| **security** | heavy | false | Six-perspective security audit + judgment; needs plan/exec context |
+| **read** | medium | true | Web search + content collection; output to `.references/` is self-contained |
 | **research** | medium | true | Web search + content collection; output to `.references/` is self-contained |
 | **merge** | medium | false | Conflict resolution needs exec context; git state is session-bound |
 | **annotate** | medium | false | Cross-impact assessment needs module-wide file context |
