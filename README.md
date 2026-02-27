@@ -23,11 +23,11 @@ codex plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v0.8.3)
+### task-ai (v0.9.0)
 
 ## I. Overview
 
-task-ai is a **pure Markdown instruction-driven** task lifecycle management framework. It runs as a model-agnostic plugin, managing the full lifecycle from task initialization to completion reports. The framework supports domain-adaptive verification (VFP protocol), cross-task knowledge reuse, and highly automated autonomous execution.
+task-ai is a **pure Markdown instruction-driven** task lifecycle management framework. It runs as a model-agnostic plugin, managing the full lifecycle from task initialization to completion reports. The framework supports domain-adaptive verification (VFP protocol), cross-task knowledge reuse, progressive multi-stage targets, and highly automated autonomous execution.
 
 **Core philosophy**: "Task as Notebook". Every task is bound to an independent Notebook structure, ensuring clear responsibility boundaries and complete audit trails.
 
@@ -42,20 +42,20 @@ task-ai is a **pure Markdown instruction-driven** task lifecycle management fram
 | Sub-command | Tier | Role | Notes |
 |-------------|------|------|-------|
 | `init` | light | Initialize working directory and git branch | Requires `<project> <notebook>` |
-| `target` | light | **Define/review task objectives** | Bidirectional sync with `.target.md` |
+| `target` | light | **Define/review task objectives** | Bidirectional sync with `.target.md`; stage advance routing |
 | `research` | medium | Intelligence collection, type discovery | Independently callable at any phase |
 | `plan` | heavy | Generate implementation plan `.plan.md` | Auto-generates VH verification stubs |
 | `verify` | medium | Run domain-adapted tests (VH/CGG) | Produces test result files |
 | `check` | heavy | Plan/execution review and gating | Three checkpoints control state transitions |
 | `exec` | heavy | Step-by-step plan execution | Follows VFP protocol (Red → Green → Refactor) |
-| `merge` | medium | Merge task branch, clean up metadata | Auto-deletes task branch |
-| `report` | medium | Generate completion report, distill experience | Syncs knowledge to `.library` |
+| `merge` | medium | Merge task branch to main | Routes to `stage-done` or `complete` based on stage progress |
+| `highlight` | medium | **Experience distillation** | Scope-based modes: complete / focused / stage-aware |
+| `report` | medium | Generate completion report | Available at any status for progress documentation |
 
 ### Auxiliary & System Commands
 
 | Sub-command | Tier | Role |
 |-------------|------|------|
-| `light` | light | **Inline fix**: directly modify and commit on current branch, no state changes. |
 | `read` | medium | **System Immunity**: safely ingest knowledge from external docs/URLs into library. |
 | `security` | heavy | **Security Gateway**: pre-audit plans and verify high-risk commands. |
 | `auto` | heavy | Autonomous execution loop: single-session orchestration via `.auto-signal`. |
@@ -67,7 +67,7 @@ task-ai is a **pure Markdown instruction-driven** task lifecycle management fram
 
 ### Simplified Arguments
 
-Apart from `init` and `light` which require explicit project/task names at launch, all other commands auto-detect context via **path sniffing** and **git branch matching** — no manual arguments needed.
+Apart from `init` which requires explicit project/task names at launch, all other commands auto-detect context via **path sniffing** and **git branch matching** — no manual arguments needed.
 
 ### Typical Sub-command Flow
 
@@ -88,14 +88,21 @@ graph TD
     hs --> check_post[check:post-exec]
     check_post -- ACCEPT --> merge[merge]
     check_post -- NEEDS_FIX --> exec
-    merge --> report[report]
+    merge --> highlight[highlight]
+    highlight --> report[report]
 ```
 
-#### 2. Lightweight Inline Operation (Light Path)
+#### 2. Progressive Target (Multi-Stage)
 ```mermaid
-graph LR
-    light["light &lt;description&gt;"] --> edit[Modify files directly]
-    edit --> commit["light --commit"]
+graph TD
+    S1[Stage 1: plan → exec → merge] --> SD1[stage-done]
+    SD1 --> HL1[highlight → report]
+    HL1 --> T2[target: define stage 2]
+    T2 --> S2[Stage 2: plan → exec → merge]
+    S2 --> SD2[stage-done]
+    SD2 --> HL2[highlight → report]
+    HL2 --> TN[target: define stage N]
+    TN --> SN["Stage N: plan → exec → merge → complete"]
 ```
 
 #### 3. Auxiliary & Global Commands
@@ -105,17 +112,21 @@ graph LR
 
 ---
 
-## III. State Machine (8 states, 20 transitions)
+## III. State Machine (9 states, 41+ transitions)
 
 ```
 draft → planning → review → executing → complete
                  ↗            ↘
           re-planning    ←    blocked
+                               ↑
+executing → stage-done → planning (next stage)
+                      → cancelled
 ```
 
 ### Key Design Constraints
-1. **`light` is stateless**: `light` mode operates directly on the current branch and does not participate in state machine transitions.
+1. **Progressive target**: Tasks with `stage.total > 1` proceed through multiple `plan → exec → merge → stage-done` cycles before reaching `complete`.
 2. **Security first**: All `exec` operations must pass `security` validation before execution.
+3. **`stage-done` is non-terminal**: Enables `target` (advance to next stage), `cancel`, `report`, and `highlight`, but rejects `plan`, `exec`, and `annotate`.
 
 ---
 
@@ -147,7 +158,7 @@ The built-in `.dev/validate.sh` performs deep checks across six dimensions on al
 
 ### Infrastructure
 - **No inline Python**: All Bash scripts operate through standalone utility modules (`state.py`, `json_get.py`); embedding Python in shell is strictly prohibited.
-- **Concurrency protection**: Atomic locking mechanism based on `flock`, ensuring state safety during multi-task parallel execution.
+- **Concurrency protection**: Atomic locking mechanism based on `O_CREAT|O_EXCL`, ensuring state safety during multi-task parallel execution.
 
 ### Environment Variables
 
@@ -163,8 +174,8 @@ The built-in `.dev/validate.sh` performs deep checks across six dimensions on al
 | Metric | Value | Notes |
 |--------|-------|-------|
 | Total sub-commands | 18 | Full coverage from research to delivery |
-| Contract tests passed | **713 PASS** | 0 FAIL, 0 ERROR |
-| State machine states | 8 | `light` has no state transitions |
+| Contract tests passed | **972 PASS** | Across structural, routing, and functional contracts |
+| State machine states | 9 | Including `stage-done` for progressive targets |
 | Documentation coverage | 100% | Every skill has a complete SKILL.md |
 
 ---
@@ -188,8 +199,9 @@ The built-in `.dev/validate.sh` performs deep checks across six dimensions on al
 # 5. Execute the plan
 /task-ai:exec auth-refactor
 
-# 6. Merge to main + generate report
+# 6. Merge to main + distill experience + generate report
 /task-ai:merge auth-refactor
+/task-ai:highlight auth-refactor
 /task-ai:report auth-refactor
 
 # Or run the full lifecycle automatically:
@@ -197,7 +209,7 @@ The built-in `.dev/validate.sh` performs deep checks across six dimensions on al
 ```
 
 ---
-*Summary auto-generated and verified by task-ai (v0.8.3).*
+*Summary auto-generated and verified by task-ai (v0.9.0).*
 
 ## Related
 
