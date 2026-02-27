@@ -42,8 +42,8 @@ task-ai is a **pure Markdown instruction-driven** task lifecycle management fram
 | Sub-command | Tier | Role | Notes |
 |-------------|------|------|-------|
 | `init` | light | Initialize working directory and git branch | Requires `<project> <notebook>` |
-| `target` | light | **Define/review task objectives** | Bidirectional sync with `.target.md`; stage advance routing |
-| `research` | medium | Intelligence collection, type discovery | Independently callable at any phase |
+| `target` | heavy | **Define/review task objectives** | Bidirectional sync with `.target.md`; stage advance routing |
+| `research` | heavy | Intelligence collection, type discovery | Independently callable at any phase |
 | `plan` | heavy | Generate implementation plan `.plan.md` | Auto-generates VH verification stubs |
 | `verify` | medium | Run domain-adapted tests (VH/CGG) | Produces test result files |
 | `check` | heavy | Plan/execution review and gating | Three checkpoints control state transitions |
