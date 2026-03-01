@@ -23,7 +23,7 @@ codex plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v0.9.3)
+### task-ai (v0.9.4)
 
 ## I. Overview
 
@@ -238,7 +238,7 @@ Authoritative protocol documents in `commands/references/` — single source of 
 ```
 
 ---
-*Summary auto-generated and verified by task-ai (v0.9.3).*
+*Summary auto-generated and verified by task-ai (v0.9.4).*
 
 ## Related
 

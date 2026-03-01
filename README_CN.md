@@ -23,7 +23,7 @@ codex plugin add huacheng/moonview
 
 ## 插件
 
-### task-ai (v0.9.3)
+### task-ai (v0.9.4)
 
 ## 一、概述
 
@@ -238,7 +238,7 @@ executing → stage-done → planning（下一阶段）
 ```
 
 ---
-*本文档由 task-ai (v0.9.3) 自动生成并验证。*
+*本文档由 task-ai (v0.9.4) 自动生成并验证。*
 
 ## 相关项目
 
