@@ -112,7 +112,7 @@ graph TD
 
 ---
 
-## III. State Machine (9 states, 41+ transitions)
+## III. State Machine (9 states, 41 transitions)
 
 ```
 draft → planning → review → executing → complete
@@ -130,7 +130,7 @@ executing → stage-done → planning (next stage)
 
 ---
 
-## IV. VFP Protocol & Quality Assurance
+## IV. Quality Assurance
 
 ### Verification-First Protocol (VFP)
 The framework enforces a **Verification-First Protocol**:
@@ -138,27 +138,55 @@ The framework enforces a **Verification-First Protocol**:
 - **HS (Hypothesis Satisfied)**: Verify success after implementation.
 - **CGG (Cumulative Green Gate)**: Every modification must pass full regression.
 
-### Automated Audit (Six-Perspective Audit)
-The built-in `.dev/validate.sh` performs deep checks across six dimensions on all 18 skills:
-1. **Structural consistency**: Step numbering, cross-references.
-2. **Routing compliance**: `.auto-signal` state machine transitions.
-3. **Technical integrity**: Locking mechanisms, data flow closure.
-4. **Functional robustness**: Full TDD contract test coverage.
-5. **Security defense**: 10 categories of injection sanitization, path traversal prevention.
-6. **Protocol compliance**: Authoritative protocol section (`§`) references.
+### Test Strategy by Task Type
+A unified type→test strategy mapping (`test-strategy-by-type.md`) provides:
+- **Strategy Matrix**: Test approach by (task type × fix category) — covers software, ai-skill, data-pipeline, documentation, infrastructure, science/ml, and more.
+- **Test Classification Rules**: Runtime code → functional test, spec text → contract test, fixture data → property test, cross-reference → completeness test, stale content → absence test.
+- **Regression Test Protocol**: Every fix follows RED → GREEN → full suite, with documented exemptions for trivial changes.
+
+### Six-Dimension Audit (D1–D6)
+The built-in `.dev/validate.sh` (61 contract tests across L1/L2/L3) performs deep checks across six orthogonal dimensions:
+
+| Dimension | Focus |
+|-----------|-------|
+| **D1 Correctness** | Requirements coverage, functional logic, data flow |
+| **D2 Security** | Injection protection, permissions, concurrency safety, stale-lock recovery |
+| **D3 Reliability** | Boundary handling, fault recovery, trap cleanup, idempotency |
+| **D4 Performance** | Resource consumption, I/O efficiency, growth control |
+| **D5 Architecture** | Module boundaries, extension points, interface contracts, prod/test separation |
+| **D6 Maintainability** | Readability, terminology consistency, naming conventions, deduplication |
 
 ---
 
-## V. Environment & Compatibility
+## V. Core Infrastructure
+
+### Shared References (15 protocol files)
+Authoritative protocol documents in `commands/references/` — single source of truth for cross-cutting concerns:
+
+| Reference | Purpose |
+|-----------|---------|
+| `verification-first-protocol.md` | VFP v1.0 — VH lifecycle, CGG, HIL, compliance scoring |
+| `test-strategy-by-type.md` | Unified type→test strategy matrix and regression protocol |
+| `state-matrix.md` | Complete state × command matrix |
+| `concurrency.md` | Lock protocol, shared dir protection, lock ordering |
+| `directory-convention.md` | Full directory tree and path resolution |
+| `git-details.md` | Branch/commit conventions, worktree, rollback |
+| `model-routing.md` | Tier definitions (heavy/medium/light), routing table |
+| `progressive-target.md` | Multi-stage objective refinement |
+| `annotation-format.md` | JSONL annotation format (Insert/Delete/Replace/Comment) |
+| ... | + 6 more (library protocols, type field, summary formats, etc.) |
+
+### Runtime Modules (`core/`)
+
+| Module | Role |
+|--------|------|
+| `state.py` | State machine CLI — transitions, locking (`O_CREAT\|O_EXCL`), stale-lock recovery (PID check), JSONDecodeError handling, `--stage` arguments |
+| `lib.sh` | Production runtime library — `resolve_workdir()` for shared working directory resolution across all skill scripts |
+| `frontmatter.py` | Shared YAML-like frontmatter parser with multi-line list support |
 
 ### Model Agnostic
-- Completely removed hard-coded references to specific LLM names.
-- Uses the generic term `the agent` instead of any specific model name.
-- Documentation fully standardized in English; prompts support multiple CLI environments (Gemini/Claude Code, etc.).
-
-### Infrastructure
-- **No inline Python**: All Bash scripts operate through standalone utility modules (`state.py`, `json_get.py`); embedding Python in shell is strictly prohibited.
-- **Concurrency protection**: Atomic locking mechanism based on `O_CREAT|O_EXCL`, ensuring state safety during multi-task parallel execution.
+- No hard-coded references to specific LLM names; uses generic `the agent`.
+- Supports multiple CLI environments (Gemini CLI / Claude Code / Codex CLI, etc.).
 
 ### Environment Variables
 
@@ -173,10 +201,11 @@ The built-in `.dev/validate.sh` performs deep checks across six dimensions on al
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Total sub-commands | 18 | Full coverage from research to delivery |
-| Contract tests passed | **972 PASS** | Across structural, routing, and functional contracts |
-| State machine states | 9 | Including `stage-done` for progressive targets |
-| Documentation coverage | 100% | Every skill has a complete SKILL.md |
+| Sub-commands | 18 | Full coverage from research to delivery |
+| Contract tests | **846 PASS, 0 FAIL** | 27 L1 (structural) + 29 L2 (functional) + 4 L3 (graph analysis) + 1 meta |
+| Shared references | 15 | Authoritative protocol documents |
+| State machine | 9 states, 41 transitions | Including `stage-done` for progressive targets |
+| Documentation | 100% coverage | Every skill has a complete SKILL.md |
 
 ---
 

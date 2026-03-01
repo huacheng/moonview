@@ -112,7 +112,7 @@ graph TD
 
 ---
 
-## 三、状态机（9 状态，41+ 转换）
+## 三、状态机（9 状态，41 转换）
 
 ```
 draft → planning → review → executing → complete
@@ -130,7 +130,7 @@ executing → stage-done → planning（下一阶段）
 
 ---
 
-## 四、VFP 协议与质量保证
+## 四、质量保证
 
 ### 验证先行协议 (VFP)
 框架强制执行 **Verification-First Protocol**：
@@ -138,27 +138,55 @@ executing → stage-done → planning（下一阶段）
 - **HS (Hypothesis Satisfied)**: 实施后验证成功。
 - **CGG (Cumulative Green Gate)**: 每次修改必须通过全量回归。
 
-### 自动化审计 (Six-Perspective Audit)
-框架内置 `.dev/validate.sh` 对 18 个 Skill 执行六个维度的深度检查：
-1. **结构一致性**: 步骤编号、交叉引用。
-2. **路由合规**: `.auto-signal` 状态机跳转。
-3. **技术完整性**: 锁定机制、数据流闭环。
-4. **功能健壮性**: TDD 契约测试全覆盖。
-5. **安全防护**: 10 类注入解毒、路径穿越防御。
-6. **协议合规**: 权威协议节 (`§`) 引用。
+### 类型→测试策略映射
+统一的类型→测试策略映射（`test-strategy-by-type.md`）提供：
+- **策略矩阵**：按（任务类型 × 修正类别）选择测试手法 — 覆盖 software、ai-skill、data-pipeline、documentation、infrastructure、science/ml 等。
+- **测试分类规则**：运行时代码→功能测试，规范文本→契约测试，夹具数据→属性测试，交叉引用→完整性测试，过时内容→缺失测试。
+- **回归测试协议**：每个修正遵循 RED → GREEN → 全量套件，对微小改动有文档化的豁免条件。
+
+### 六维审查 (D1–D6)
+内置 `.dev/validate.sh`（61 个契约测试，L1/L2/L3 三层）对全部 18 个 Skill 执行六个正交维度的深度检查：
+
+| 维度 | 关注点 |
+|------|--------|
+| **D1 正确性** | 需求覆盖、功能逻辑、数据流 |
+| **D2 安全性** | 注入防护、权限控制、并发安全、过期锁恢复 |
+| **D3 可靠性** | 边界处理、故障恢复、trap 清理、幂等性 |
+| **D4 性能** | 资源消耗、I/O 效率、增长控制 |
+| **D5 架构** | 模块边界、扩展点、接口契约、生产/测试分离 |
+| **D6 可维护性** | 可读性、术语一致性、命名规范、去重 |
 
 ---
 
-## 五、环境与兼容性
+## 五、核心基础设施
+
+### 共享引用（15 个协议文件）
+`commands/references/` 下的权威协议文档 — 跨领域关注点的唯一真实来源：
+
+| 引用 | 用途 |
+|------|------|
+| `verification-first-protocol.md` | VFP v1.0 — VH 生命周期、CGG、HIL、合规评分 |
+| `test-strategy-by-type.md` | 统一的类型→测试策略矩阵和回归协议 |
+| `state-matrix.md` | 完整的状态 × 命令矩阵 |
+| `concurrency.md` | 锁协议、共享目录保护、锁序 |
+| `directory-convention.md` | 完整目录树和路径解析 |
+| `git-details.md` | 分支/提交约定、worktree、回滚 |
+| `model-routing.md` | 层级定义（heavy/medium/light）、路由表 |
+| `progressive-target.md` | 递进式多阶段目标细化 |
+| `annotation-format.md` | JSONL 批注格式（Insert/Delete/Replace/Comment） |
+| ... | 另有 6 个（图书馆协议、类型字段、摘要格式等） |
+
+### 运行时模块 (`core/`)
+
+| 模块 | 职责 |
+|------|------|
+| `state.py` | 状态机 CLI — 状态转换、原子锁（`O_CREAT\|O_EXCL`）、过期锁恢复（PID 检测）、JSON 解析容错、`--stage` 参数 |
+| `lib.sh` | 生产运行时库 — `resolve_workdir()` 全技能脚本共享的工作目录解析 |
+| `frontmatter.py` | 共享 YAML 前置元数据解析器，支持多行列表 |
 
 ### 模型解耦 (Agnostic)
-- 彻底移除对特定大模型名称的硬编码。
-- 采用通用术语 `the agent` 代替旧有的 `Claude`。
-- 文档全面英文规范化，Prompt 支持多 CLI 环境（Gemini/Claude Code 等）。
-
-### 基础设施
-- **去 Python 内联**: 所有 Bash 脚本均通过独立工具类（`state.py`, `json_get.py`）操作数据，严禁 Shell 中嵌入 Python 代码。
-- **并发保护**: 基于 `O_CREAT|O_EXCL` 的原子锁机制，确保多任务并行时的状态安全。
+- 彻底移除对特定大模型名称的硬编码，采用通用术语 `the agent`。
+- 支持多 CLI 环境（Gemini CLI / Claude Code / Codex CLI 等）。
 
 ### 环境变量
 
@@ -174,8 +202,9 @@ executing → stage-done → planning（下一阶段）
 | 指标 | 数值 | 备注 |
 |------|------|------|
 | 子命令总数 | 18 | 覆盖从调研到交付全流程 |
-| 契约测试通过数 | **972 PASS** | 跨结构、路由、功能三类契约 |
-| 状态机状态数 | 9 | 含递进式目标的 `stage-done` 状态 |
+| 契约测试 | **846 PASS, 0 FAIL** | 27 L1（结构）+ 29 L2（功能）+ 4 L3（图分析）+ 1 元检查 |
+| 共享引用 | 15 | 权威协议文档 |
+| 状态机 | 9 状态, 41 转换 | 含递进式目标的 `stage-done` 状态 |
 | 文档覆盖度 | 100% | 每个 Skill 均有完整 SKILL.md |
 
 ---
