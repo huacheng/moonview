@@ -23,7 +23,7 @@ codex plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v0.9.0)
+### task-ai (v0.9.2)
 
 ## I. Overview
 
@@ -145,7 +145,7 @@ A unified type→test strategy mapping (`test-strategy-by-type.md`) provides:
 - **Regression Test Protocol**: Every fix follows RED → GREEN → full suite, with documented exemptions for trivial changes.
 
 ### Six-Dimension Audit (D1–D6)
-The built-in `.dev/validate.sh` (61 contract tests across L1/L2/L3) performs deep checks across six orthogonal dimensions:
+The built-in `.dev/validate.sh` (63 contract tests across L1/L2/L3) performs deep checks across six orthogonal dimensions:
 
 | Dimension | Focus |
 |-----------|-------|
@@ -202,7 +202,7 @@ Authoritative protocol documents in `commands/references/` — single source of 
 | Metric | Value | Notes |
 |--------|-------|-------|
 | Sub-commands | 18 | Full coverage from research to delivery |
-| Contract tests | **846 PASS, 0 FAIL** | 27 L1 (structural) + 29 L2 (functional) + 4 L3 (graph analysis) + 1 meta |
+| Contract tests | **857 PASS, 0 FAIL** | 27 L1 (structural) + 31 L2 (functional) + 4 L3 (graph analysis) + 1 meta |
 | Shared references | 15 | Authoritative protocol documents |
 | State machine | 9 states, 41 transitions | Including `stage-done` for progressive targets |
 | Documentation | 100% coverage | Every skill has a complete SKILL.md |
@@ -238,7 +238,7 @@ Authoritative protocol documents in `commands/references/` — single source of 
 ```
 
 ---
-*Summary auto-generated and verified by task-ai (v0.9.0).*
+*Summary auto-generated and verified by task-ai (v0.9.2).*
 
 ## Related
 
