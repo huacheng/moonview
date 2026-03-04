@@ -8,14 +8,12 @@ A plugin marketplace for structured task lifecycle management.
 
 ## Installation
 
-Add the Moonview marketplace to your preferred agent:
-
 ```bash
-# Gemini CLI
-gemini plugin add huacheng/moonview
-
 # Claude Code
 claude plugin add huacheng/moonview
+
+# Gemini CLI
+gemini plugin add huacheng/moonview
 
 # Codex CLI
 codex plugin add huacheng/moonview
@@ -23,227 +21,190 @@ codex plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v0.9.4)
+### task-ai (v0.9.7)
 
-## I. Overview
+## I. Design Philosophy
 
-task-ai is a **pure Markdown instruction-driven** task lifecycle management framework. It runs as a model-agnostic plugin, managing the full lifecycle from task initialization to completion reports. The framework supports domain-adaptive verification (VFP protocol), cross-task knowledge reuse, progressive multi-stage targets, and highly automated autonomous execution.
+task-ai is a **self-evolving task lifecycle framework** built on three core principles:
 
-**Core philosophy**: "Task as Notebook". Every task is bound to an independent Notebook structure, ensuring clear responsibility boundaries and complete audit trails.
+### 1. Verification-First Development
+Every change follows the **VFP Protocol** (Verification-First Protocol):
+- **VH** (Verification Hypothesis): Define failure baselines before implementation
+- **HS** (Hypothesis Satisfied): Verify success after implementation
+- **CGG** (Cumulative Green Gate): Every modification passes full regression
 
-**Entry command**: `/task-ai:<subcommand> [args]`
+### 2. Gated Quality Assurance
+The **Six-Dimension Audit** runs through sequential gates, not parallel scoring:
+```
+Gate 1: D2 Security    ─── BLOCK < 0.5 ───→ Fix before proceeding
+Gate 2: D1 Correctness ─── BLOCK < 0.5 ───→ Fix before proceeding
+Gate 3: D3 Reliability ─── BLOCK < 0.5 ───→ Fix before proceeding
+Gate 4: D4 + D5 + D6   ─── Optimization scoring (non-blocking)
+```
+
+This ensures critical issues are fixed before optimization concerns are even evaluated.
+
+### 3. Self-Evolving Intelligence
+The framework learns and adapts:
+- **Experience → Skill Promotion**: Verified experiences automatically become reusable skills
+- **Dynamic Dimension Adaptation**: Audit weights auto-adjust based on task type
+- **Rule Evolution Loop**: External threat intelligence feeds into active security rules
 
 ---
 
-## II. 18 Sub-commands
+## II. Core Concepts
 
-### Core Lifecycle (in typical order)
+### Task as Notebook
+Every task is bound to an independent Notebook structure with:
+- `.target.md` — Progressive objectives (multi-stage support)
+- `.plan.md` — Implementation plan with VH stubs
+- `.working/` — Execution artifacts and state
+- `.analysis/` — Six-dimension audit reports
 
-| Sub-command | Tier | Role | Notes |
-|-------------|------|------|-------|
-| `init` | light | Initialize working directory and git branch | Requires `<project> <notebook>` |
-| `target` | heavy | **Define/review task objectives** | Bidirectional sync with `.target.md`; stage advance routing |
-| `research` | heavy | Intelligence collection, type discovery | Independently callable at any phase |
-| `plan` | heavy | Generate implementation plan `.plan.md` | Auto-generates VH verification stubs |
-| `verify` | medium | Run domain-adapted tests (VH/CGG) | Produces test result files |
-| `check` | heavy | Plan/execution review and gating | Three checkpoints control state transitions |
-| `exec` | heavy | Step-by-step plan execution | Follows VFP protocol (Red → Green → Refactor) |
-| `merge` | medium | Merge task branch to main | Routes to `stage-done` or `complete` based on stage progress |
-| `highlight` | medium | **Experience distillation** | Scope-based modes: complete / focused / stage-aware |
-| `report` | medium | Generate completion report | Available at any status for progress documentation |
-
-### Auxiliary & System Commands
-
-| Sub-command | Tier | Role |
-|-------------|------|------|
-| `read` | medium | **System Immunity**: safely ingest knowledge from external docs/URLs into library. |
-| `security` | heavy | **Security Gateway**: pre-audit plans and verify high-risk commands. |
-| `auto` | heavy | Autonomous execution loop: single-session orchestration via `.auto-signal`. |
-| `cancel` | light | Cancel task, clean up state. |
-| `list` | light | Query task inventory, dependency graph, and task status. |
-| `annotate` | medium | Process interactive annotations from the Plan panel. |
-| `summarize` | light | Regenerate `.summary.md` for compressed context. |
-| `library` | light | Knowledge library management (search, rebuild index, archive maintenance). |
-
-### Simplified Arguments
-
-Apart from `init` which requires explicit project/task names at launch, all other commands auto-detect context via **path sniffing** and **git branch matching** — no manual arguments needed.
-
-### Typical Sub-command Flow
-
-#### 1. Standard Heavy Task
-```mermaid
-graph TD
-    init[init] --> target[target]
-    target --> res_obj[research:objective]
-    res_obj --> plan[plan]
-    plan --> sec_plan{security:audit-plan}
-    sec_plan -- PASS --> verify[verify]
-    sec_plan -- REJECT --> plan
-    verify --> check[check]
-    check -- PASS --> exec[exec]
-    check -- REPLAN --> plan
-    exec --> sec_cmd{security:verify-cmd}
-    sec_cmd -- PASS --> hs[Verification: HS]
-    hs --> check_post[check:post-exec]
-    check_post -- ACCEPT --> merge[merge]
-    check_post -- NEEDS_FIX --> exec
-    merge --> highlight[highlight]
-    highlight --> report[report]
-```
-
-#### 2. Progressive Target (Multi-Stage)
-```mermaid
-graph TD
-    S1[Stage 1: plan → exec → merge] --> SD1[stage-done]
-    SD1 --> HL1[highlight → report]
-    HL1 --> T2[target: define stage 2]
-    T2 --> S2[Stage 2: plan → exec → merge]
-    S2 --> SD2[stage-done]
-    SD2 --> HL2[highlight → report]
-    HL2 --> TN[target: define stage N]
-    TN --> SN["Stage N: plan → exec → merge → complete"]
-```
-
-#### 3. Auxiliary & Global Commands
-- **`auto`**: Wraps the standard flow, auto-driven via `.auto-signal`.
-- **`read`**: Globally callable, feeds knowledge into `.library`.
-- **`list` / `summarize` / `library`**: Status and management tools, available anytime.
+### Scope-Based Commands
+Commands operate at different scopes:
+- **`scope=context`** — Conversation-level review (no file output)
+- **`scope=lifecycle`** — Full task lifecycle audit
+- **`scope=skill`** — Skill validation and promotion
+- **`scope=rules`** — Security rule evolution
 
 ---
 
-## III. State Machine (9 states, 41 transitions)
+## III. 18 Sub-commands
 
-```
-draft → planning → review → executing → complete
-                 ↗            ↘
-          re-planning    ←    blocked
-                               ↑
-executing → stage-done → planning (next stage)
-                      → cancelled
-```
+### Lifecycle Commands
 
-### Key Design Constraints
-1. **Progressive target**: Tasks with `stage.total > 1` proceed through multiple `plan → exec → merge → stage-done` cycles before reaching `complete`.
-2. **Security first**: All `exec` operations must pass `security` validation before execution.
-3. **`stage-done` is non-terminal**: Enables `target` (advance to next stage), `cancel`, `report`, and `highlight`, but rejects `plan`, `exec`, and `annotate`.
+| Command | Role |
+|---------|------|
+| `init` | Initialize working directory and git branch |
+| `target` | Define/refine progressive objectives |
+| `research` | Intelligence collection, type discovery |
+| `plan` | Generate implementation plan with VH stubs |
+| `verify` | Run domain-adapted tests (VH/CGG) |
+| `check` | Gated six-dimension review |
+| `exec` | Step-by-step execution following VFP |
+| `merge` | Merge task branch to main |
+| `highlight` | Experience distillation and skill promotion |
+| `report` | Generate completion report |
+
+### System Commands
+
+| Command | Role |
+|---------|------|
+| `read` | Safely ingest external knowledge |
+| `security` | Pre-audit plans, verify high-risk commands |
+| `auto` | Autonomous execution loop |
+| `cancel` | Cancel task, clean up state |
+| `list` | Query task inventory and status |
+| `annotate` | Process interactive annotations |
+| `summarize` | Regenerate context summaries |
+| `library` | Knowledge base management |
 
 ---
 
-## IV. Quality Assurance
-
-### Verification-First Protocol (VFP)
-The framework enforces a **Verification-First Protocol**:
-- **VH (Verification Hypothesis)**: Define failure baselines during the planning phase.
-- **HS (Hypothesis Satisfied)**: Verify success after implementation.
-- **CGG (Cumulative Green Gate)**: Every modification must pass full regression.
-
-### Test Strategy by Task Type
-A unified type→test strategy mapping (`test-strategy-by-type.md`) provides:
-- **Strategy Matrix**: Test approach by (task type × fix category) — covers software, ai-skill, data-pipeline, documentation, infrastructure, science/ml, and more.
-- **Test Classification Rules**: Runtime code → functional test, spec text → contract test, fixture data → property test, cross-reference → completeness test, stale content → absence test.
-- **Regression Test Protocol**: Every fix follows RED → GREEN → full suite, with documented exemptions for trivial changes.
-
-### Six-Dimension Audit (D1–D6)
-The built-in `.dev/validate.sh` (64 contract tests across L1/L2/L3) performs deep checks across six orthogonal dimensions:
+## IV. Six-Dimension Audit
 
 | Dimension | Focus |
 |-----------|-------|
-| **D1 Correctness** | Requirements coverage, functional logic, data flow |
-| **D2 Security** | Injection protection, permissions, concurrency safety, stale-lock recovery |
-| **D3 Reliability** | Boundary handling, fault recovery, trap cleanup, idempotency |
-| **D4 Performance** | Resource consumption, I/O efficiency, growth control |
-| **D5 Architecture** | Module boundaries, extension points, interface contracts, prod/test separation |
-| **D6 Maintainability** | Readability, terminology consistency, naming conventions, deduplication |
+| **D1 Correctness** | Requirements coverage, functional logic |
+| **D2 Security** | Injection protection, permissions, concurrency |
+| **D3 Reliability** | Error handling, fault recovery, idempotency |
+| **D4 Performance** | Resource efficiency, I/O optimization |
+| **D5 Architecture** | Module boundaries, extension points |
+| **D6 Maintainability** | Readability, naming conventions |
+
+### Dynamic Adaptation
+Dimension weights auto-adapt based on task type:
+1. Load from `.type-profile.md` "Audit Adaptation" section
+2. Fallback to `.memory/.type-profiles/<type>.md`
+3. Final fallback to seed tables in `check/references/`
 
 ---
 
-## V. Core Infrastructure
+## V. Self-Evolution Infrastructure
 
-### Shared References (15 protocol files)
-Authoritative protocol documents in `commands/references/` — single source of truth for cross-cutting concerns:
+### Experience → Skill Pipeline
+```
+Verified Experience (usage_count >= 3, quality_status = verified)
+        ↓
+    highlight scope=promote
+        ↓
+    Candidate Skill + Trust Report
+        ↓
+    check --checkpoint skill-review (Gated D1-D6)
+        ↓
+    Activated Skill (Trust Tier T2+)
+```
 
-| Reference | Purpose |
-|-----------|---------|
-| `verification-first-protocol.md` | VFP v1.0 — VH lifecycle, CGG, HIL, compliance scoring |
-| `test-strategy-by-type.md` | Unified type→test strategy matrix and regression protocol |
-| `state-matrix.md` | Complete state × command matrix |
-| `concurrency.md` | Lock protocol, shared dir protection, lock ordering |
-| `directory-convention.md` | Full directory tree and path resolution |
-| `git-details.md` | Branch/commit conventions, worktree, rollback |
-| `model-routing.md` | Tier definitions (heavy/medium/light), routing table |
-| `progressive-target.md` | Multi-stage objective refinement |
-| `annotation-format.md` | JSONL annotation format (Insert/Delete/Replace/Comment) |
-| ... | + 6 more (library protocols, type field, summary formats, etc.) |
-
-### Runtime Modules (`core/`)
-
-| Module | Role |
-|--------|------|
-| `state.py` | State machine CLI — transitions, locking (`O_CREAT\|O_EXCL`), stale-lock recovery (PID check), JSONDecodeError handling, `--stage` arguments |
-| `lib.sh` | Production runtime library — `resolve_workdir()` for shared working directory resolution across all skill scripts |
-| `frontmatter.py` | Shared YAML-like frontmatter parser with multi-line list support |
-
-### Model Agnostic
-- No hard-coded references to specific LLM names; uses generic `the agent`.
-- Supports multiple CLI environments (Gemini CLI / Claude Code / Codex CLI, etc.).
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NB_WORKSPACES_ROOT` | `/home/user/nb-workspaces` | Root directory for all projects and notebooks |
-| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` | Shared knowledge library directory |
+### Rule Evolution Loop
+```
+External Intelligence → research --caller audit → candidates/*.yaml
+                                    ↓
+                      check --checkpoint audit-validate
+                                    ↓ (precision >= 0.80)
+                              active/*.yaml
+                                    ↓
+                 Automatic loading by security/read/check
+```
 
 ---
 
-## VI. Current Statistics
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Sub-commands | 18 | Full coverage from research to delivery |
-| Contract tests | **859 PASS, 0 FAIL** | 27 L1 (structural) + 32 L2 (functional) + 4 L3 (graph analysis) + 1 meta |
-| Shared references | 15 | Authoritative protocol documents |
-| State machine | 9 states, 41 transitions | Including `stage-done` for progressive targets |
-| Documentation | 100% coverage | Every skill has a complete SKILL.md |
-
----
-
-## Quick Start
+## VI. Quick Start
 
 ```bash
-# 1. Initialize a notebook under a project
+# 1. Initialize
 /task-ai:init my-project auth-refactor --title "Refactor auth to JWT"
 
-# 2. Write requirements in .target.md, then let research deepen them
-/task-ai:research my-project/auth-refactor --caller target
+# 2. Define objectives
+/task-ai:target auth-refactor
 
 # 3. Generate plan
 /task-ai:plan auth-refactor --generate
 
-# 4. Verify → check plan quality
-/task-ai:verify auth-refactor
+# 4. Gated review
 /task-ai:check auth-refactor --checkpoint post-plan
 
-# 5. Execute the plan
+# 5. Execute
 /task-ai:exec auth-refactor
 
-# 6. Merge to main + distill experience + generate report
+# 6. Complete
 /task-ai:merge auth-refactor
 /task-ai:highlight auth-refactor
 /task-ai:report auth-refactor
 
-# Or run the full lifecycle automatically:
+# Or run fully autonomous:
 /task-ai:auto auth-refactor --start
 ```
 
 ---
-*Summary auto-generated and verified by task-ai (v0.9.4).*
+
+## VII. Runtime Infrastructure
+
+### Core Modules
+
+| Module | Role |
+|--------|------|
+| `state.py` | State machine with atomic locking |
+| `lib.sh` | Shared runtime utilities |
+| `yaml_parser.py` | Unified YAML parsing for rules |
+| `rule-loader.sh` | Dynamic rule loading |
+
+### Environment Variables
+
+| Variable | Default |
+|----------|---------|
+| `NB_WORKSPACES_ROOT` | `/home/user/nb-workspaces` |
+| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` |
+
+---
 
 ## Related
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface with Plan annotation panel and Chat editor
+- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface with Plan annotation panel
 
 ## License
 
 MIT
+
+---
+*task-ai v0.9.7 — Self-evolving task lifecycle management*
