@@ -524,13 +524,11 @@ EOF
         COMPOSITE=$(echo "scale=2; $D1_SCORE * 0.20 + $D2_SCORE * 0.25 + $D3_SCORE * 0.15 + $D4_SCORE * 0.10 + $D5_SCORE * 0.15 + $D6_SCORE * 0.15" | bc)
 
         # Determine trust tier for L2 (skill-review)
-        # L2 only promotes to T3 (>= 0.70), never directly to T4
-        # T4 promotion requires L3 (skill-deep-review)
+        # L2 promotes T1→T2 (>= 0.70), never directly to T3
+        # T3 promotion requires L3 (skill-deep-review)
         TRUST_TIER="T1"
         if (( $(echo "$COMPOSITE >= 0.70" | bc -l) )); then
-            TRUST_TIER="T3"  # L2 max tier is T3
-        elif (( $(echo "$COMPOSITE >= 0.50" | bc -l) )); then
-            TRUST_TIER="T2"
+            TRUST_TIER="T2"  # L2 max tier is T2
         fi
         echo "Status: ALL GATES PASSED ✅"
         echo "Composite Score: $COMPOSITE"
@@ -561,15 +559,14 @@ ${D5_SUGGESTION:+- D5: $D5_SUGGESTION}
 ${D6_SUGGESTION:+- D6: $D6_SUGGESTION}
 
 ## L2 Tier Actions (skill-review)
-- T3 (>= 0.70): Move to .drafts/ → next: L3 skill-deep-review
-- T2 (0.50-0.69): Return findings, needs improvement
-- T1 (< 0.50): Reject
+- T2 (>= 0.70): Move to .drafts/ → next: L3 skill-deep-review
+- T1 (< 0.70): Return findings, needs improvement
 
-Note: T4 requires L3 (skill-deep-review) with score >= 0.85
+Note: T3 requires L3 (skill-deep-review) with score >= 0.85
 EOF
 
         # ─────────────────────────────────────────────────────────────────
-        # Auto-move: promote to T3 (candidates → drafts)
+        # Auto-move: promote T1→T2 (candidates → drafts)
         # ─────────────────────────────────────────────────────────────────
         LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT:-.}/.library}"
         SKILL_PARENT_DIR=$(dirname "$TARGET_FILE")
@@ -577,10 +574,10 @@ EOF
         # D2: Sanitize slug for use in paths
         SKILL_SLUG=$(echo "$SKILL_SLUG" | tr -cd 'a-zA-Z0-9_-.')
 
-        # Check if skill is in .candidates/ (eligible for T3 promotion)
-        # L2 promotes to T3 max (L3 required for T4)
+        # Check if skill is in .candidates/ (eligible for T2 promotion)
+        # L2 skill-review promotes T1→T2 (.candidates/ → .drafts/)
         if [[ "$SKILL_PARENT_DIR" == *".candidates"* ]]; then
-            if [[ "$TRUST_TIER" == "T3" ]]; then
+            if [[ "$TRUST_TIER" == "T2" ]]; then
                 DRAFTS_TARGET="$LIB_PATH/.skills/.drafts/$SKILL_SLUG"
 
                 if [[ ! -d "$DRAFTS_TARGET" ]]; then
@@ -591,11 +588,11 @@ EOF
                     else
                         # Update trust_tier in SKILL.md
                         if [[ -f "$DRAFTS_TARGET/SKILL.md" ]]; then
-                            sed -i "s/trust_tier: T[0-9]/trust_tier: T3/" "$DRAFTS_TARGET/SKILL.md"
+                            sed -i "s/trust_tier: T[0-9]/trust_tier: T2/" "$DRAFTS_TARGET/SKILL.md"
                         fi
 
                         echo ""
-                        echo "[PROMOTION] T2→T3: Moved to $DRAFTS_TARGET"
+                        echo "[PROMOTION] T1→T2: Moved to $DRAFTS_TARGET"
                         echo "[PROMOTION] Next: check --checkpoint skill-deep-review --target $DRAFTS_TARGET/SKILL.md"
                     fi
                 else
@@ -612,7 +609,7 @@ fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Handle skill-deep-review checkpoint (L3 LLM Semantic Review)
-# T3→T4 promotion: >= 0.85 composite → move to .skills/<name>/
+# T2→T3 promotion: >= 0.85 composite → move to .skills/.active/<name>/
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ "$CHECKPOINT" == "skill-deep-review" ]]; then
     if ! command -v bc &>/dev/null; then
@@ -637,9 +634,9 @@ if [[ "$CHECKPOINT" == "skill-deep-review" ]]; then
     SKILL_SLUG=$(echo "$SKILL_SLUG" | tr -cd 'a-zA-Z0-9_-.')
     ANALYSIS_FILE="$ANALYSIS_DIR/$DATE-skill-deep-review-$SKILL_NAME.md"
 
-    # Verify skill is in .drafts/ (T3)
+    # Verify skill is in .drafts/ (T2)
     if [[ "$SKILL_PARENT_DIR" != *".drafts"* ]]; then
-        echo "[WARN] Skill not in .drafts/ — may not be T3 yet"
+        echo "[WARN] Skill not in .drafts/ — may not be T2 yet"
     fi
 
     LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT:-.}/.library}"
@@ -748,13 +745,13 @@ if [[ "$CHECKPOINT" == "skill-deep-review" ]]; then
     # Determine outcome
     if (( $(echo "$L3_COMPOSITE >= 0.85" | bc -l) )); then
         L3_VERDICT="PROMOTE"
-        L3_NEXT_TIER="T4"
+        L3_NEXT_TIER="T3"
     elif (( $(echo "$L3_COMPOSITE >= 0.70" | bc -l) )); then
         L3_VERDICT="PASS"
-        L3_NEXT_TIER="T3"
+        L3_NEXT_TIER="T2"
     else
         L3_VERDICT="NEEDS_WORK"
-        L3_NEXT_TIER="T3"
+        L3_NEXT_TIER="T2"
     fi
 
     echo "L3 Composite: $L3_COMPOSITE"
@@ -784,7 +781,7 @@ $(printf '%b' "${L3_D3_ISSUES:-None}")
 
 ## Next Steps
 $(if [[ "$L3_VERDICT" == "PROMOTE" ]]; then
-    echo "- ✅ Ready for T4 activation"
+    echo "- ✅ Ready for T3 activation"
     echo "- Skill will be moved to .skills/.active/$SKILL_SLUG/"
 else
     echo "- Fix issues above and re-run skill-deep-review"
@@ -792,7 +789,7 @@ fi)
 EOF
 
     # ─────────────────────────────────────────────────────────────────
-    # Auto-move T3→T4 if PROMOTE verdict
+    # Auto-move T2→T3 if PROMOTE verdict
     # ─────────────────────────────────────────────────────────────────
     if [[ "$L3_VERDICT" == "PROMOTE" ]]; then
         ACTIVE_TARGET="$LIB_PATH/.skills/.active/$SKILL_SLUG"
@@ -805,11 +802,11 @@ EOF
             else
                 # Update trust_tier in SKILL.md
                 if [[ -f "$ACTIVE_TARGET/SKILL.md" ]]; then
-                    sed -i "s/trust_tier: T[0-9]/trust_tier: T4/" "$ACTIVE_TARGET/SKILL.md"
+                    sed -i "s/trust_tier: T[0-9]/trust_tier: T3/" "$ACTIVE_TARGET/SKILL.md"
                 fi
 
                 echo ""
-                echo "[PROMOTION] T3→T4: Moved to $ACTIVE_TARGET"
+                echo "[PROMOTION] T2→T3: Moved to $ACTIVE_TARGET"
                 echo "[PROMOTION] Skill is now ACTIVE and available for hot-reload"
             fi
         else

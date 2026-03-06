@@ -55,7 +55,7 @@ The shared knowledge library at `$NB_WORKSPACES_ROOT/.library/` aggregates cross
 /task-ai:library search "<query>" [--type <type>] [--topic <topic>]
 /task-ai:library list [--type <type>]
 /task-ai:library status
-/task-ai:library maintain [--mode quick|audit] [--rebuild-index] [--rebuild-relations] [--compact] [--check-staleness] [--all]
+/task-ai:library maintain [--mode quick|audit] [--rebuild-index] [--rebuild-relations] [--compact] [--check-staleness] [--all] [--scheduled [--force]]
 ```
 
 ## Library Directory Structure
@@ -70,6 +70,7 @@ $NB_WORKSPACES_ROOT/
     ├── .type-registry.md                  # Known type registry (git tracked)
     ├── .ioc.md                            # Domain convergence IOC log (gitignore)
     ├── .inconsistency.log                 # Index–file mismatch log (gitignore)
+    ├── .last-scheduled                     # Epoch timestamp of last --scheduled run (gitignore)
     ├── .plugin-registry.md                # Plugin capability cache (lazily created, gitignore)
     ├── .memory/                           # System-managed knowledge base
     │   ├── .references/
@@ -99,6 +100,19 @@ $NB_WORKSPACES_ROOT/
     │           ├── .lock                  # Directory write lock (gitignore)
     │           ├── .index.md              # problem-type → file lookup table
     │           └── <problem-type>.md
+    ├── .skills/                              # Experience-to-skill promotion pipeline
+    │   ├── .candidates/                      # T1: auto-promoted candidates (from highlight promote)
+    │   │   └── <slug>/
+    │   │       ├── SKILL.md
+    │   │       └── trust-report.md
+    │   ├── .drafts/                          # T2: passed check skill-review (score ≥ 0.70)
+    │   │   └── <slug>/
+    │   │       ├── SKILL.md
+    │   │       └── trust-report.md
+    │   └── .active/                          # T3: LLM deep-reviewed / T4: production-validated
+    │       └── <name>/
+    │           ├── SKILL.md
+    │           └── trust-report.md
     └── <user-imported>/                   # User-imported files/folders (non-dot-prefixed)
         └── ...                            # Any structure; indexed by maintain --rebuild-index
 
@@ -221,7 +235,7 @@ Rebuild all `.index.md` files and `.master-index.md` from actual filesystem stat
 1.  **For each library sub-directory**: glob all `.md` files, read their frontmatter
 2.  **Rebuild each `.index.md`** from ground truth — file frontmatter wins over stale index entries
 3.  **Acquire directory-level `.lock`** before writing each `.index.md`; release after
-4.  **Rebuild `.master-index.md`**: scan all files across `.memory/.experiences/`, `.memory/.references/`, `.memory/.type-profiles/`, and `.memory/.thinking/patterns/`; also scan all user-imported folders (non-dot-prefixed names in `$NB_WORKSPACES_LIBRARY/`); overwrite `.master-index.md` with complete flat index (topic, type, keywords, file path, source). This restores the cold-start fallback for the three-tier Changelog Consumption Protocol degradation path
+4.  **Rebuild `.master-index.md`**: scan all files across `.memory/.experiences/`, `.memory/.references/`, `.memory/.type-profiles/`, `.memory/.thinking/patterns/`, `.skills/.candidates/`, `.skills/.drafts/`, and `.skills/.active/`; also scan all user-imported folders (non-dot-prefixed names in `$NB_WORKSPACES_LIBRARY/`); overwrite `.master-index.md` with complete flat index (topic, type, keywords, file path, source, and for `.skills/` entries: trust_tier T1–T4). This restores the cold-start fallback for the three-tier Changelog Consumption Protocol degradation path
 5.  **IOC scan**: extract all outbound URLs from `.memory/.references/` files; tally domain counts; write/overwrite `.ioc.md` if any domain appears in ≥ 3 documents; format: `| domain | doc_count | first_seen | last_seen | risk | note |`
 6.  **Fix `effectiveness_mark` uniqueness violations**: if multiple files in same topic scope or same notebook-type scope share `effectiveness_mark: true`, keep the one with latest `last_verified_at`, clear others (acquire lock before clearing)
 7.  **Clear `.inconsistency.log`** (all issues resolved by rebuild)
@@ -257,6 +271,28 @@ Report stale knowledge without auto-triggering `research`.
 #### `--all`
 
 Run `--rebuild-index` → `--compact` → `--check-staleness` in sequence. Also sweep for stale `.lock` files: for each `.lock` file in library, read its `pid`; if `kill -0 <pid>` fails → remove stale lock and log cleanup.
+
+#### `--scheduled [--force]`
+
+Lightweight periodic maintenance — timestamp-gated (24h interval), suitable for cron or auto loop post-report hook.
+
+**Runs three checks:**
+
+1. **Staleness check** — scan `.memory/.references/` for files older than 30 days, report stale count
+2. **T3→T4 production validation** — scan all `.skills/.active/` T3 skills, promote to T4 if `usage_count >= 3` and zero REPLAN failures (same logic as `--promote-skill`)
+3. **Changelog size check** — warn if `.changelog` exceeds 2000-line threshold
+
+**Timestamp gating:**
+- Reads `.last-scheduled` (epoch seconds); skips if last run < 24h ago
+- `--force` bypasses the timestamp check
+- On completion, writes current epoch to `.last-scheduled`
+
+**Cron example** (daily at 03:00):
+```
+0 3 * * * cd /path/to/project && bash task-ai/skills/library/scripts/maintain.sh --scheduled
+```
+
+**Auto loop integration**: auto calls `maintain.sh --scheduled` after report's `(stop)` signal — runs only if 24h have elapsed, zero overhead otherwise.
 
 ### `evolve`
 
@@ -365,6 +401,7 @@ All external content written to `.library/.memory/.references/` MUST be sanitise
 |-----------|---------------|
 | `maintain --compact` | `task-ai(library):maintain archive YYYY-MM` |
 | `maintain --rebuild-index` | `task-ai(library):maintain rebuild index` |
+| `maintain --scheduled` | No commit (T3→T4 changes are uncommitted; caller should commit if needed) |
 | `search`, `list`, `status`, `--check-staleness` | No commit |
 
 ## .auto-signal

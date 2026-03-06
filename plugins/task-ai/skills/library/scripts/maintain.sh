@@ -2,6 +2,7 @@
 # Library Maintain Script
 # Usage: maintain.sh [--mode quick|audit] [--rebuild-index] [--rebuild-relations]
 #        [--compact] [--check-staleness] [--all] [--evolve] [--promote-skill <name>]
+#        [--scheduled [--force]] [--install-cron] [--uninstall-cron]
 
 set -euo pipefail
 
@@ -14,6 +15,59 @@ REBUILD_RELATIONS_PY="${REBUILD_RELATIONS_PY:-$SCRIPT_DIR/rebuild-relations.py}"
 
 LIB_PATH="${NB_WORKSPACES_LIBRARY:-${NB_WORKSPACES_ROOT:-.}/.library}"
 export NB_WORKSPACES_LIBRARY="$LIB_PATH"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Shared function: T3→T4 production validation for a single skill
+# Args: $1 = skill name, $2 = SKILL.md path
+# Returns: 0 if promoted, 1 if not eligible
+# ─────────────────────────────────────────────────────────────────────────────
+_validate_t3_to_t4() {
+    local skill_name="$1"
+    local skill_file="$2"
+    local changelog="$LIB_PATH/.changelog"
+
+    if [[ ! -f "$changelog" ]]; then
+        echo "[INFO] No changelog found, cannot validate usage"
+        return 1
+    fi
+
+    # Count post-activation referenced entries (exact skill directory match)
+    local skill_pattern="| referenced | .*/${skill_name}/SKILL.md"
+    local usage_count
+    usage_count=$(grep -c "$skill_pattern" "$changelog" 2>/dev/null || echo 0)
+    echo "Usage count (referenced): $usage_count"
+
+    if [[ "$usage_count" -lt 3 ]]; then
+        echo "[INFO] Not enough usage (need >= 3, have $usage_count), remains T3"
+        return 1
+    fi
+
+    # Check for REPLAN failures
+    local failure_count=0
+    local ref_notebooks
+    ref_notebooks=$(grep "$skill_pattern" "$changelog" | \
+        sed 's/.*notebook:\([a-zA-Z0-9_-]*\).*/\1/' | sort -u)
+
+    local nb
+    for nb in $ref_notebooks; do
+        if grep -q "replan:true.*notebook:${nb}\(,\|$\)\|invalidated.*notebook:${nb}\(,\|$\)" "$changelog" 2>/dev/null; then
+            failure_count=$((failure_count + 1))
+            echo "[WARN] Notebook '$nb' had REPLAN after referencing this skill"
+        fi
+    done
+
+    echo "Failure count: $failure_count"
+
+    if [[ "$failure_count" -gt 0 ]]; then
+        echo "[INFO] REPLAN failures detected ($failure_count), remains T3"
+        return 1
+    fi
+
+    # All checks passed — promote
+    sed -i 's/trust_tier: T3/trust_tier: T4/' "$skill_file"
+    echo "[PROMOTION] T3→T4: Promoted to production-validated"
+    return 0
+}
 
 while [[ $# -gt 0 ]]; do
   START_TIME=$(date +%s%3N)
@@ -213,25 +267,32 @@ while [[ $# -gt 0 ]]; do
       CURRENT_TIER=""
       if [[ -f "$CANDIDATES_DIR/$SKILL_NAME/SKILL.md" ]]; then
           SKILL_FILE="$CANDIDATES_DIR/$SKILL_NAME/SKILL.md"
-          CURRENT_TIER="T1/T2"
-          echo "Found in .candidates/ (T1/T2)"
+          CURRENT_TIER="T1"
+          echo "Found in .candidates/ (T1)"
       elif [[ -f "$DRAFTS_DIR/$SKILL_NAME/SKILL.md" ]]; then
           SKILL_FILE="$DRAFTS_DIR/$SKILL_NAME/SKILL.md"
-          CURRENT_TIER="T3"
-          echo "Found in .drafts/ (T3)"
+          CURRENT_TIER="T2"
+          echo "Found in .drafts/ (T2)"
       elif [[ -f "$ACTIVE_DIR/$SKILL_NAME/SKILL.md" ]]; then
           SKILL_FILE="$ACTIVE_DIR/$SKILL_NAME/SKILL.md"
-          CURRENT_TIER="T4"
-          echo "Already at T4 (active)"
-          exit 0
+          # Determine if T3 or T4 from frontmatter
+          CURRENT_TRUST=$(grep 'trust_tier:' "$SKILL_FILE" 2>/dev/null | head -1 | sed 's/.*trust_tier:\s*//' | tr -d ' ')
+          if [[ "$CURRENT_TRUST" == "T4" ]]; then
+              CURRENT_TIER="T4"
+              echo "Already at T4 (production-validated)"
+              exit 0
+          else
+              CURRENT_TIER="T3"
+              echo "Found in .active/ (T3) — checking production validation"
+          fi
       else
-          echo "[ERROR] Skill '$SKILL_NAME' not found in .candidates/, .drafts/, or .skills/" >&2
+          echo "[ERROR] Skill '$SKILL_NAME' not found in .skills/.candidates/, .skills/.drafts/, or .skills/.active/" >&2
           exit 1
       fi
 
       # Determine next promotion step
       case "$CURRENT_TIER" in
-          "T1/T2")
+          "T1")
               echo ""
               echo "--- Step 1: L2 Six-Dimension Review (skill-review) ---"
               if [[ -f "$CHECK_SCRIPT" ]]; then
@@ -244,9 +305,9 @@ while [[ $# -gt 0 ]]; do
               # Check if skill moved to drafts
               if [[ -f "$DRAFTS_DIR/$SKILL_NAME/SKILL.md" ]]; then
                   echo ""
-                  echo "[SUCCESS] Promoted to T3 (.drafts/)"
+                  echo "[SUCCESS] Promoted to T2 (.drafts/)"
                   SKILL_FILE="$DRAFTS_DIR/$SKILL_NAME/SKILL.md"
-                  CURRENT_TIER="T3"
+                  CURRENT_TIER="T2"
 
                   if [[ "$AUTO_MODE" -eq 1 ]]; then
                       echo "--- Continuing to L3 (--auto mode) ---"
@@ -261,8 +322,8 @@ while [[ $# -gt 0 ]]; do
               ;;
       esac
 
-      # If T3, run L3 deep review
-      if [[ "$CURRENT_TIER" == "T3" ]]; then
+      # If T2, run L3 deep review
+      if [[ "$CURRENT_TIER" == "T2" ]]; then
           echo ""
           echo "--- Step 2: L3 LLM Deep Semantic Review (skill-deep-review) ---"
           if [[ -f "$CHECK_SCRIPT" ]]; then
@@ -272,10 +333,21 @@ while [[ $# -gt 0 ]]; do
           # Check if skill moved to active
           if [[ -f "$ACTIVE_DIR/$SKILL_NAME/SKILL.md" ]]; then
               echo ""
-              echo "[SUCCESS] Promoted to T4 (.skills/.active/$SKILL_NAME/)"
+              echo "[SUCCESS] Promoted to T3 (.skills/.active/$SKILL_NAME/)"
               echo "Skill is now ACTIVE and available for hot-reload"
+              CURRENT_TIER="T3"
+              SKILL_FILE="$ACTIVE_DIR/$SKILL_NAME/SKILL.md"
           else
               echo "[INFO] Score < 0.85, skill remains in .drafts/"
+          fi
+      fi
+
+      # T3→T4 Production Validation (changelog-driven)
+      if [[ "$CURRENT_TIER" == "T3" ]]; then
+          echo ""
+          echo "--- Production Validation (T3→T4) ---"
+          if _validate_t3_to_t4 "$SKILL_NAME" "$ACTIVE_DIR/$SKILL_NAME/SKILL.md"; then
+              echo "trust_tier updated to T4 in $ACTIVE_DIR/$SKILL_NAME/SKILL.md"
           fi
       fi
 
@@ -317,6 +389,148 @@ while [[ $# -gt 0 ]]; do
       # D3: Use resolved script path for recursive invocation (CWD may change)
       bash "$SCRIPT_DIR/maintain.sh" --rebuild-index --rebuild-relations --compact --check-staleness
       shift ;;
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # --scheduled: periodic auto-maintenance (cron-friendly, timestamp-gated)
+    # Runs: staleness check, T3→T4 validation, changelog compact check
+    # Usage: maintain.sh --scheduled [--force]
+    # ─────────────────────────────────────────────────────────────────────────
+    --scheduled)
+      FORCE_RUN=0
+      shift
+      if [[ "${1:-}" == "--force" ]]; then
+          FORCE_RUN=1
+          shift
+      fi
+
+      SCHEDULED_TS_FILE="$LIB_PATH/.last-scheduled"
+      INTERVAL_SECONDS=86400  # 24 hours
+
+      # Check if maintenance is due
+      if [[ "$FORCE_RUN" -eq 0 ]] && [[ -f "$SCHEDULED_TS_FILE" ]]; then
+          LAST_RUN=$(cat "$SCHEDULED_TS_FILE" 2>/dev/null || echo "0")
+          # D2: validate numeric
+          if ! [[ "$LAST_RUN" =~ ^[0-9]+$ ]]; then
+              LAST_RUN=0
+          fi
+          NOW=$(date +%s)
+          ELAPSED_SINCE=$((NOW - LAST_RUN))
+          if [[ "$ELAPSED_SINCE" -lt "$INTERVAL_SECONDS" ]]; then
+              HOURS_AGO=$((ELAPSED_SINCE / 3600))
+              echo "[scheduled] Up to date — last run ${HOURS_AGO}h ago (interval: 24h). Skipping."
+              break
+          fi
+      fi
+
+      echo "=== Scheduled Maintenance ==="
+
+      # 1. Staleness check (references)
+      echo ""
+      echo "--- [1/3] Staleness Check ---"
+      REF_DIR="$LIB_PATH/.memory/.references"
+      STALE_COUNT=0
+      if [[ -d "$REF_DIR" ]]; then
+          STALENESS_DAYS=30
+          NOW_EPOCH=$(date +%s)
+          while IFS= read -r -d '' ref_file; do
+              FILE_EPOCH=$(stat -c %Y "$ref_file" 2>/dev/null || echo "$NOW_EPOCH")
+              AGE_DAYS=$(( (NOW_EPOCH - FILE_EPOCH) / 86400 ))
+              if [[ "$AGE_DAYS" -gt "$STALENESS_DAYS" ]]; then
+                  STALE_COUNT=$((STALE_COUNT + 1))
+                  echo "  [STALE] $(basename "$ref_file") — ${AGE_DAYS} days old"
+              fi
+          done < <(find "$REF_DIR" -maxdepth 1 -name "*.md" ! -name ".index.md" ! -name ".summary.md" -print0 2>/dev/null)
+      fi
+      if [[ "$STALE_COUNT" -eq 0 ]]; then
+          echo "  No stale references found"
+      else
+          echo "  $STALE_COUNT stale reference(s) — consider running: library research --scope gap"
+      fi
+
+      # 2. T3→T4 production validation for all active skills
+      echo ""
+      echo "--- [2/3] T3→T4 Production Validation ---"
+      ACTIVE_DIR="$LIB_PATH/.skills/.active"
+      T3_PROMOTED=0
+      if [[ -d "$ACTIVE_DIR" ]]; then
+          for skill_dir in "$ACTIVE_DIR"/*/; do
+              [[ -d "$skill_dir" ]] || continue
+              SKILL_NAME=$(basename "$skill_dir")
+              SKILL_FILE="$skill_dir/SKILL.md"
+              [[ -f "$SKILL_FILE" ]] || continue
+
+              CURRENT_TRUST=$(grep 'trust_tier:' "$SKILL_FILE" 2>/dev/null | head -1 | sed 's/.*trust_tier:\s*//' | tr -d ' ')
+              [[ "$CURRENT_TRUST" == "T3" ]] || continue
+
+              if _validate_t3_to_t4 "$SKILL_NAME" "$SKILL_FILE"; then
+                  T3_PROMOTED=$((T3_PROMOTED + 1))
+              fi
+          done
+      fi
+      if [[ "$T3_PROMOTED" -eq 0 ]]; then
+          echo "  No T3 skills eligible for T4 promotion"
+      fi
+
+      # 3. Changelog size check
+      echo ""
+      echo "--- [3/3] Changelog Size Check ---"
+      CHANGELOG="$LIB_PATH/.changelog"
+      if [[ -f "$CHANGELOG" ]]; then
+          LINE_COUNT=$(wc -l < "$CHANGELOG")
+          echo "  Changelog: $LINE_COUNT lines"
+          if [[ "$LINE_COUNT" -gt 2000 ]]; then
+              echo "  [WARN] Exceeds 2000-line threshold — run: library maintain --compact"
+          else
+              echo "  Within threshold"
+          fi
+      else
+          echo "  No changelog found"
+      fi
+
+      # Update timestamp
+      date +%s > "$SCHEDULED_TS_FILE"
+
+      echo ""
+      echo "=== Scheduled Maintenance Complete ==="
+      break
+      ;;
+
+    # --install-cron: add maintain.sh --scheduled to user's crontab
+    --install-cron)
+      CMD="--install-cron"
+      CRON_TAG="# task-ai:scheduled"
+      # Use version-independent path: dynamically resolve latest plugin version at cron runtime
+      PLUGIN_BASE="${HOME}/.claude/plugins/cache/moonview/task-ai"
+      CRON_CMD="0 3 * * * NB_WORKSPACES_ROOT=\"$NB_WORKSPACES_ROOT\" NB_WORKSPACES_LIBRARY=\"$LIB_PATH\" bash -c 'MDIR=\$(ls -d \"$PLUGIN_BASE\"/*/skills/library/scripts/maintain.sh 2>/dev/null | sort -V | tail -1) && [ -n \"\$MDIR\" ] && bash \"\$MDIR\" --scheduled' $CRON_TAG"
+
+      # Check if already installed (idempotent)
+      EXISTING=$(crontab -l 2>/dev/null || true)
+      if echo "$EXISTING" | grep -q "task-ai:scheduled"; then
+          echo "[INFO] Cron entry already installed, skipping"
+      else
+          # Append new entry, preserving existing crontab (filter empty lines from empty crontab)
+          if [[ -n "$EXISTING" ]]; then
+              (echo "$EXISTING"; echo "$CRON_CMD") | crontab -
+          else
+              echo "$CRON_CMD" | crontab -
+          fi
+          echo "[OK] Installed cron entry for maintain.sh --scheduled"
+      fi
+      break
+      ;;
+
+    # --uninstall-cron: remove maintain.sh --scheduled from user's crontab
+    --uninstall-cron)
+      CMD="--uninstall-cron"
+      EXISTING=$(crontab -l 2>/dev/null || true)
+      if echo "$EXISTING" | grep -q "task-ai:scheduled"; then
+          echo "$EXISTING" | grep -v "task-ai:scheduled" | crontab -
+          echo "[OK] Removed cron entry for maintain.sh --scheduled"
+      else
+          echo "[INFO] No task-ai:scheduled entry found, nothing to remove"
+      fi
+      break
+      ;;
 
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
