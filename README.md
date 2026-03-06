@@ -21,7 +21,7 @@ codex plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v0.9.7)
+### task-ai (v0.9.12)
 
 ## I. Design Philosophy
 
@@ -46,9 +46,10 @@ This ensures critical issues are fixed before optimization concerns are even eva
 
 ### 3. Self-Evolving Intelligence
 The framework learns and adapts:
-- **Experience → Skill Promotion**: Verified experiences automatically become reusable skills
+- **Experience → Skill Promotion**: Verified experiences automatically become reusable skills through a four-tier trust pipeline (T1→T2→T3→T4)
 - **Dynamic Dimension Adaptation**: Audit weights auto-adjust based on task type
 - **Rule Evolution Loop**: External threat intelligence feeds into active security rules
+- **Scheduled Maintenance**: Automated cron-driven staleness checks, skill validation, and security evolution
 
 ---
 
@@ -60,6 +61,13 @@ Every task is bound to an independent Notebook structure with:
 - `.plan.md` — Implementation plan with VH stubs
 - `.working/` — Execution artifacts and state
 - `.analysis/` — Six-dimension audit reports
+
+### Shared Knowledge Library
+Cross-task knowledge base at `$NB_WORKSPACES_LIBRARY/`:
+- `.memory/.references/` — Validated external knowledge
+- `.memory/.experiences/` — Distilled task insights
+- `.skills/` — Three-tier skill directory (`.candidates/` → `.drafts/` → `.active/`)
+- `.changelog` — Append-only audit trail
 
 ### Scope-Based Commands
 Commands operate at different scopes:
@@ -98,7 +106,7 @@ Commands operate at different scopes:
 | `list` | Query task inventory and status |
 | `annotate` | Process interactive annotations |
 | `summarize` | Regenerate context summaries |
-| `library` | Knowledge base management |
+| `library` | Knowledge base management and scheduled maintenance |
 
 ---
 
@@ -123,18 +131,19 @@ Dimension weights auto-adapt based on task type:
 
 ## V. Self-Evolution Infrastructure
 
-### Experience → Skill Pipeline
+### Skill Trust Pipeline (T1 → T4)
+
 ```
-Verified Experience (usage_count >= 3, quality_status = verified)
-        ↓
-    highlight scope=promote
-        ↓
-    Candidate Skill + Trust Report
-        ↓
-    check --checkpoint skill-review (Gated D1-D6)
-        ↓
-    Activated Skill (Trust Tier T2+)
+T1 Candidate (.skills/.candidates/)
+    ↓  check --checkpoint skill-review (L2, score ≥ 0.70)
+T2 Draft (.skills/.drafts/)
+    ↓  check --checkpoint skill-deep-review (L3, score ≥ 0.85)
+T3 Active (.skills/.active/)
+    ↓  Production validation (usage_count ≥ 3, zero REPLAN failures)
+T4 Production-Validated (.skills/.active/, trust_tier: T4)
 ```
+
+All promotions are fully LLM-automated — no human review gates.
 
 ### Rule Evolution Loop
 ```
@@ -145,6 +154,25 @@ External Intelligence → research --caller audit → candidates/*.yaml
                               active/*.yaml
                                     ↓
                  Automatic loading by security/read/check
+```
+
+### Scheduled Maintenance
+
+Automated cron-driven maintenance runs four checks daily:
+
+| Check | Interval | Description |
+|-------|----------|-------------|
+| Staleness | 24h | Flag references older than 30 days |
+| T3→T4 Validation | 24h | Auto-promote skills meeting production criteria |
+| Security Rules Evolution | Core: 7d / Extended: 1d | Scan threats, sync evolving rules |
+| Changelog Size | 24h | Warn if changelog exceeds 2000 lines |
+
+```bash
+# Auto-configure cron (daily at 03:00, version-independent path)
+/task-ai:library maintain --install-cron
+
+# Remove cron entry
+/task-ai:library maintain --uninstall-cron
 ```
 
 ---
@@ -185,8 +213,10 @@ External Intelligence → research --caller audit → candidates/*.yaml
 | Module | Role |
 |--------|------|
 | `state.py` | State machine with atomic locking |
+| `frontmatter.py` | Frontmatter parsing for SKILL.md and experiences |
 | `lib.sh` | Shared runtime utilities |
-| `yaml_parser.py` | Unified YAML parsing for rules |
+| `rebuild-index.py` | Index builder for `.memory/` and `.skills/` |
+| `core-rule-auto.sh` | Security rules LLM-driven evolution pipeline |
 | `rule-loader.sh` | Dynamic rule loading |
 
 ### Environment Variables
@@ -207,4 +237,4 @@ External Intelligence → research --caller audit → candidates/*.yaml
 MIT
 
 ---
-*task-ai v0.9.7 — Self-evolving task lifecycle management*
+*task-ai v0.9.12 — Self-evolving task lifecycle management*

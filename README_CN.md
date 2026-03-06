@@ -21,7 +21,7 @@ codex plugin add huacheng/moonview
 
 ## 插件
 
-### task-ai (v0.9.7)
+### task-ai (v0.9.12)
 
 ## 一、设计哲学
 
@@ -46,9 +46,10 @@ Gate 4: D4 + D5 + D6 ─── 优化评分（非阻断）
 
 ### 3. 自进化智能
 框架自主学习和适应：
-- **经验 → 技能提升**：已验证经验自动转化为可复用技能
+- **经验 → 技能提升**：已验证经验通过四级信任流水线（T1→T2→T3→T4）自动转化为可复用技能
 - **动态维度适配**：审查权重根据任务类型自动调整
 - **规则进化闭环**：外部威胁情报自动转化为活跃安全规则
+- **定时维护**：cron 驱动的自动化过期检查、技能验证和安全规则演化
 
 ---
 
@@ -60,6 +61,13 @@ Gate 4: D4 + D5 + D6 ─── 优化评分（非阻断）
 - `.plan.md` — 实施计划（含 VH 存根）
 - `.working/` — 执行产物和状态
 - `.analysis/` — 六维审查报告
+
+### 共享知识库
+跨任务知识库位于 `$NB_WORKSPACES_LIBRARY/`：
+- `.memory/.references/` — 已验证的外部知识
+- `.memory/.experiences/` — 蒸馏后的任务洞察
+- `.skills/` — 三级技能目录（`.candidates/` → `.drafts/` → `.active/`）
+- `.changelog` — 仅追加审计日志
 
 ### 作用域命令
 命令在不同作用域运行：
@@ -98,7 +106,7 @@ Gate 4: D4 + D5 + D6 ─── 优化评分（非阻断）
 | `list` | 查询任务清单和状态 |
 | `annotate` | 处理交互批注 |
 | `summarize` | 重新生成上下文摘要 |
-| `library` | 知识库管理 |
+| `library` | 知识库管理与定时维护 |
 
 ---
 
@@ -123,18 +131,19 @@ Gate 4: D4 + D5 + D6 ─── 优化评分（非阻断）
 
 ## 五、自进化基础设施
 
-### 经验 → 技能流水线
+### 技能信任流水线（T1 → T4）
+
 ```
-已验证经验 (usage_count >= 3, quality_status = verified)
-        ↓
-    highlight scope=promote
-        ↓
-    候选技能 + 信任报告
-        ↓
-    check --checkpoint skill-review（门控 D1-D6）
-        ↓
-    激活技能（信任层级 T2+）
+T1 候选 (.skills/.candidates/)
+    ↓  check --checkpoint skill-review（L2，分数 ≥ 0.70）
+T2 草案 (.skills/.drafts/)
+    ↓  check --checkpoint skill-deep-review（L3，分数 ≥ 0.85）
+T3 激活 (.skills/.active/)
+    ↓  生产验证（usage_count ≥ 3，零 REPLAN 失败）
+T4 生产验证 (.skills/.active/，trust_tier: T4)
 ```
+
+所有晋升完全由 LLM 自动化驱动 — 无需人工审核。
 
 ### 规则进化闭环
 ```
@@ -145,6 +154,25 @@ Gate 4: D4 + D5 + D6 ─── 优化评分（非阻断）
                   active/*.yaml
                         ↓
            security/read/check 自动加载
+```
+
+### 定时维护
+
+cron 驱动的自动化维护，每日执行四项检查：
+
+| 检查项 | 频率 | 说明 |
+|--------|------|------|
+| 过期检查 | 24h | 标记超过 30 天的引用文件 |
+| T3→T4 验证 | 24h | 自动晋升满足生产标准的技能 |
+| 安全规则演化 | Core: 7d / Extended: 1d | 扫描威胁、同步演化规则 |
+| Changelog 体积 | 24h | 超过 2000 行时告警 |
+
+```bash
+# 自动配置 cron（每天 03:00，路径版本无关）
+/task-ai:library maintain --install-cron
+
+# 移除 cron 条目
+/task-ai:library maintain --uninstall-cron
 ```
 
 ---
@@ -185,8 +213,10 @@ Gate 4: D4 + D5 + D6 ─── 优化评分（非阻断）
 | 模块 | 职责 |
 |------|------|
 | `state.py` | 状态机（原子锁） |
+| `frontmatter.py` | SKILL.md 和经验文件的 frontmatter 解析 |
 | `lib.sh` | 共享运行时工具 |
-| `yaml_parser.py` | 统一 YAML 解析 |
+| `rebuild-index.py` | `.memory/` 和 `.skills/` 索引构建器 |
+| `core-rule-auto.sh` | 安全规则 LLM 驱动演化流水线 |
 | `rule-loader.sh` | 动态规则加载 |
 
 ### 环境变量
@@ -207,4 +237,4 @@ Gate 4: D4 + D5 + D6 ─── 优化评分（非阻断）
 MIT
 
 ---
-*task-ai v0.9.7 — 自进化任务生命周期管理*
+*task-ai v0.9.12 — 自进化任务生命周期管理*
