@@ -177,36 +177,7 @@ cron 驱动的自动化维护，每日执行四项检查：
 
 ---
 
-## 六、快速开始
-
-```bash
-# 1. 初始化
-/task-ai:init my-project auth-refactor --title "Refactor auth to JWT"
-
-# 2. 定义目标
-/task-ai:target auth-refactor
-
-# 3. 生成计划
-/task-ai:plan auth-refactor --generate
-
-# 4. 门控审查
-/task-ai:check auth-refactor --checkpoint post-plan
-
-# 5. 执行
-/task-ai:exec auth-refactor
-
-# 6. 完成
-/task-ai:merge auth-refactor
-/task-ai:highlight auth-refactor
-/task-ai:report auth-refactor
-
-# 或全自主运行：
-/task-ai:auto auth-refactor --start
-```
-
----
-
-## 七、运行时基础设施
+## 六、运行时基础设施
 
 ### 核心模块
 

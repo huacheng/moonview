@@ -177,36 +177,7 @@ Automated cron-driven maintenance runs four checks daily:
 
 ---
 
-## VI. Quick Start
-
-```bash
-# 1. Initialize
-/task-ai:init my-project auth-refactor --title "Refactor auth to JWT"
-
-# 2. Define objectives
-/task-ai:target auth-refactor
-
-# 3. Generate plan
-/task-ai:plan auth-refactor --generate
-
-# 4. Gated review
-/task-ai:check auth-refactor --checkpoint post-plan
-
-# 5. Execute
-/task-ai:exec auth-refactor
-
-# 6. Complete
-/task-ai:merge auth-refactor
-/task-ai:highlight auth-refactor
-/task-ai:report auth-refactor
-
-# Or run fully autonomous:
-/task-ai:auto auth-refactor --start
-```
-
----
-
-## VII. Runtime Infrastructure
+## VI. Runtime Infrastructure
 
 ### Core Modules
 
