@@ -199,9 +199,15 @@ cron 驱动的自动化维护，每日执行四项检查：
 
 ---
 
-## 相关项目
+## 前置依赖
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — 网页界面，含 Plan 批注面板
+task-ai 与 [notebook-ai](https://github.com/huacheng/notebook-ai) 深度绑定 — notebook-ai 提供任务执行界面、文件查看器和批注面板。**必须先启动 notebook-ai** 才能正常使用 task-ai。
+
+```bash
+# 先启动 notebook-ai
+git clone https://github.com/huacheng/notebook-ai.git
+cd notebook-ai && ./restart.sh
+```
 
 ## 许可证
 

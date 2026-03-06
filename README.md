@@ -199,9 +199,15 @@ Automated cron-driven maintenance runs four checks daily:
 
 ---
 
-## Related
+## Prerequisites
 
-- [ai-cli-online](https://github.com/huacheng/ai-cli-online) — Web interface with Plan annotation panel
+task-ai is tightly integrated with [notebook-ai](https://github.com/huacheng/notebook-ai) — the web-based notebook platform that provides the task execution UI, file viewer, and annotation panel. **notebook-ai must be running** for task-ai to function properly.
+
+```bash
+# Start notebook-ai first
+git clone https://github.com/huacheng/notebook-ai.git
+cd notebook-ai && ./restart.sh
+```
 
 ## License
 
