@@ -21,64 +21,91 @@ codex plugin add huacheng/moonview
 
 ## Plugins
 
-### task-ai (v1.0.0)
+### task-ai (v1.2.0)
 
 ## I. Design Philosophy
 
-task-ai is a **self-evolving task lifecycle framework** built on three core principles:
+**task-ai is a system that admits ignorance.** It doesn't pretend to know how large a task is, how many stages it needs, what security threats look like, what best practices apply, or even at what pace it should run. What it provides is a structured framework for emergence:
 
-### 1. Verification-First Development
-Every change follows the **VFP Protocol** (Verification-First Protocol):
-- **VH** (Verification Hypothesis): Define failure baselines before implementation
-- **HS** (Hypothesis Satisfied): Verify success after implementation
-- **CGG** (Cumulative Green Gate): Every modification passes full regression
+- **Task objectives emerge one step at a time** rather than being predefined (Progressive Evolution)
+- **Domain knowledge precipitates from practice** and flows across tasks (Experience Distillation & Adoption Tracking)
+- **Security defenses grow from 10 seed rules** toward unknown threats (Evolvable Injection Detection)
+- **Runtime parameters converge from hardcoded defaults** toward type-specific experience (Adaptive Thresholds)
 
-### 2. Gated Quality Assurance
-The **Six-Dimension Audit** runs through sequential gates, not parallel scoring:
-```
-Gate 1: D2 Security    ─── BLOCK < 0.5 ───→ Fix before proceeding
-Gate 2: D1 Correctness ─── BLOCK < 0.5 ───→ Fix before proceeding
-Gate 3: D3 Reliability ─── BLOCK < 0.5 ───→ Fix before proceeding
-Gate 4: D4 + D5 + D6   ─── Optimization scoring (non-blocking)
-```
+All emergent artifacts pass through review gates before solidification — candidate rules require `audit-validate`, experiences transition from `provisional` to `verified`, thresholds require statistical backing from post-loop learning. And when new understanding overturns old conclusions, the system has paths to re-evolve: experiences can be `invalidated`, rules can be overridden, `satisfied` can re-enter `planning`.
 
-This ensures critical issues are fixed before optimization concerns are even evaluated.
+**Its terminal state is not "done" — it's "enough for now".**
 
-### 3. Self-Evolving Intelligence
-The framework learns and adapts:
-- **Experience → Skill Promotion**: Verified experiences automatically become reusable skills through a four-tier trust pipeline (T1→T2→T3→T4)
-- **Dynamic Dimension Adaptation**: Audit weights auto-adjust based on task type
-- **Rule Evolution Loop**: External threat intelligence feeds into active security rules
-- **Scheduled Maintenance**: Automated cron-driven staleness checks, skill validation, and security evolution
+### Core Principles
+
+| Principle | Description |
+|---|---|
+| **Admit Ignorance** | Never predefine what can emerge from practice. Task stages, domain methodology, security rules, and runtime parameters all start as defaults and evolve through experience |
+| **Three-Layer Emergence** | Tasks evolve (stages emerge), knowledge evolves (experiences distill and flow), security evolves (rules grow from seed baseline) |
+| **File-as-Context** | Sub-commands share context through `.working/` directory files, not parameters or shared memory. Any skill can be invoked independently |
+| **Gated Emergence** | Emergence ≠ permissiveness. Every artifact passes through review: D1-D6 six-dimension scoring, quality status transitions, audit validation |
+| **Self-Adaptive** | Users configure nothing. All behavioral parameters have hardcoded fallbacks and converge from experience — the more tasks of the same type run, the better the system understands that type's rhythm |
+| **Only Abandonment is Final** | `cancelled` is the only terminal state. `satisfied` is "temporarily enough" — re-enterable when understanding grows or requirements change |
+| **Lessons Must Close the Loop** | Experiences aren't write-and-forget. Plans record adoption sources, highlight tracks adoption counts, reports summarize bidirectionally. Good lessons prove themselves through repeated adoption |
+| **Security Baseline is Floor, Not Ceiling** | 10 injection detection categories are the seed baseline. Evolved rules can override any category or append new ones (11+). Security is continuous adversarial adaptation |
 
 ---
 
-## II. Core Concepts
+## II. Three Evolution Layers
 
-### Task as Notebook
-Every task is bound to an independent Notebook structure with:
-- `.target.md` — Progressive objectives (multi-stage support)
-- `.plan.md` — Implementation plan with VH stubs
-- `.working/` — Execution artifacts and state
-- `.analysis/` — Six-dimension audit reports
+### 1. Task Evolution — Progressive Stages
 
-### Shared Knowledge Library
-Cross-task knowledge base at `$NB_WORKSPACES_LIBRARY/`:
-- `.memory/.references/` — Validated external knowledge
-- `.memory/.experiences/` — Distilled task insights
-- `.skills/` — Three-tier skill directory (`.candidates/` → `.drafts/` → `.active/`)
-- `.changelog` — Append-only audit trail
+Stages emerge one at a time. No predefined `stage.total`. Each merge produces `evolving` status; the user decides the next direction or says "satisfied".
 
-### Scope-Based Commands
-Commands operate at different scopes:
-- **`scope=context`** — Conversation-level review (no file output)
-- **`scope=lifecycle`** — Full task lifecycle audit
-- **`scope=skill`** — Skill validation and promotion
-- **`scope=rules`** — Security rule evolution
+```
+init → target → plan → check → exec → merge → report
+         ↑                                    ↓
+         └──── evolving (define next stage) ──┘
+                    │
+                    └──→ satisfied (re-enterable)
+```
+
+### 2. Knowledge Evolution — Experience Lifecycle
+
+```
+highlight writes experiences → plan reads & adopts → adoption_count increments
+     ↓                              ↓                        ↓
+provisional → verified         Adopted Experiences §    high adoption = proven lesson
+     ↓                              ↓
+invalidated (if misleading)    report summarizes both directions
+```
+
+Shared type profiles accumulate cross-task domain intelligence. Three writers: research (discovery), highlight (distillation), auto (execution metrics).
+
+### 3. Security Evolution — Evolvable Rules
+
+```
+seed baseline (10 categories, injection-rules.md)
+        +
+evolved rules (.evolving-rules/sanitization/active/*.md)
+        ↓ merge: evolved > seed (same category overrides, new categories append)
+        ↓
+merged ruleset applied to all external content
+```
 
 ---
 
-## III. 18 Sub-commands
+## III. Adaptive Behavior
+
+All behavioral parameters start as hardcoded defaults and converge from experience:
+
+| Parameter | Source | Fallback |
+|---|---|---|
+| Review thresholds | `.type-profile.md` Auto Adaptation | 0.70 / 0.60 / 0.75 / 0.80 |
+| Retry limits | `.type-profile.md` Auto Adaptation | 3 / 2 / 3 |
+| Mid-exec check interval | `.type-profile.md` Auto Adaptation | every 3 steps |
+| Compaction threshold | `.type-profile.md` Auto Adaptation | 82% context window |
+
+After each auto run, post-loop learning writes observed metrics back. Future tasks of the same type use experience-refined values.
+
+---
+
+## IV. 18 Sub-commands
 
 ### Lifecycle Commands
 
@@ -92,16 +119,16 @@ Commands operate at different scopes:
 | `check` | Gated six-dimension review |
 | `exec` | Step-by-step execution following VFP |
 | `merge` | Merge task branch to main |
-| `highlight` | Experience distillation and skill promotion |
-| `report` | Generate completion report |
+| `highlight` | Experience distillation and adoption tracking |
+| `report` | Generate completion report with adoption summary |
 
 ### System Commands
 
 | Command | Role |
 |---------|------|
-| `read` | Safely ingest external knowledge |
+| `read` | Safely ingest external knowledge (seed + evolved rules) |
 | `security` | Pre-audit plans, verify high-risk commands |
-| `auto` | Autonomous execution loop |
+| `auto` | Autonomous execution loop (adaptive thresholds) |
 | `cancel` | Cancel task, clean up state |
 | `list` | Query task inventory and status |
 | `annotate` | Process interactive annotations |
@@ -110,7 +137,7 @@ Commands operate at different scopes:
 
 ---
 
-## IV. Six-Dimension Audit
+## V. Six-Dimension Gated Review (D1-D6)
 
 | Dimension | Focus |
 |-----------|-------|
@@ -121,6 +148,14 @@ Commands operate at different scopes:
 | **D5 Architecture** | Module boundaries, extension points |
 | **D6 Maintainability** | Readability, naming conventions |
 
+### Gated Execution
+```
+Gate 1: D2 Security    ─── BLOCK < 0.5 ───→ Fix before proceeding
+Gate 2: D1 Correctness ─── BLOCK < 0.5 ───→ Fix before proceeding
+Gate 3: D3 Reliability ─── BLOCK < 0.5 ───→ Fix before proceeding
+Gate 4: D4 + D5 + D6   ─── Optimization scoring (non-blocking)
+```
+
 ### Dynamic Adaptation
 Dimension weights auto-adapt based on task type:
 1. Load from `.type-profile.md` "Audit Adaptation" section
@@ -129,7 +164,7 @@ Dimension weights auto-adapt based on task type:
 
 ---
 
-## V. Self-Evolution Infrastructure
+## VI. Self-Evolution Infrastructure
 
 ### Skill Trust Pipeline (T1 → T4)
 
@@ -142,8 +177,6 @@ T3 Active (.skills/.active/)
     ↓  Production validation (usage_count ≥ 3, zero REPLAN failures)
 T4 Production-Validated (.skills/.active/, trust_tier: T4)
 ```
-
-All promotions are fully LLM-automated — no human review gates.
 
 ### Rule Evolution Loop
 ```
@@ -158,8 +191,6 @@ External Intelligence → research --caller audit → candidates/*.yaml
 
 ### Scheduled Maintenance
 
-Automated cron-driven maintenance runs four checks daily:
-
 | Check | Interval | Description |
 |-------|----------|-------------|
 | Staleness | 24h | Flag references older than 30 days |
@@ -167,35 +198,18 @@ Automated cron-driven maintenance runs four checks daily:
 | Security Rules Evolution | Core: 7d / Extended: 1d | Scan threats, sync evolving rules |
 | Changelog Size | 24h | Warn if changelog exceeds 2000 lines |
 
-```bash
-# Auto-configure cron (daily at 03:00, version-independent path)
-/task-ai:library maintain --install-cron
-
-# Remove cron entry
-/task-ai:library maintain --uninstall-cron
-```
-
 ---
 
-## VI. Runtime Infrastructure
+## VII. Auto Mode — Four-Phase Flow
 
-### Core Modules
+```
+Phase 1: Target Definition (human-in-loop)
+Phase 2: Planning (auto-review, adaptive thresholds from .type-profile.md)
+Phase 3: Execution (auto-review, adaptive mid-exec check interval)
+Phase 4: Finalization (merge → highlight → report → stop)
+```
 
-| Module | Role |
-|--------|------|
-| `state.py` | State machine with atomic locking |
-| `frontmatter.py` | Frontmatter parsing for SKILL.md and experiences |
-| `lib.sh` | Shared runtime utilities |
-| `rebuild-index.py` | Index builder for `.memory/` and `.skills/` |
-| `core-rule-auto.sh` | Security rules LLM-driven evolution pipeline |
-| `rule-loader.sh` | Dynamic rule loading |
-
-### Environment Variables
-
-| Variable | Default |
-|----------|---------|
-| `NB_WORKSPACES_ROOT` | `/home/user/nb-workspaces` |
-| `NB_WORKSPACES_LIBRARY` | `$NB_WORKSPACES_ROOT/.library` |
+Post-loop learning writes execution metrics (retries, iterations, compaction count) back to `.type-profile.md` Auto Adaptation, enabling future tasks to run with experience-refined parameters.
 
 ---
 
@@ -214,4 +228,4 @@ cd notebook-ai && ./restart.sh
 MIT
 
 ---
-*task-ai v1.0.0 — Self-evolving task lifecycle management*
+*task-ai v1.2.0 — A system that admits ignorance and lets everything emerge from practice*
