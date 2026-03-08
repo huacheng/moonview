@@ -21,7 +21,7 @@ codex plugin add huacheng/moonview
 
 ## 插件
 
-### task-ai (v1.2.0)
+### task-ai (v1.2.1)
 
 ## 一、设计哲学
 
@@ -228,4 +228,4 @@ cd notebook-ai && ./restart.sh
 MIT
 
 ---
-*task-ai v1.2.0 — 一个承认无知的系统，让一切从实践中涌现*
+*task-ai v1.2.1 — 一个承认无知的系统，让一切从实践中涌现*
