@@ -84,7 +84,7 @@ Requirement layer (strongest) → Planning → Evaluation → Methodology → In
     - If status changed to something other than `re-planning`, clear `phase` to `""`
     - Update `updated` timestamp
 13. **Write `.summary.md`** (atomic write via `.summary.md.tmp` + rename) with condensed context reflecting annotation changes
-14. **Execute highlight** protocol `scope=thinking-raw` — see `highlight/SKILL.md` §3.3. Optional (medium-value). Captures cross-impact assessment reasoning. Inline call failure MUST NOT block annotate's main flow
+14. **Execute highlight** protocol `scope=thinking-raw` — see `highlight/SKILL.md` §3.3. Optional (medium-value). Captures cross-impact assessment reasoning. Inline call failure should not block annotate's main flow — highlight is enhancement, not gating
 15. **Git commit** (skip if all annotations were unresolvable and no files changed): `task-ai(<notebook>):annotate annotations processed`
 16. **Generate execution report** (print to screen)
 17. **Release `.working/.lock`**

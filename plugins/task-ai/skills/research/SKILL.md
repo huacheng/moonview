@@ -202,7 +202,7 @@ Callable independently for preparatory research before any phase, or to suppleme
     ```
 17. **Flush** any pending plugin registry updates to `$NB_WORKSPACES_LIBRARY/.plugin-registry.md` (accumulated during step 15 doc-parse delegation — see `auto/references/plugin-delegation.md` Re-entrancy rule). This happens while still holding `.memory/.references/.lock`, avoiding a second lock acquisition
 18. **Release** `$NB_WORKSPACES_LIBRARY/.memory/.references/.lock`
-19. Execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture technology selection and feasibility reasoning from research process. Inline call failure MUST NOT block research's main flow
+19. Execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture technology selection and feasibility reasoning from research process. Inline call failure should not block research's main flow — highlight is enhancement, not gating
 20. **Git commit**: `task-ai(<notebook>):research collect references` (skip if no files written; include `.type-profile.md` and `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` if updated)
 21. **Report** research summary. Then output next step prompt based on caller:
     - `--caller target` (O1/O2/O3) → "Research stage complete. Please review the insights above and confirm or revise before continuing."

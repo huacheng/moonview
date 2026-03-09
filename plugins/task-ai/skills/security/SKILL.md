@@ -1,6 +1,6 @@
 ---
 name: security
-description: "Runtime Guardian — audits plans and intercepts high-risk shell commands before execution to prevent latent attacks."
+description: "Runtime Guardian — audits plans and intercepts high-risk shell commands before execution to prevent latent attacks. Invoked automatically by exec and plan as a pre-hook, or manually via 'security audit-plan' or 'security verify-cmd'. Use when reviewing command safety or scanning skills for injection risks."
 model_tier: heavy
 auto_delegatable: false
 triggers:
@@ -51,7 +51,7 @@ Acts as the mandatory pre-hook for existing sub-commands (`check` and `exec`), e
 2. **Dynamic Rules** (Tier 1): Check against evolving rules from `.evolving-rules/security/active/`.
 3. **Core Pattern Scan** (Tier 2): Check for destructive commands, VFP injection, two-stage payloads, download-then-execute, environment manipulation, path traversal, injection/obfuscation, config file tampering, sensitive path access, secret exfiltration, DNS tunneling, SSRF to internal networks, and reverse shell patterns.
 4. **Verdict**: Return `[SECURITY] PASS: Plan looks safe` or `[SECURITY] BLOCKED: High risk operations detected in plan` with findings list.
-5. (Optional) Execute highlight protocol scope=thinking-raw (see `highlight/SKILL.md` section 3.3). Not implemented in `security.sh`; intended for agent-level callers. Inline call failure MUST NOT block security's main flow.
+5. (Optional) Execute highlight protocol scope=thinking-raw (see `highlight/SKILL.md` section 3.3). Not implemented in `security.sh`; intended for agent-level callers. Inline call failure should not block security's main flow — highlight is enhancement, not gating.
 
 ### scan-skill (L1 static analysis)
 1. Validate skill file exists and is non-empty.

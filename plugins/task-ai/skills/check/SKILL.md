@@ -1,6 +1,6 @@
 ---
 name: check
-description: "Six-dimension gated review — context-aware plan/solution audit, lifecycle checkpoints, and skill validation"
+description: "Six-dimension gated review — evaluates plans, implementations, and skills through D1-D6 quality gates with convergence tracking. Use for post-plan review, mid-exec assessment, post-exec acceptance, or any time the user says 'check', 'review', 'audit', 'evaluate quality', or wants to know if deliverables are ready."
 model_tier: heavy
 auto_delegatable: false
 triggers:
@@ -151,7 +151,7 @@ scope=context has two output modes, depending on whether check proceeds to fix i
 
 **Mode 2: Audit-and-fix** — check identifies issues AND proceeds to apply fixes directly:
 
-Mode 2 is entered when the user's invocation implies fixing (e.g., "审查与修复", "audit and fix", "review and fix"), or when the user explicitly confirms to proceed with fixes after seeing Mode 1 output. When in Mode 2, each fix that modifies code/spec/config files MUST follow the RED→GREEN protocol:
+Mode 2 is entered when the user's invocation implies fixing (e.g., "审查与修复", "audit and fix", "review and fix"), or when the user explicitly confirms to proceed with fixes after seeing Mode 1 output. When in Mode 2, each fix that modifies code/spec/config files follows the RED→GREEN protocol (applying untested fixes risks false-green scenarios that propagate to downstream execution):
 
 1. **Classify** finding → (fix category, task type) → select test approach from `commands/references/test-strategy-by-type.md` Strategy Matrix
 2. **Write** the regression test (RED) — it should fail against current codebase (confirming the bug exists before fixing prevents false-green scenarios)
@@ -484,7 +484,7 @@ Before step 1, determine scope from invocation:
     - **Security Audit (Pre-hook)** (post-plan checkpoint only): Invoke `/task-ai:security audit-plan` before D1-D6 evaluation — security issues caught early avoid wasted effort on plans that will be rejected. If verdict is `BLOCKED` or `HIGH_RISK`, render `REPLAN` immediately with the security report attached.
     - **Optional delegation — code-review** (post-exec checkpoint only): Follow `auto/references/plugin-delegation.md` to attempt matching the `code-review` capability slot. If matched, invoke via Task subagent with a git diff summary as input — review results serve as supplementary evaluation evidence. No match or failure → continue standard inline evaluation
     - **Regression Test Protocol (HARD GATE)**: When check directly applies fixes (not just rendering a verdict), follow the same RED→GREEN protocol defined in §S1 Mode 2 (steps 1-7). The protocol ensures each fix is verified before and after — false-green scenarios are caught immediately rather than propagating to downstream execution. Exemptions and scope rules: see [Regression Test Applicability](#regression-test-applicability)
-    - **Lifecycle NEEDS_FIX output**: When check renders NEEDS_FIX (not fixing itself), the `.bugfix/` file MUST include a regression test specification for each finding — test approach, RED assertion, expected GREEN behavior — so that `exec` can execute the RED→GREEN protocol when applying the fix
+    - **Lifecycle NEEDS_FIX output**: When check renders NEEDS_FIX (not fixing itself), the `.bugfix/` file includes a regression test specification for each finding — test approach, RED assertion, expected GREEN behavior — so that `exec` can execute the RED→GREEN protocol when applying the fix
     - **Convergence evaluation** (post-exec checkpoint only, after D1-D6 passes threshold):
       - 10g. Read `.convergence-baseline.md` → extract R# items and weights
       - 10h. Read latest `.analysis/*-convergence.md` (if exists) as score anchor
@@ -503,12 +503,12 @@ Before step 1, determine scope from invocation:
 11. **Write** output files per outcome: evaluation to `.analysis/` or `.bugfix/` (per Outcomes tables above), and test results to `.test/<date>-<checkpoint>-results.md` when tests are evaluated (mid-exec and post-exec checkpoints)
     - **REPLAN with traceable reference**: if verdict is REPLAN AND evaluation identifies a specific `.memory/.references/<file>` as misleading (e.g., bad API docs caused wrong approach), increment `failure_count` in that reference file's frontmatter (acquire `.memory/.references/.lock` → read frontmatter → `failure_count++` → write atomically → append `reference` changelog update line → release lock)
 12. **Experience and quality updates** (skip for CONTINUE verdict — insufficient evaluation evidence):
-    - Write evaluation experience: execute highlight protocol scope=impl pattern — see `highlight/SKILL.md` §3.1 for format. Write to `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-eval.md` with evaluation findings, verdict rationale, and domain quality criteria learned — `quality_status: provisional`. Follow the same write steps (acquire lock → O_APPEND → changelog → index → release). Inline call failure MUST NOT block check's main flow
-    - **`quality_status` updates**: execute highlight protocol scope=quality-update — see `highlight/SKILL.md` §3.4. ACCEPT (post-exec): provisional → verified. REPLAN: provisional → invalidated (if experience was misleading source). Inline call failure MUST NOT block check's main flow
+    - Write evaluation experience: execute highlight protocol scope=impl pattern — see `highlight/SKILL.md` §3.1 for format. Write to `$NB_WORKSPACES_LIBRARY/.memory/.experiences/<type>/<notebook>-eval.md` with evaluation findings, verdict rationale, and domain quality criteria learned — `quality_status: provisional`. Follow the same write steps (acquire lock → O_APPEND → changelog → index → release). Inline call failure should not block check's main flow — highlight is an enhancement step, not a gating requirement
+    - **`quality_status` updates**: execute highlight protocol scope=quality-update — see `highlight/SKILL.md` §3.4. ACCEPT (post-exec): provisional → verified. REPLAN: provisional → invalidated (if experience was misleading source). Inline call failure should not block check's main flow (same fault isolation)
 13. **Update** each written directory's `.summary.md` — overwrite with condensed summary of ALL entries in that directory (`.analysis/.summary.md`, `.bugfix/.summary.md`, `.test/.summary.md` as applicable per checkpoint)
 14. **Write** task-level `.summary.md` with condensed context: task state, plan summary, evaluation outcome, progress (`completed_steps`), known issues, key decisions (integrate from directory summaries)
 15. **Update** `.status.json` status and timestamp per outcome
-16. Execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture quality judgment and ACCEPT/REPLAN decision reasoning. Inline call failure MUST NOT block check's main flow
+16. Execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture quality judgment and ACCEPT/REPLAN decision reasoning. Inline call failure should not block check's main flow (same fault isolation)
 17. **Git commit**: per outcome (see Git section below). All outcomes commit their output files and state updates, regardless of whether status changes
 18. **Report** evaluation result with detailed reasoning. Then output next step prompt based on verdict:
     - PASS (post-plan) → "Plan approved. Ready to execute — say 'auto' to start the automatic execution loop, or `/task-ai:exec` to execute manually step by step."
@@ -573,11 +573,11 @@ Verification methods should match the task domain — a unit test suite for a do
 - Evaluation should be thorough but pragmatic — focus on blocking issues, not style preferences
 - Each assessment creates a new file in `.analysis/` (full evaluation history preserved, latest = last by filename sort)
 - Each NEEDS_FIX issue (mid-exec or post-exec) creates a new file in `.bugfix/` (one issue per file, filename includes date + summary, with regression test spec)
-- For `post-exec`, if tests exist (`.test/` criteria files), they MUST be run and pass for ACCEPT
+- For `post-exec`, if tests exist (`.test/` criteria files), they should be run and pass for ACCEPT — untested deliverables cannot be accepted with confidence
 - Check writes test results to `.test/<date>-<checkpoint>-results.md` (e.g., `YYYY-MM-DD-post-exec-results.md`) documenting test outcomes
-- `depends_on` in `.status.json` MUST be validated: if any dependency is not met (simple string → `satisfied`, extended object → at-or-past `min_status`), verdict is BLOCKED (not just flagged as risk)
+- `depends_on` in `.status.json` is always validated: if any dependency is not met (simple string → `satisfied`, extended object → at-or-past `min_status`), verdict is BLOCKED (not just flagged as risk)
 - **Concurrency**: Check acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)
-- **Six-dimension audit (L3)**: For thorough evaluation, apply D1 Correctness / D2 Security / D3 Reliability / D4 Performance / D5 Architecture / D6 Maintainability checks systematically, adapted to the task's domain type. MUST follow `references/six-dimension-audit.md` Audit Workflow steps 1-9 in full. When L3 audit **directly applies fixes** (audit-and-fix mode), steps 7-9 (regression test design, RED→GREEN confirmation, full suite verification) are mandatory per Regression Test Applicability table. When L3 audit only renders a verdict, embed test specs in output for downstream actor
+- **Six-dimension audit (L3)**: For thorough evaluation, apply D1 Correctness / D2 Security / D3 Reliability / D4 Performance / D5 Architecture / D6 Maintainability checks systematically, adapted to the task's domain type. follow `references/six-dimension-audit.md` Audit Workflow steps 1-9 in full. When L3 audit **directly applies fixes** (audit-and-fix mode), steps 7-9 (regression test design, RED→GREEN confirmation, full suite verification) are mandatory per Regression Test Applicability table. When L3 audit only renders a verdict, embed test specs in output for downstream actor
 - **VFP applicability**: VFP applies when `type` contains `software` OR `.type-profile.md` contains `## Verification Cycle` section. See `commands/references/verification-first-protocol.md` for full applicability rules
 - **verify integration**: The `verify` sub-command can pre-run tests independently. When recent `verify` results exist (same day, matching checkpoint), check incorporates them instead of re-running. This is optional — check works standalone
 
@@ -587,7 +587,7 @@ The Regression Test Protocol (step 10a-10f) triggers based on **who applies the 
 
 | Scope | Mode | Who Fixes? | RED→GREEN Required? | Why |
 |-------|------|-----------|:---:|-----|
-| **context** | Audit-and-fix | check itself | **Yes** | check directly modifies files → must follow §S1 Mode 2 RED→GREEN steps |
+| **context** | Audit-and-fix | check itself | **Yes** | check directly modifies files → follows §S1 Mode 2 RED→GREEN steps |
 | **lifecycle** (post-plan) | Verdict only | plan (on NEEDS_REVISION) | No (check) / **Yes (plan)** | check renders verdict; plan applies fix with its own RED→GREEN |
 | **lifecycle** (mid-exec, post-exec) | Verdict only | exec (on NEEDS_FIX) | No (check) / **Yes (exec)** | check writes `.bugfix/` with test spec; exec executes RED→GREEN |
 | **lifecycle** (any) | L3 deep audit-and-fix | check itself | **Yes** | L3 audit directly modifies files → steps 7-9 mandatory |
@@ -599,7 +599,7 @@ The Regression Test Protocol (step 10a-10f) triggers based on **who applies the 
 
 **Key principle**: The protocol binds to the **actor who modifies files**, not to the check command itself. When check only evaluates, it embeds test specs in its output (`.bugfix/`, `.analysis/`) for the downstream actor to execute.
 
-**Lifecycle NEEDS_FIX `.bugfix/` format**: Each finding section MUST include:
+**Lifecycle NEEDS_FIX `.bugfix/` format**: Each finding section includes:
 ```markdown
 ### Regression Test
 - **Category**: [Runtime code | Spec text | Fixture data | ...]

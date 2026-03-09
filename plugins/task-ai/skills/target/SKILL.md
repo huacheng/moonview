@@ -118,7 +118,7 @@ Build a JWT authentication system
         - **ELSE**: generate single-stage `.target.md` (simplified format)
       - **ELSE** (status ∉ {`draft`, `planning`}): update current stage target content (no multi-stage analysis — plan is already based on current stage target)
       - Atomic write to `.working/.target.md` + update `.status.json` + Git commit: `task-ai(<notebook>):target update objective`
-      - Execute highlight protocol scope=thinking-raw (optional, high-value). Inline call failure MUST NOT block target's main flow.
+      - Execute highlight protocol scope=thinking-raw (optional, high-value). Inline call failure should not block target's main flow — highlight is enhancement, not gating.
 
    3e. **Convergence Baseline Generation** (after `.target.md` write, before Git commit):
 
@@ -154,7 +154,7 @@ Build a JWT authentication system
    - **Read**: Read the content of `.working/.target.md`.
    - **Display**: Output the structured objective to the conversation window.
 5. **Validation**: Confirm the target reflects the user's intent.
-6. **Next Step Prompt** (MUST output after write mode completes — see table below).
+6. **Next Step Prompt** (output after write mode completes — guides the user to the correct next lifecycle step).
 
 ## Next Step Prompt
 

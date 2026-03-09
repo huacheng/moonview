@@ -96,7 +96,7 @@ Target: `.memory/.experiences/<type>/<notebook>-impl.md` | Mode: O_APPEND | Lock
 
 #### Fault Isolation
 
-> Inline call failure MUST NOT block exec's main flow. exec's code implementation and state transitions are unaffected. On failure: log warning and continue.
+> Inline call failure should not block the caller's main flow — highlight is an enhancement step, not a gating requirement.
 
 ---
 
