@@ -173,7 +173,7 @@ Callable independently for preparatory research before any phase, or to suppleme
 13. **Gap analysis** (based on library search results from step 7):
     - Cross-reference library search results with intelligence matrix from step 12 — ensure collection targets match the calling phase's needs
     - For hybrid types: include keywords from **both** primary and secondary domains
-    - Topics with high-scoring library matches (score ≥ 8) are considered **covered** — read the matched files (Layer 3) for content confirmation if needed
+    - Topics with high-scoring library matches (score ≥ 8) are considered **covered**. For `--scope deep`, read the top match (Layer 3) to verify content freshness and relevance — stale or tangential matches are reclassified as uncovered. For `--scope gap`, trust the score without Layer 3 confirmation (speed over precision)
     - Topics with no matches or low scores are **uncovered** and need research
     - Produce a list of **uncovered topics** that need research
     - If `--scope gap` and no uncovered topics → log `"references sufficient, skipping collection"` → skip to step 18
