@@ -71,14 +71,18 @@ sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/" "$TEMP_DIR/mar
 log "更新 .claude-plugin/marketplace.json (Claude 读取)..."
 sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/" "$TEMP_DIR/.claude-plugin/marketplace.json"
 
+log "更新 .claude-plugin/plugin.json (市场包版本)..."
+sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/" "$TEMP_DIR/.claude-plugin/plugin.json"
+
 # 7. 验证版本一致性
 log "验证版本一致性..."
 V1=$(grep '"version"' "$TEMP_DIR/plugins/task-ai/plugin.json" | grep -o '"[0-9.]*"' | tr -d '"')
 V2=$(grep '"version"' "$TEMP_DIR/marketplace.json" | head -1 | grep -o '"[0-9.]*"' | tr -d '"')
 V3=$(grep '"version"' "$TEMP_DIR/.claude-plugin/marketplace.json" | head -1 | grep -o '"[0-9.]*"' | tr -d '"')
+V4=$(grep '"version"' "$TEMP_DIR/.claude-plugin/plugin.json" | grep -o '"[0-9.]*"' | tr -d '"')
 
-if [[ "$V1" != "$NEW_VERSION" ]] || [[ "$V2" != "$NEW_VERSION" ]] || [[ "$V3" != "$NEW_VERSION" ]]; then
-    error "版本不一致! plugin.json=$V1, marketplace.json=$V2, .claude-plugin/marketplace.json=$V3"
+if [[ "$V1" != "$NEW_VERSION" ]] || [[ "$V2" != "$NEW_VERSION" ]] || [[ "$V3" != "$NEW_VERSION" ]] || [[ "$V4" != "$NEW_VERSION" ]]; then
+    error "版本不一致! plugin.json=$V1, marketplace.json=$V2, .claude-plugin/marketplace.json=$V3, .claude-plugin/plugin.json=$V4"
 fi
 log "✅ 所有版本文件一致: $NEW_VERSION"
 
