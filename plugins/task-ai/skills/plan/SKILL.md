@@ -156,7 +156,7 @@ task-ai(<notebook>):plan generate implementation plan
 
 ## Task-Type-Aware Planning
 
-Plan methodology MUST adapt to the task domain. Different domains require different design approaches, tool choices, and milestones.
+Plan methodology adapts to the task domain — a software task needs test-first steps while a documentation task needs outline-first structure. Different domains require different step granularity and verification approaches.
 
 > **See `skills/init/references/seed-types/<type>.md`** for per-type seed methodology (plan structure, key considerations). Shared profiles in `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` take precedence when available.
 

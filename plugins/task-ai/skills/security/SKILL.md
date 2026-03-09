@@ -62,7 +62,7 @@ Acts as the mandatory pre-hook for existing sub-commands (`check` and `exec`), e
 ## Incident Response
 If a command is `REJECT`ed during `exec`:
 1. The execution step is aborted (signal: `(mid-exec)`, state: `NEEDS_FIX`).
-2. **Lineage Tracing**: Agent must identify which `.references/` or `.experiences/` file proposed the command.
+2. **Lineage Tracing**: Agent should trace which `.references/` or `.experiences/` file proposed the command — this lineage enables targeted quarantine if a reference file is later found to contain malicious patterns.
 3. **Quarantine**: Update the source file's frontmatter to `injection_risk: high` and `status: invalidated`.
 
 ## State Transitions

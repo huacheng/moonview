@@ -28,6 +28,17 @@ arguments:
 
 Unified review capability with gated execution: Gate 1 (D2 Security) → Gate 2 (D1 Correctness) → Gate 3 (D3 Reliability) → Gate 4 (D4+D5+D6 Optimization).
 
+## Table of Contents
+
+- [Usage](#usage) — invocation patterns and parameter routing
+- [Scope Definitions](#scope-definitions) — §S1 context, §S2 lifecycle, §S3 skill, §S4 rules
+- [Four-File Anchored Review](#four-file-anchored-review) — dimension-anchor mapping table
+- [Convergence Evaluation](#convergence-evaluation) — formula, scoring scale, anchor mechanism
+- [Checkpoints](#checkpoints-scopelifecycle) — post-plan, mid-exec, post-exec, pre-merge
+- [Execution Steps](#execution-steps) — scope routing + lifecycle steps 1-18
+- [State Transitions](#state-transitions) — status transition table
+- [Regression Test Applicability](#regression-test-applicability) — who fixes, who tests
+
 ## Usage
 
 ```
@@ -143,7 +154,7 @@ scope=context has two output modes, depending on whether check proceeds to fix i
 Mode 2 is entered when the user's invocation implies fixing (e.g., "审查与修复", "audit and fix", "review and fix"), or when the user explicitly confirms to proceed with fixes after seeing Mode 1 output. When in Mode 2, each fix that modifies code/spec/config files MUST follow the RED→GREEN protocol:
 
 1. **Classify** finding → (fix category, task type) → select test approach from `commands/references/test-strategy-by-type.md` Strategy Matrix
-2. **Write** the regression test (RED) — must fail against current codebase
+2. **Write** the regression test (RED) — it should fail against current codebase (confirming the bug exists before fixing prevents false-green scenarios)
 3. **Run** → confirm FAIL (RED). If test passes unexpectedly, the finding may be invalid — reassess before proceeding
 4. **Apply** the fix
 5. **Run** → confirm PASS (GREEN)
@@ -291,65 +302,9 @@ For standalone check invocations (no auto context), default to `max_rounds = 3`.
 
 ## Convergence Evaluation
 
-Convergence measures whether deliverables are moving toward the task's target requirements. Used by the post-exec dual gate to distinguish "quality OK but wrong direction" (ROLLBACK) from "quality OK and progressing" (ACCEPT).
+Convergence measures whether deliverables are moving toward the task's target requirements. Used by the post-exec dual gate to distinguish "quality OK but wrong direction" (ROLLBACK) from "quality OK and progressing" (ACCEPT). Formula: `Σ(wᵢ × cᵢ) / Σ(wᵢ)` where weights come from `.convergence-baseline.md`. First stage (empty history) uses 0.0 as previous — any progress always passes the direction gate.
 
-### Formula
-
-```
-convergence = Σ(wᵢ × cᵢ) / Σ(wᵢ)
-```
-
-Where:
-- `wᵢ` = weight of R# item (from `.convergence-baseline.md`)
-- `cᵢ` = coverage score for R# item (see scale below)
-
-### Scoring Scale
-
-Each R# item is evaluated against current deliverables:
-
-| Score | Meaning |
-|-------|---------|
-| **1.00** | Fully satisfied — requirement completely implemented and verified |
-| **0.75** | Mostly satisfied — core functionality present, minor gaps |
-| **0.50** | Partially satisfied — some progress but significant gaps remain |
-| **0.25** | Minimally addressed — initial work started, mostly incomplete |
-| **0.00** | Not addressed — no deliverable progress toward this requirement |
-
-### Anchor Mechanism
-
-To prevent score drift across evaluations:
-
-1. Read previous `.analysis/*-convergence.md` (latest by filename sort) as **anchor**
-2. For each R# item, compare current assessment against previous score
-3. If score changed by more than ±0.25 from previous, provide explicit justification in the per-R# detail table
-4. If no previous convergence file exists (first stage evaluation), scores are unanchored — note this in the output. Previous convergence defaults to 0.0 so first stage always passes the direction gate (any progress > 0)
-
-### Output Format
-
-Write evaluation to `.analysis/<date>-convergence.md`:
-
-```markdown
-# Convergence Evaluation — <date>
-
-**Previous convergence**: <score or "N/A (first evaluation)">
-**Current convergence**: <score>
-**Delta**: <+/- change>
-**Verdict**: ACCEPT / ROLLBACK
-
-## Per-R# Detail
-
-| R# | Description | Weight | Previous | Current | Justification |
-|----|-------------|--------|----------|---------|---------------|
-| R1 | ... | 3 | 0.50 | 0.75 | Added error handling module |
-| R2 | ... | 2 | 0.75 | 0.75 | No change |
-| ... | | | | | |
-
-## Decision Rationale
-
-<Why convergence improved/regressed, what deliverables contributed>
-```
-
-For ROLLBACK outcomes, the file is named `.analysis/<date>-convergence-rollback.md` and includes an additional `## Failure Experience` section documenting what went wrong and lessons learned for the next attempt.
+> **See `references/convergence-evaluation.md`** for the full formula, 5-level scoring scale (0.00–1.00), anchor mechanism to prevent score drift, and `.analysis/<date>-convergence.md` output format.
 
 ## Checkpoints (scope=lifecycle)
 
@@ -526,17 +481,9 @@ Before step 1, determine scope from invocation:
 9. **Incorporate verify results**: If fresh verification results exist in `.test/` (from a prior `verify` run, same day and matching checkpoint), read and incorporate them. Otherwise, run verification procedures inline as part of evaluation — inline scope is limited to the criteria in the latest `.test/` criteria file only (build + test + acceptance). For comprehensive domain-adapted verification, invoke `verify` explicitly before `check`
 10. **Evaluate** against criteria (multi-round, budget-controlled)
     - **Audit round budget**: Use `max_rounds` from auto context (step 1b) or default 3. Each evaluation round covers D1-D6. After each round, check early termination via `audit_budget.py should-stop`. Track `consecutive_pass` count (rounds with zero fixes). When stopped, render final verdict
-    - **Security Audit (Pre-hook)** (post-plan checkpoint only): MUST invoke `/task-ai:security audit-plan`. If verdict is `BLOCKED` or `HIGH_RISK`, evaluation MUST immediately render a `REPLAN` verdict with the security report attached.
+    - **Security Audit (Pre-hook)** (post-plan checkpoint only): Invoke `/task-ai:security audit-plan` before D1-D6 evaluation — security issues caught early avoid wasted effort on plans that will be rejected. If verdict is `BLOCKED` or `HIGH_RISK`, render `REPLAN` immediately with the security report attached.
     - **Optional delegation — code-review** (post-exec checkpoint only): Follow `auto/references/plugin-delegation.md` to attempt matching the `code-review` capability slot. If matched, invoke via Task subagent with a git diff summary as input — review results serve as supplementary evaluation evidence. No match or failure → continue standard inline evaluation
-    - **Regression Test Protocol (HARD GATE)**: When check directly applies fixes (not just rendering a verdict), every non-exempt fix MUST follow the RED→GREEN protocol from `commands/references/test-strategy-by-type.md`:
-      - 10a. Classify finding → (fix category, task type) → select test approach from Strategy Matrix
-      - 10b. Write the regression test (RED) — must fail against current codebase
-      - 10c. Run → confirm FAIL (RED)
-      - 10d. Apply the fix
-      - 10e. Run → confirm PASS (GREEN)
-      - 10f. Run full test suite → confirm zero regressions
-    - **Exemptions** (from test-strategy-by-type.md): Pure typo fix (≤3 chars), comment-only change, historical doc annotation — these skip RED/GREEN (steps 10a-10e) but still require step 10f (full suite)
-    - See [Regression Test Applicability](#regression-test-applicability) for which scopes and modes trigger this protocol
+    - **Regression Test Protocol (HARD GATE)**: When check directly applies fixes (not just rendering a verdict), follow the same RED→GREEN protocol defined in §S1 Mode 2 (steps 1-7). The protocol ensures each fix is verified before and after — false-green scenarios are caught immediately rather than propagating to downstream execution. Exemptions and scope rules: see [Regression Test Applicability](#regression-test-applicability)
     - **Lifecycle NEEDS_FIX output**: When check renders NEEDS_FIX (not fixing itself), the `.bugfix/` file MUST include a regression test specification for each finding — test approach, RED assertion, expected GREEN behavior — so that `exec` can execute the RED→GREEN protocol when applying the fix
     - **Convergence evaluation** (post-exec checkpoint only, after D1-D6 passes threshold):
       - 10g. Read `.convergence-baseline.md` → extract R# items and weights
@@ -616,7 +563,7 @@ All outcomes commit their output files and state updates, regardless of whether 
 
 ## Task-Type-Aware Verification
 
-Verification methods MUST match the task domain. Read `type` from `.status.json` and apply domain-appropriate verification. If test methods are mismatched for the task type → verdict is NEEDS_REVISION.
+Verification methods should match the task domain — a unit test suite for a documentation task, or a prose review for a software task, produces false confidence. Read `type` from `.status.json` and apply domain-appropriate verification. If test methods are mismatched for the task type → verdict is NEEDS_REVISION.
 
 > **See `init/references/seed-types/<type>.md`** for per-type seed methodology (indicators, verification approach). Shared profiles in `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` take precedence when available.
 
