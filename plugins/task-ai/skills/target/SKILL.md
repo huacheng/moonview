@@ -106,9 +106,12 @@ Build a JWT authentication system
       - Atomic write + Git commit: `task-ai(<notebook>):target update objective`
       - Execute highlight protocol scope=thinking-raw (optional, high-value)
 
-   3c. **ELIF status == `satisfied`** → **REJECT** (auto handles re-entry):
-      - REJECT with message: "Use auto to re-enter from satisfied — auto sets evolving first, then calls target"
-      - Rationale: evolving status is auto's responsibility; direct target call from satisfied bypasses auto's state management
+   3c. **ELIF status == `satisfied`** → **Update Only (no status change)**:
+      - Update `.target.md` Overall Objective with user's new requirement
+      - Update `.convergence-baseline.md` (new/modified R#)
+      - **Do NOT change status** — stay `satisfied`
+      - Git commit: `task-ai(<notebook>):target update objective`
+      - Rationale: target only handles content; auto handles status transitions in evolving 入口决策
 
    3d. **ELSE** (normal mode, including first definition) → **Normal/Multi-stage Analysis Mode**:
       - **IF status ∈ {`draft`, `planning`}**: evaluate objective complexity:
@@ -184,7 +187,7 @@ After write mode completes, output the exact next step based on the resulting st
 | `blocked` | (updated) | `planning` | `post-target` | Target revised to unblock |
 | `evolving` | (updated) | `planning` | `post-target` | LLM auto-generates next substage target → stage advance |
 | `evolving` | --satisfy | `satisfied` | — | User temporarily satisfied |
-| `satisfied` | REJECT | — | — | Auto handles re-entry (sets evolving first, then calls target) |
+| `satisfied` | (updated) | `satisfied` | — | Update content only, no status change (auto handles evolving transition) |
 | `cancelled` | REJECT | — | — | Terminal state |
 
 ## Git

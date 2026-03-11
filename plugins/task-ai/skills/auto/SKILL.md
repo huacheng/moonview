@@ -164,9 +164,8 @@ Phase 4: Acceptance + 自动推进 (status=executing→evolving) — Full auto
   ### satisfied 重入
 
   用户在 satisfied 状态发起 refine（"还需要 X"）：
-  1. **auto 设置 status: satisfied → evolving**（auto 负责状态转换）
-  2. auto 调用 target 更新 .target.md Overall Objective + .convergence-baseline.md
-  3. 从 evolving 走正常流程：evolving 入口决策 → 自动生成子阶段目标 → planning → Phase 2
+  1. 调用 target 更新 .target.md Overall Objective + .convergence-baseline.md（status 保持 satisfied）
+  2. 进入 evolving 入口决策：auto 设置 status → evolving → 自动生成子阶段目标 → planning → Phase 2
 ```
 
 ## Dialog Behavior
@@ -198,7 +197,7 @@ satisfied 状态 — 等待用户决定:
 
 | User says | Claude does |
 |-----------|------------|
-| "还需要支持 OAuth" / "Add feature X" | **Re-enter**: auto sets status → evolving, calls target to update .target.md, then evolving 入口决策 |
+| "还需要支持 OAuth" / "Add feature X" | **Re-enter**: 调用 target 更新 .target.md → evolving 入口决策（设置 evolving → 生成子阶段 → planning）|
 | "够了" / "I'm done" | Stay satisfied (no action needed) |
 | "/task-ai:target --satisfy" | Already satisfied, no-op |
 | Silence | Report completion status, wait |
@@ -514,7 +513,7 @@ The auto skill runs this loop within a single Claude session:
 | `review` | Phase 3（post-plan 已通过，exec）— Execute exec |
 | `executing` | Phase 3（exec → check）— Execute verify → check (post-exec). **Note**: even if `completed_steps` < total, auto enters via post-exec verification first — check detects incomplete work and routes back to exec via NEEDS_FIX |
 | `evolving` | Phase 4（convergence < 0.95 自动推进 / ≥ 0.95 等用户）— 读取 convergence score，< 0.95 自动生成下一子阶段目标 → planning；≥ 0.95 报告并等用户响应 |
-| `satisfied` | 报告完成状态，等待用户。用户表达新需求 → auto 设置 evolving → 调用 target → evolving 入口决策 → planning |
+| `satisfied` | 报告完成状态，等待用户。用户表达新需求 → 调用 target 更新内容 → evolving 入口决策（设置 evolving → 生成子阶段 → planning）|
 | `blocked` | 报告阻塞原因，等用户干预 |
 | `cancelled` | 报告任务已取消（终态）|
 

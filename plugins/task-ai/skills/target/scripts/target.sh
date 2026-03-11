@@ -243,14 +243,9 @@ BASELINE_END
     echo "[target] Created convergence baseline template: $BASELINE_FILE"
 fi
 
-# D1: Reject satisfied status — auto handles re-entry (sets evolving first, then calls target)
-if [[ "$CURRENT_STATUS" == "satisfied" ]]; then
-    echo "[ERROR] Cannot call target directly from satisfied status. Use auto to re-enter — auto sets evolving first, then calls target." >&2
-    exit 1
-fi
-
 # D1: Update .status.json status transition (SKILL.md State Transitions table)
 # draft → planning; blocked → planning; review → re-planning
+# satisfied → no change (auto handles evolving transition in evolving 入口决策)
 if [[ -f "$STATUS_FILE" ]] && ! command -v jq &>/dev/null; then
     echo "[WARN] jq not found — cannot update .status.json status transition" >&2
 elif [[ -f "$STATUS_FILE" ]]; then
@@ -258,6 +253,7 @@ elif [[ -f "$STATUS_FILE" ]]; then
     case "$CURRENT_STATUS" in
         draft|blocked)  NEW_STATUS="planning" ;;
         review)         NEW_STATUS="re-planning" ;;
+        satisfied)      ;; # No status change — auto handles evolving transition
     esac
     if [[ -n "$NEW_STATUS" ]]; then
         TMP_STATUS=$(mktemp) || { echo "[ERROR] Failed to create temp file for status" >&2; exit 1; }
