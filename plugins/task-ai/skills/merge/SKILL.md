@@ -59,9 +59,11 @@ Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/
 
 After deliverables are copied and committed on main, checkout back to task branch for state update:
 
-1. **If status is `executing`**: Update `.status.json`: status → `evolving`, push completed stage entry to `stage.history` (with commit hash and convergence score)
-2. **If status is `evolving`**: Skip stage.history write (auto Phase 4 already wrote it). Merge only copies deliverables in this case
-3. Git commit state changes on task branch
+1. **Update `.target.md`**: Change current Stage marker from `[ACTIVE]` to `[COMPLETE]`, append `### Results` section with deliverables summary (read from `.summary.md` or `.analysis/` ACCEPT file)
+2. **If status is `executing`**: Update `.status.json`: status → `evolving`, push completed stage entry to `stage.history` (with commit hash and convergence score from latest `.analysis/*-convergence.md`)
+3. **If status is `evolving`**: Skip stage.history write (auto Phase 4 already wrote it). Merge only copies deliverables in this case
+4. Git commit state changes on task branch
+5. **Write `.auto-signal`** (if caller is auto): `{ "result": "evolving", "stage": { "current": N } }`
 
 **Atomicity**: If state transition fails, status remains `executing` — user can retry merge. If status update succeeds but git commit fails, status is `evolving` — auto re-enters from evolving entry point (highlight → report), no repeated merge.
 
@@ -76,8 +78,10 @@ After deliverables are copied and committed on main, checkout back to task branc
 5. **Phase 1**: Save `<notebook>/.deliverables/` to temp → checkout main → copy to `<project>/.deliverables/<notebook>/` → commit
 6. **If no `<notebook>/.deliverables/`**: skip copy, proceed to Phase 3 (state update still happens)
 7. **Checkout back** to task branch (state files live on task branch, not master)
-8. **Phase 3**: Update `.status.json`: status → `evolving`, push entry to `stage.history` → git commit `stage <N> completed`
-9. **Report** merge result. Then output next step prompt based on outcome:
+8. **Update `.target.md`**: Change current Stage `[ACTIVE]` → `[COMPLETE]`, append `### Results` section
+9. **Phase 3**: Update `.status.json`: status → `evolving`, push entry to `stage.history` (include convergence score from `.analysis/*-convergence.md`) → git commit `stage <N> completed`
+10. **Write `.auto-signal`** (if caller is auto): `{ "result": "evolving", "stage": { "current": N } }`
+11. **Report** merge result. Then output next step prompt based on outcome:
     - `evolving` → "Stage <N> deliverables copied. Next: `/task-ai:highlight` to distill stage experience, then `/task-ai:report` for the stage report."
 
 ## State Transitions

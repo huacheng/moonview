@@ -510,7 +510,7 @@ highlight **does not change notebook status**. Regardless of scope, `.status.jso
 | verify | None (verify manages status) |
 | thinking-raw | None (callers manage their own status) |
 | quality-update | None (check manages status) |
-| satisfied | None (merge already set satisfied) |
+| complete | None (merge already set evolving/satisfied) |
 | adhoc | None (no notebook lifecycle) |
 | promote | None (batch operation, no notebook lifecycle) |
 
