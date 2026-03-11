@@ -101,11 +101,49 @@ Thresholds and retry limits are **adaptive**: read from `.type-profile.md` `## A
 
 check evaluates deliverables against `.target.md`, `.convergence-baseline.md`, and `.plan.md` per D1-D6 dimension. See `check/SKILL.md` §Four-File Anchored Review for the full dimension-anchor mapping table.
 
+### Context Extraction (Phase 1 Entry)
+
+When `status=draft` and auto starts, **before** prompting for objectives:
+
+1. **Scan conversation history** — look for requirement signals:
+   - Explicit asks: "我想要...", "需要实现...", "帮我做...", "I want...", "I need...", "Build me..."
+   - Problem statements: "现在的问题是...", "The issue is...", "This doesn't work..."
+   - Feature descriptions: technical terms, API names, UI elements, behavior descriptions
+   - Constraints: "必须...", "不能...", "should", "must not", performance requirements
+
+2. **If sufficient signals found** (≥2 distinct requirement-like statements):
+   - Extract and structure into `.target.md` draft format:
+     ```markdown
+     ## Overall Objective
+     [Synthesized from conversation — 1-2 sentences]
+
+     ## Requirements (extracted)
+     - R1: [first requirement]
+     - R2: [second requirement]
+     ...
+
+     ## Constraints (if any)
+     - [extracted constraints]
+
+     ---
+     *[Auto-extracted from conversation. Please confirm or revise.]*
+     ```
+   - **Present draft to user** — do NOT write `.target.md` yet
+   - Wait for user confirmation/revision before proceeding
+
+3. **If insufficient signals** (< 2 requirement statements, or only vague discussion):
+   - Fall back to guided dialog: "我注意到我们讨论了一些想法，但还没有明确的目标。请描述你想要完成什么？"
+
+4. **After user confirms/revises** → call `/task-ai:target` to write files
+
+This enables seamless flow: user discusses requirements → says "auto" → auto extracts and confirms → proceeds to planning.
+
 ### Detailed Phase Flow
 
 ```
 Phase 1: Overall Objective (status=draft) — Human in the loop
-  1. 对话式 refine：引导用户定义 Overall Objective
+  0. Context Extraction: scan conversation → if signals found, present draft and await confirmation
+  1. 对话式 refine：引导用户定义/确认 Overall Objective
   2. Research（LLM 自决）：
      - 目标清晰、领域熟悉 → 跳过 research
      - 目标模糊或领域陌生 → 自动完成 research 全流程（O1→O2→O3 一次性完成），呈现结果
@@ -177,10 +215,13 @@ Phase 1 (Overall Objective) — waits for user confirmation (only users can vali
 
 | User says | Claude does |
 |-----------|------------|
-| "I need WebSocket auth with token refresh" | Write/update .target.md |
-| "Also needs backward compatibility" | Append requirement to .target.md |
+| (auto starts, conversation has requirements) | **Context Extraction** → present draft → await confirmation |
+| (auto starts, conversation is vague) | Ask: "请描述你想要完成什么？" |
+| "I need WebSocket auth with token refresh" | Write/update .target.md draft |
+| "Also needs backward compatibility" | Append requirement to draft |
 | "Help me research this area" | 执行 research 全流程（O1→O2→O3 一次性完成），呈现结果 |
-| "OK looks good" / "Confirmed" | 写入 .target.md + .convergence-baseline.md → 自动生成 Stage 1 目标 → Phase 2 |
+| "OK looks good" / "Confirmed" / "是的" | 写入 .target.md + .convergence-baseline.md → 自动生成 Stage 1 目标 → Phase 2 |
+| "不对，应该是..." / "No, it should be..." | Revise draft, present again |
 | Silence | **Do not advance** — wait for user confirmation |
 
 Phases 2-4 — full auto, user can intervene:
@@ -497,7 +538,7 @@ The auto skill runs this loop within a single Claude session:
 
 | Current Status | First Step |
 |----------------|-----------|
-| `draft` | Phase 1（对话式定义 Overall Objective）— 引导用户定义目标，LLM 自决是否 research，确认后写入 .target.md + .convergence-baseline.md，自动生成 Stage 1 目标 → planning |
+| `draft` | Phase 1（对话式定义 Overall Objective）— **先做对话上下文摘要**（见 §Context Extraction），若提炼出需求则呈现草稿待确认；否则引导用户定义目标。LLM 自决是否 research，确认后写入 .target.md + .convergence-baseline.md，自动生成 Stage 1 目标 → planning |
 | `planning` | Phase 2（plan → check）— Execute plan → verify → check (post-plan) |
 | `re-planning` | Phase 2（plan → check，带 check 反馈）— Read `phase` field: if `needs-plan` → execute plan; if `needs-check` → execute verify → check (post-plan); if empty → default to plan |
 | `review` | Phase 3（post-plan 已通过，exec）— Execute exec |
