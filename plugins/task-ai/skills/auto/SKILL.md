@@ -139,7 +139,11 @@ Phase 4: Acceptance + 自动推进 (status=executing→evolving) — Full auto
   - Step 2: Convergence gate (within check)
     - check evaluates convergence score vs previous baseline
     ├─ convergence > previous → ACCEPT
-    │   auto sets status → evolving → highlight → report → evolving 入口决策
+    │   auto performs:
+    │     1. Update .target.md: current Stage `[ACTIVE]` → `[COMPLETE]`, append `### Results` (from .summary.md)
+    │     2. Update .status.json: status → evolving, push to stage.history (name, commit, convergence)
+    │     3. Git commit: `task-ai(<notebook>):auto stage <N> completed`
+    │     4. → highlight → report → evolving 入口决策
     └─ convergence ≤ previous → ROLLBACK
 
   No merge. No pre-merge check.
@@ -512,7 +516,7 @@ The auto skill runs this loop within a single Claude session:
 |------|--------|------|------------|-----------|
 | check | PASS | exec | post-plan | Plan approved, proceed to execution |
 | check | NEEDS_REVISION | plan | — | Plan needs revision |
-| check | ACCEPT | highlight | post-exec | D1-D6 + convergence gate passed, finalize |
+| check | ACCEPT | (stage-complete) | post-exec | D1-D6 + convergence gate passed → auto updates .target.md + .status.json → highlight → report |
 | check | ROLLBACK | (rollback) | post-exec | Convergence not improving, rollback |
 | check | NEEDS_FIX | exec | mid-exec / post-exec | Minor issues, re-execute to fix |
 | check | REPLAN | plan | — | Fundamental issues, revise plan |
