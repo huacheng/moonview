@@ -107,11 +107,11 @@ Build a JWT authentication system
       - Execute highlight protocol scope=thinking-raw (optional, high-value)
 
    3c. **ELIF status == `satisfied`** → **Re-enter Evolution**:
-      - Update `.target.md` Overall Objective with user's new requirement
+      - Update `.target.md` **Overall Objective** section with user's new requirement (append/modify — this is objective evolution, not stage definition)
       - Update `.convergence-baseline.md` (new/modified R#)
       - Update `.status.json` status → `evolving`
       - Git commit: `task-ai(<notebook>):target re-enter evolution`
-      - From `evolving`, auto's evolving 入口決策 takes over (convergence check → substage generation → planning)
+      - **Note**: Stage 目标不在此处生成 — auto's evolving 入口决策会基于更新后的 Overall Objective + 未满足 R# 自动生成下一个 Stage 目标
 
    3d. **ELSE** (normal mode, including first definition) → **Normal/Multi-stage Analysis Mode**:
       - **IF status ∈ {`draft`, `planning`}**: evaluate objective complexity:
