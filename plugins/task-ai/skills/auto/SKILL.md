@@ -194,6 +194,15 @@ Phases 2-4 — full auto, user can intervene:
 | "Run tests again" | Trigger verify |
 | "Continue" / Silence | Continue next step |
 
+satisfied 状态 — 等待用户决定:
+
+| User says | Claude does |
+|-----------|------------|
+| "还需要支持 OAuth" / "Add feature X" | **Re-enter**: auto sets status → evolving, calls target to update .target.md, then evolving 入口决策 |
+| "够了" / "I'm done" | Stay satisfied (no action needed) |
+| "/task-ai:target --satisfy" | Already satisfied, no-op |
+| Silence | Report completion status, wait |
+
 ### Explicit Override (Sub-command)
 
 User can override via dialog (`/task-ai:check`) or frontend toolbar button — both semantically equivalent.
@@ -505,7 +514,7 @@ The auto skill runs this loop within a single Claude session:
 | `review` | Phase 3（post-plan 已通过，exec）— Execute exec |
 | `executing` | Phase 3（exec → check）— Execute verify → check (post-exec). **Note**: even if `completed_steps` < total, auto enters via post-exec verification first — check detects incomplete work and routes back to exec via NEEDS_FIX |
 | `evolving` | Phase 4（convergence < 0.95 自动推进 / ≥ 0.95 等用户）— 读取 convergence score，< 0.95 自动生成下一子阶段目标 → planning；≥ 0.95 报告并等用户响应 |
-| `satisfied` | 报告完成状态，用户可 refine → evolving → 自动生成子阶段 → planning |
+| `satisfied` | 报告完成状态，等待用户。用户表达新需求 → auto 设置 evolving → 调用 target → evolving 入口决策 → planning |
 | `blocked` | 报告阻塞原因，等用户干预 |
 | `cancelled` | 报告任务已取消（终态）|
 
