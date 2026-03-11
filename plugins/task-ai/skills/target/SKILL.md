@@ -107,15 +107,13 @@ Build a JWT authentication system
       - Execute highlight protocol scope=thinking-raw (optional, high-value)
 
    3c. **ELIF status == `satisfied`** → **Re-enter Evolution**:
-      - Update `.target.md` **Overall Objective** section with user's new requirement (append/modify — this is objective evolution, not stage definition)
-      - Update `.convergence-baseline.md` (new/modified R#)
-      - Update `.status.json` status → `evolving`
+      - Update `.status.json` status → `planning`
+      - Write user's objective to `.target.md`
       - Git commit: `task-ai(<notebook>):target re-enter evolution`
-      - **Note**: Stage 目标不在此处生成 — auto's evolving 入口决策会基于更新后的 Overall Objective + 未满足 R# 自动生成下一个 Stage 目标
 
    3d. **ELSE** (normal mode, including first definition) → **Normal/Multi-stage Analysis Mode**:
       - **IF status ∈ {`draft`, `planning`}**: evaluate objective complexity:
-        - Is it beyond a single plan→exec→merge cycle?
+        - Is it beyond a single plan→exec→ACCEPT cycle?
         - Are there natural stage boundaries?
         - **IF suggests splitting**: propose stages to user as guidance (e.g., "Suggest starting with: 1.Basic auth, then evolving to OAuth, then RBAC"), but generate only the first stage in `.target.md` — subsequent stages emerge through the evolving → target cycle
         - **ELSE**: generate single-stage `.target.md` (simplified format)
@@ -187,7 +185,8 @@ After write mode completes, output the exact next step based on the resulting st
 | `blocked` | (updated) | `planning` | `post-target` | Target revised to unblock |
 | `evolving` | (updated) | `planning` | `post-target` | LLM auto-generates next substage target → stage advance |
 | `evolving` | --satisfy | `satisfied` | — | User temporarily satisfied |
-| `satisfied` | (updated) | `evolving` | — | Re-enter evolution (auto continues from evolving 入口) |
+| `satisfied` | refine Overall Objective | `evolving` | — | 用户 refine Overall Objective → 更新 baseline → convergence 下降 |
+| `satisfied` | (updated) | `planning` | `post-target` | Re-enter evolution |
 | `cancelled` | REJECT | — | — | Terminal state |
 
 ## Git

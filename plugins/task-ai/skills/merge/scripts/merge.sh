@@ -39,6 +39,13 @@ if [[ ! -f "$STATE_PY" ]]; then
     exit 1
 fi
 
+# D1: Validate status is 'executing' or 'evolving' (per SKILL.md prerequisite)
+CURRENT_STATUS=$(python3 "$STATE_PY" get "$STATUS_JSON" status 2>/dev/null || echo "")
+if [[ "$CURRENT_STATUS" != "executing" && "$CURRENT_STATUS" != "evolving" ]]; then
+    echo "[ERROR] Task status is '$CURRENT_STATUS', expected 'executing' or 'evolving'. Cannot merge." >&2
+    exit 1
+fi
+
 # D1: Validate dependency gate (per SKILL.md step 2)
 DEPENDS_ON=$(python3 "$STATE_PY" get "$STATUS_JSON" depends_on 2>/dev/null || echo "")
 if [[ -n "$DEPENDS_ON" && "$DEPENDS_ON" != "None" && "$DEPENDS_ON" != "[]" ]]; then
@@ -111,6 +118,8 @@ if [[ -z "$MAIN_BRANCH" ]] || ! git rev-parse --verify "refs/heads/$MAIN_BRANCH"
     fi
 fi
 
+# v2: No stage info needed — merge is pure file copy, status handled by auto
+
 echo "[GIT] Copying .deliverables/ from $TASK_BRANCH to $MAIN_BRANCH..."
 
 # Resolve paths before branch switch (paths vanish after checkout master)
@@ -165,11 +174,12 @@ if [[ "$MERGE_FAILED" -ne 0 ]]; then
 fi
 
 # Deliverables copied — checkout back to task branch
+# D1: .status.json lives on task branch, not master
 if ! git checkout "$TASK_BRANCH"; then
     echo "[ERROR] Failed to checkout back to $TASK_BRANCH" >&2
     exit 1
 fi
 
-# merge is a pure file copy operation — no status changes
-# All lifecycle state changes (evolving, stage.history, .target.md) are handled by auto
-echo "Deliverables copied to main. Merge complete."
+# v2: merge is pure file copy — no status changes
+# Status transitions (executing → evolving) are handled by auto after check post-exec ACCEPT
+echo "Deliverables copied to .deliverables/$NOTEBOOK/ on $MAIN_BRANCH."

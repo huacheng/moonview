@@ -139,11 +139,7 @@ Phase 4: Acceptance + 自动推进 (status=executing→evolving) — Full auto
   - Step 2: Convergence gate (within check)
     - check evaluates convergence score vs previous baseline
     ├─ convergence > previous → ACCEPT
-    │   auto performs:
-    │     1. Update .target.md: current Stage `[ACTIVE]` → `[COMPLETE]`, append `### Results` (from .summary.md)
-    │     2. Update .status.json: status → evolving, push to stage.history (name, commit, convergence)
-    │     3. Git commit: `task-ai(<notebook>):auto stage <N> completed`
-    │     4. → highlight → report → evolving 入口决策
+    │   auto sets status → evolving → highlight → report → evolving 入口决策
     └─ convergence ≤ previous → ROLLBACK
 
   No merge. No pre-merge check.
@@ -164,10 +160,11 @@ Phase 4: Acceptance + 自动推进 (status=executing→evolving) — Full auto
   ### satisfied 重入
 
   用户在 satisfied 状态发起 refine（"还需要 X"）：
-  1. 调用 target：更新 **Overall Objective**（目标进化）+ .convergence-baseline.md（新增 R#），status → evolving
-  2. 进入 evolving 入口决策：基于更新后的 Overall Objective + 未满足 R# → 自动生成 Stage 目标 → planning → Phase 2
-
-  **职责分离**: target 负责 Overall Objective 进化；Stage 目标由 auto 在 evolving 入口自动生成
+  1. status: satisfied → evolving
+  2. 更新 .target.md Overall Objective
+  3. 更新 .convergence-baseline.md（新增/修改 R#）
+  4. convergence 因新 R# 下降
+  5. 自动生成下一子阶段目标 → planning → Phase 2
 ```
 
 ## Dialog Behavior
@@ -194,15 +191,6 @@ Phases 2-4 — full auto, user can intervene:
 | "What does this error mean?" | Explain + fix, continue |
 | "Run tests again" | Trigger verify |
 | "Continue" / Silence | Continue next step |
-
-satisfied 状态 — 等待用户决定:
-
-| User says | Claude does |
-|-----------|------------|
-| "还需要支持 OAuth" / "Add feature X" | **Re-enter**: 调用 target（更新内容 + status → evolving）→ evolving 入口决策 |
-| "够了" / "I'm done" | Stay satisfied (no action needed) |
-| "/task-ai:target --satisfy" | Already satisfied, no-op |
-| Silence | Report completion status, wait |
 
 ### Explicit Override (Sub-command)
 
@@ -515,7 +503,7 @@ The auto skill runs this loop within a single Claude session:
 | `review` | Phase 3（post-plan 已通过，exec）— Execute exec |
 | `executing` | Phase 3（exec → check）— Execute verify → check (post-exec). **Note**: even if `completed_steps` < total, auto enters via post-exec verification first — check detects incomplete work and routes back to exec via NEEDS_FIX |
 | `evolving` | Phase 4（convergence < 0.95 自动推进 / ≥ 0.95 等用户）— 读取 convergence score，< 0.95 自动生成下一子阶段目标 → planning；≥ 0.95 报告并等用户响应 |
-| `satisfied` | 报告完成状态，等待用户。用户表达新需求 → 调用 target（更新内容 + status → evolving）→ evolving 入口决策 |
+| `satisfied` | 报告完成状态，用户可 refine → evolving → 自动生成子阶段 → planning |
 | `blocked` | 报告阻塞原因，等用户干预 |
 | `cancelled` | 报告任务已取消（终态）|
 
@@ -525,7 +513,7 @@ The auto skill runs this loop within a single Claude session:
 |------|--------|------|------------|-----------|
 | check | PASS | exec | post-plan | Plan approved, proceed to execution |
 | check | NEEDS_REVISION | plan | — | Plan needs revision |
-| check | ACCEPT | (stage-complete) | post-exec | D1-D6 + convergence gate passed → auto updates .target.md + .status.json → highlight → report |
+| check | ACCEPT | highlight | post-exec | D1-D6 + convergence gate passed, finalize |
 | check | ROLLBACK | (rollback) | post-exec | Convergence not improving, rollback |
 | check | NEEDS_FIX | exec | mid-exec / post-exec | Minor issues, re-execute to fix |
 | check | REPLAN | plan | — | Fundamental issues, revise plan |

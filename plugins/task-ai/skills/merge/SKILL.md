@@ -1,6 +1,6 @@
 ---
 name: merge
-description: "Copy deliverables from task branch to main — selective copy of <notebook>/.deliverables/ only. Pure file operation, no status changes."
+description: "Copy deliverables from task branch to main — selective copy of <notebook>/.deliverables/ only. Pure file operation, no status changes. Use when the user says 'merge', 'land it', or wants to copy current deliverables to main branch."
 model_tier: medium
 auto_delegatable: false
 triggers:
@@ -19,7 +19,7 @@ arguments: []
 
 # /task-ai:merge — Copy Deliverables to Main
 
-Copy `<notebook>/.deliverables/` from task branch to `<project>/.deliverables/<notebook>/` on main. **Pure file operation** — no status changes, no stage updates.
+Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/<notebook>/` on main.
 
 ## Usage
 
@@ -31,57 +31,67 @@ Copy `<notebook>/.deliverables/` from task branch to `<project>/.deliverables/<n
 
 ## Prerequisites
 
+- Task status must be `executing` or `evolving`
 - Latest `.analysis/` file must contain an ACCEPT verdict (from `check --checkpoint post-exec`)
-- **Dependency gate**: All `depends_on` modules must meet their required status — simple string entries require `satisfied`, extended `{ module, min_status }` entries require at-or-past `min_status`. If any dependency is not met, merge REJECTS with error listing blocking dependencies
+- **Dependency gate**: All `depends_on` modules must meet their required status — simple string entries require `satisfied`, extended `{ module, min_status }` entries require at-or-past `min_status` (see depends_on Format in `commands/task-ai.md`). If any dependency is not met, merge REJECTS with error listing blocking dependencies and their current statuses
 
-## What Merge Does
+## Merge Strategy
 
-1. Save `<notebook>/.deliverables/` content from task branch to temp (before branch switch)
-2. Checkout main
-3. Copy temp content to `<project>/.deliverables/<notebook>/` on main
-4. Commit on main
-5. Checkout back to task branch
+### Phase 1: Selective Deliverables Copy
 
-```
-Source: <project>/<notebook>/.deliverables/*  (task branch)
-Target: <project>/.deliverables/<notebook>/*  (main branch)
-```
+1. **If worktree**: `cd <project-root>` first (worktree is locked to task branch)
+2. **Checkout main** (non-worktree) or already on main (worktree, from main worktree)
+3. **Copy deliverables only** — does NOT do full git merge:
+   - Save `<notebook>/.deliverables/` content from task branch to a temp directory (before branch switch)
+   - Checkout main
+   - Copy temp content to `<project>/.deliverables/<notebook>/` on main
+   - Commit
+   ```
+   Source: <project>/<notebook>/.deliverables/*  (task branch)
+   Target: <project>/.deliverables/<notebook>/*  (main branch)
+   ```
+   Where `<task-branch>` is read from `.status.json` `branch` field (defaults to `task/<notebook>` if unset).
+   If the task branch has no `<notebook>/.deliverables/` directory, the copy is silently skipped (no error).
 
-If the task branch has no `<notebook>/.deliverables/` directory, the copy is silently skipped.
+> **Why not full git merge?** Task branches contain system files (`.working/`, `.status.json`, `.plan.md`, etc.) that should NOT pollute the main branch. Only `<notebook>/.deliverables/` content (actual code output) is copied to the project-level `.deliverables/` on main.
 
-## What Merge Does NOT Do
+> **Note**: Merge does NOT delete branches or worktrees. The user can clean them up manually or via a separate cleanup command when ready.
 
-- **No status changes** — `.status.json` is not modified (auto handles `evolving` transition)
-- **No stage.history updates** — auto handles this
-- **No .target.md updates** — auto handles Stage `[ACTIVE]` → `[COMPLETE]`
-- **No branch/worktree deletion** — user controls cleanup timing
-
-> **Why not full git merge?** Task branches contain system files (`.working/`, `.status.json`, `.plan.md`, etc.) that should NOT pollute the main branch. Only `.deliverables/` content is copied.
+> **Status transitions are handled by auto, not merge.** After check post-exec ACCEPT, auto updates `.target.md` and `.status.json` (status → `evolving`, push to `stage.history`). Merge is a pure file copy operation that can be invoked at any time to copy current deliverables to main.
 
 ## Execution Steps
 
-1. **Read** `.status.json` — get task branch name
-2. **Validate dependencies**: check each dependency module's status. If not met → REJECT
+1. **Read** `.status.json` — validate status is `executing` or `evolving`
+2. **Validate dependencies**: read `depends_on` from `.status.json`, check each dependency module's `.status.json` status against its required level (simple string → `satisfied`, extended object → at-or-past `min_status`). If any dependency is not met, REJECT with error listing blocking dependencies
 3. **Verify** ACCEPT verdict: check latest `.analysis/` file for `post-exec-accept`
-4. **Save** `<notebook>/.deliverables/` to temp directory
-5. **Checkout main**
-6. **Copy** temp → `<project>/.deliverables/<notebook>/`
-7. **Commit** on main: `task-ai(<notebook>):merge copy deliverables`
-8. **Checkout back** to task branch
-9. **Report**: "Deliverables copied to main."
+4. **Read** `.summary.md` for task context (plan overview, completed steps, key decisions)
+5. **Copy deliverables**: Save `<notebook>/.deliverables/` to temp → checkout main → copy to `<project>/.deliverables/<notebook>/` → commit on main
+6. **If no `<notebook>/.deliverables/`**: skip copy silently (no error)
+7. **Checkout back** to task branch
+8. **Report** merge result: "Deliverables copied to `.deliverables/<notebook>/` on main."
 
 ## State Transitions
 
-None. Merge does not change `.status.json` status.
+| Current Status | After Merge | Condition |
+|----------------|-------------|-----------|
+| `executing` | `executing` | Pure file copy — no status change |
+| `evolving` | `evolving` | Pure file copy — no status change |
+
+> **Note**: Status transitions (`executing` → `evolving`) are handled by auto after check post-exec ACCEPT, not by merge.
 
 ## Git
 
 | Action | Commit Message |
 |--------|---------------|
-| Copy deliverables (on main) | `task-ai(<notebook>):merge copy deliverables` |
+| Copy deliverables | `task-ai(<notebook>):merge copy deliverables from <task-branch>` |
 
 ## Notes
 
-- Merge is a **pure file copy operation** — all lifecycle state changes are handled by auto
-- If no `.deliverables/` exists, merge succeeds silently (nothing to copy)
-- **Concurrency**: Lock acquisition/release handled by caller. `merge.sh` assumes `.working/.lock` is held
+- Merge copies only `.deliverables/` from the task branch — no full git merge, no conflict resolution needed
+- If the task branch has no `.deliverables/`, the copy is skipped silently (no error, no status change)
+- Merge is a pure file copy operation — it does NOT change `.status.json` status
+- Status transitions (`executing` → `evolving`) are handled by auto after check post-exec ACCEPT
+- Refactoring is exec's per-step responsibility (exec Per-Step step 6 Refactor window) — merge does not refactor
+- Merge does **not** delete branches or worktrees — the user retains full control over cleanup timing
+- **Concurrency**: Lock acquisition/release is handled by the caller (auto mode or CLI dispatcher). `merge.sh` assumes `.working/.lock` is already held (see Concurrency Protection in `commands/task-ai.md`)
+- **Note:** 交付物累积在 task 分支上。用户可随时调用 merge 将当前交付物复制到 main。状态转换由 auto 处理。

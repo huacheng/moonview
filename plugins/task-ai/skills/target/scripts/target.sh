@@ -244,15 +244,14 @@ BASELINE_END
 fi
 
 # D1: Update .status.json status transition (SKILL.md State Transitions table)
-# draft → planning; blocked → planning; review → re-planning; satisfied → evolving
+# draft → planning; blocked → planning; review → re-planning; satisfied → planning (re-enter evolution)
 if [[ -f "$STATUS_FILE" ]] && ! command -v jq &>/dev/null; then
     echo "[WARN] jq not found — cannot update .status.json status transition" >&2
 elif [[ -f "$STATUS_FILE" ]]; then
     NEW_STATUS=""
     case "$CURRENT_STATUS" in
-        draft|blocked)  NEW_STATUS="planning" ;;
-        review)         NEW_STATUS="re-planning" ;;
-        satisfied)      NEW_STATUS="evolving" ;;
+        draft|blocked|satisfied)  NEW_STATUS="planning" ;;
+        review)                   NEW_STATUS="re-planning" ;;
     esac
     if [[ -n "$NEW_STATUS" ]]; then
         TMP_STATUS=$(mktemp) || { echo "[ERROR] Failed to create temp file for status" >&2; exit 1; }
