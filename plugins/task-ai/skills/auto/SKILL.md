@@ -51,7 +51,10 @@ Claude reads state files → derives current phase
 │ - Missing requirement surfaced? (more complete)         │
 │ - Constraint discovered? (more realistic)               │
 │                                                         │
-│ If evolution detected → propose update, await confirm   │
+│ Processing (phase-dependent):                           │
+│ - Phase 1/2/4: immediate proposal → await confirm       │
+│ - Phase 3: affects current work → immediate             │
+│            does not affect → buffer to checkpoint       │
 │ If no evolution → proceed with phase action             │
 └─────────────────────────────────────────────────────────┘
   │
