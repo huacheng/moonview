@@ -113,54 +113,97 @@ Thresholds and retry limits are **adaptive**: read from `.type-profile.md` `## A
 
 > **check runtime errors:** If check itself fails (file read error, state.py exception — not low score), it does NOT count toward retry_count. Stop immediately, await user intervention. Only normal execution with score below threshold triggers retry.
 
-### Objective Evolution (All Phases)
+### Objective Evolution (Unified)
 
-The Overall Objective evolves continuously based on dialog. This is NOT the same as the Pending Refinement Buffer (which handles explicit "add X" requests during execution). Objective Evolution is **semantic detection** of implicit improvements.
+The Overall Objective evolves continuously based on dialog — both **implicit signals** (semantic detection) and **explicit requests** ("加 X"). This unified mechanism replaces the separate "Pending Refinement Buffer".
 
-#### Evolution Triggers
+#### Evolution Sources
 
-| Signal in Dialog | Evolution Type | Example |
-|------------------|---------------|---------|
-| New capability mentioned | **Power** | "这个还需要支持批量操作" → adds batch capability |
-| Edge case identified | **Robustness** | "如果网络断了怎么办？" → adds offline handling |
-| Missing requirement surfaced | **Completeness** | "等等，还要考虑权限控制" → adds auth requirement |
-| Constraint discovered | **Realism** | "服务器内存只有 2G" → adds memory constraint |
-| Quality bar raised | **Excellence** | "性能要求是 100ms 以内" → tightens perf requirement |
-| Scope clarification | **Precision** | "只需要支持 Chrome" → narrows browser scope |
+| Source | Detection | Example |
+|--------|-----------|---------|
+| **Implicit** (semantic) | Claude detects improvement opportunity in dialog | "如果网络断了怎么办？" → robustness signal |
+| **Explicit** (user request) | User directly states requirement change | "还需要支持 OAuth 登录" → explicit addition |
 
-#### Evolution Flow
+#### Evolution Types
+
+| Type | Signal | Example |
+|------|--------|---------|
+| **Power** | New capability mentioned | "这个还需要支持批量操作" |
+| **Robustness** | Edge case identified | "如果网络断了怎么办？" |
+| **Completeness** | Missing requirement surfaced | "等等，还要考虑权限控制" |
+| **Realism** | Constraint discovered | "服务器内存只有 2G" |
+| **Excellence** | Quality bar raised | "性能要求是 100ms 以内" |
+| **Precision** | Scope clarification | "只需要支持 Chrome" |
+
+#### Processing Strategy (Phase-Dependent)
 
 ```
-Every conversation turn (all phases):
-  1. Read current .target.md
-  2. Scan dialog for evolution signals (table above)
-  3. If signal detected:
-     a. Classify: power / robustness / completeness / realism / excellence / precision
-     b. Draft evolution proposal:
-        "我注意到你提到了 [X]，这会让目标更 [robust/powerful/...]。
-         建议更新 Overall Objective：
-         - 原：[current]
-         - 新：[proposed]
-         确认更新？"
-     c. Wait for user confirmation
-     d. If confirmed → update .target.md + .convergence-baseline.md (add/modify R#)
-     e. Assess impact on current phase:
-        - Phase 1 (draft): no impact, continue definition
-        - Phase 2 (planning): if plan exists, trigger REPLAN
-        - Phase 3 (executing): route to Pending Refinement Buffer processing
-        - Phase 4 (evolving): incorporate into next stage target
-  4. If no signal → proceed with normal phase action
+Every conversation turn:
+  1. Read current .target.md (if exists)
+  2. Detect evolution signal (implicit or explicit)
+  3. If detected:
+     a. Classify type (power/robustness/completeness/realism/excellence/precision)
+     b. Assess impact on current work
+
+     Phase 1 (draft):
+       → Immediate: incorporate into draft, present for confirmation
+       → No buffering needed
+
+     Phase 2 (planning):
+       → Immediate proposal + confirmation
+       → If confirmed AND plan exists → REPLAN
+
+     Phase 3 (executing):
+       → Assess impact scope:
+         - Affects current/completed steps → immediate proposal + confirmation → NEEDS_FIX or REPLAN
+         - Does not affect current work → buffer to `.working/.pending-evolutions.md`
+       → Buffer processing at checkpoints (mid-exec / post-exec)
+
+     Phase 4 (evolving):
+       → Incorporate into next stage target generation
 ```
 
-#### Evolution vs Refinement Buffer
+#### Buffer File (Phase 3 Only)
 
-| Aspect | Objective Evolution | Pending Refinement Buffer |
-|--------|--------------------|-----------------------------|
-| **Trigger** | Implicit in dialog (semantic detection) | Explicit user request ("add X") |
-| **Scope** | Overall Objective + high-level requirements | Specific features or details |
-| **Applies to** | All phases, every turn | Phases 2-4 only (during execution) |
-| **Processing** | Immediate proposal + confirmation | Buffered + batch at checkpoints |
-| **Impact** | May trigger REPLAN | Assessed at checkpoint |
+Path: `.working/.pending-evolutions.md` (git tracked)
+
+```markdown
+## Pending Evolutions
+- [2026-03-08 14:05] [completeness] 增加 OAuth Google 登录支持
+- [2026-03-08 14:12] [realism] 登录失败限流从5次改为10次
+```
+
+Commit on write: `git commit -m "auto: buffer evolution"`.
+
+#### Checkpoint Processing (Phase 3)
+
+At mid-exec / post-exec check:
+
+```
+if .pending-evolutions.md exists and non-empty:
+    1. For each buffered evolution:
+       - Update .target.md (add/modify requirement)
+       - Update .convergence-baseline.md (add/modify R#, adjust weights)
+    2. Impact assessment:
+       - Pure addition (new R# doesn't affect completed steps) → append to plan tail, continue
+       - Modify existing R# (weight/content change) → NEEDS_FIX or REPLAN
+    3. Clear buffer
+```
+
+#### Impact Assessment
+
+| Level | Judgment | Action |
+|-------|----------|--------|
+| None | New R# unrelated to current/completed steps | Append plan steps, continue |
+| Minor | Modified optional R# detail | Mark, handle at post-exec |
+| Moderate | Modified important R# | Trigger mid-exec check |
+| Major | Modified critical R# or Overall Objective | REPLAN |
+
+#### Withdraw
+
+User can withdraw a buffered evolution before checkpoint processing:
+- "取消刚才的 OAuth 需求" → remove matching entry, confirm removal
+- Already processed → inform user it was already applied
 
 #### Non-Evolution (Do Not Propose)
 
@@ -275,65 +318,17 @@ Behavior:
 4. auto reads latest state on next trigger (user message / daemon continuation)
 5. auto re-routes from new state
 
-## Pending Refinement Buffer
+## User Message Classification (Phases 2-4)
 
-User messages arriving during auto execution are semantically classified:
+During auto execution, user messages are semantically classified:
 
 | User says | Category | auto behavior |
 |-----------|----------|---------------|
-| "增加 OAuth 支持" | refinement | Write to buffer → confirm → continue |
+| "增加 OAuth 支持" | **evolution** | Detect + process per §Objective Evolution |
+| "如果断网怎么办？" | **evolution** (implicit) | Detect + process per §Objective Evolution |
 | "这个错误什么意思？" | question | Answer → continue |
 | "跳过步骤 3" | directive | Adjust → continue |
 | "继续" | continue | Continue |
-
-### Buffer File
-
-Path: `.working/.pending-refinements.md` (git tracked)
-
-```markdown
-- [2026-03-08 14:05] 增加 OAuth Google 登录支持
-- [2026-03-08 14:12] 登录失败限流从5次改为10次
-```
-
-Each write is committed: `git add .working/.pending-refinements.md && git commit -m "auto: buffer refinement"`.
-
-### Two-Level Processing
-
-**Level 1 — Inter-step quick check** (between exec steps):
-```
-if .pending-refinements.md exists and non-empty:
-    Scan each item → annotate impact scope (which R#)
-    if affects currently executing step:
-        mark needs_reassess = true (trigger mid-exec check after current step)
-    else:
-        continue (leave to checkpoint batch processing)
-```
-
-**Level 2 — Checkpoint batch processing** (at mid-exec / post-exec check):
-```
-if .pending-refinements.md exists and non-empty:
-    1. Call target --refine "..." for each item
-    2. Update .convergence-baseline.md (add/modify R#, adjust weights)
-    3. Impact assessment:
-       - Pure addition (new R# doesn't affect completed steps) → append to plan tail, continue
-       - Modify existing R# (weight/content change) → NEEDS_FIX or REPLAN
-    4. Clear buffer
-```
-
-### Impact Assessment Levels
-
-| Level | Judgment | Action |
-|-------|----------|--------|
-| None | New R# unrelated to current/completed steps | Append plan steps, continue |
-| Minor | Modified optional R# detail | Mark, handle at post-exec |
-| Moderate | Modified important R# | Trigger mid-exec check |
-| Major | Modified critical R# or Overall Objective | REPLAN |
-
-### Confirm/Withdraw
-
-User can withdraw a buffered refinement before it is processed:
-- "取消刚才的 OAuth 需求" → remove matching entry from buffer, confirm removal
-- Already processed (buffer cleared at checkpoint) → inform user it was already applied
 
 ## Architecture
 
