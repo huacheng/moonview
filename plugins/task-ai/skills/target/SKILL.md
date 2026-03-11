@@ -106,12 +106,12 @@ Build a JWT authentication system
       - Atomic write + Git commit: `task-ai(<notebook>):target update objective`
       - Execute highlight protocol scope=thinking-raw (optional, high-value)
 
-   3c. **ELIF status == `satisfied`** → **Update Only (no status change)**:
+   3c. **ELIF status == `satisfied`** → **Re-enter Evolution**:
       - Update `.target.md` Overall Objective with user's new requirement
       - Update `.convergence-baseline.md` (new/modified R#)
-      - **Do NOT change status** — stay `satisfied`
-      - Git commit: `task-ai(<notebook>):target update objective`
-      - Rationale: target only handles content; auto handles status transitions in evolving 入口决策
+      - Update `.status.json` status → `evolving`
+      - Git commit: `task-ai(<notebook>):target re-enter evolution`
+      - From `evolving`, auto's evolving 入口決策 takes over (convergence check → substage generation → planning)
 
    3d. **ELSE** (normal mode, including first definition) → **Normal/Multi-stage Analysis Mode**:
       - **IF status ∈ {`draft`, `planning`}**: evaluate objective complexity:
@@ -187,7 +187,7 @@ After write mode completes, output the exact next step based on the resulting st
 | `blocked` | (updated) | `planning` | `post-target` | Target revised to unblock |
 | `evolving` | (updated) | `planning` | `post-target` | LLM auto-generates next substage target → stage advance |
 | `evolving` | --satisfy | `satisfied` | — | User temporarily satisfied |
-| `satisfied` | (updated) | `satisfied` | — | Update content only, no status change (auto handles evolving transition) |
+| `satisfied` | (updated) | `evolving` | — | Re-enter evolution (auto continues from evolving 入口) |
 | `cancelled` | REJECT | — | — | Terminal state |
 
 ## Git
