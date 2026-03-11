@@ -423,7 +423,7 @@ The convergence gate only fires after D1-D6 passes. See [Convergence Evaluation]
 |--------|--------|-------------------|
 | **ACCEPT** | Create `.analysis/<date>-post-exec-accept.md` + `.analysis/<date>-convergence.md`, write `.test/<date>-post-exec-results.md`. Convergence score is persisted in the convergence analysis file for downstream consumption by `merge` | Status unchanged (`executing`), proceed to `merge` (auto routes via Result-Based Routing) |
 | **NEEDS_FIX** | Create `.analysis/<date>-post-exec-needs-fix.md` with evaluation + `.bugfix/<date>-<summary>.md` per fix item (with regression test spec per §Regression Test Applicability) | Status unchanged |
-| **ROLLBACK** | Create `.analysis/<date>-convergence-rollback.md` with failure reason + convergence delta. Record failure experience to highlight archive. Check renders the verdict only — the caller (auto loop or user) executes the actual rollback (`git reset --hard`, trim `stage.history`, set `status → evolving`) | Status unchanged by check; caller transitions `executing` → `evolving` |
+| **ROLLBACK** | Create `.analysis/<date>-convergence-rollback.md` with failure reason + convergence delta. Record failure experience to highlight archive. Check renders the verdict only — the caller (auto loop or user) executes the actual rollback. **Stage 1 special case**: ROLLBACK is blocked for stage 1 (no previous commit to revert to) — falls back to NEEDS_FIX instead | Status unchanged by check; caller handles: `git reset --hard <prev_commit>`, update `stage.history`, regenerate substage target → `planning` |
 | **REPLAN** | Create `.analysis/<date>-post-exec-replan.md` with fundamental issues | `executing` → `re-planning`, set `phase: needs-plan` |
 
 ### 4. pre-merge
@@ -538,7 +538,7 @@ Before step 1, determine scope from invocation:
 | `executing` | `blocked` | mid-exec BLOCKED |
 | `executing` | `executing` | post-exec ACCEPT |
 | `executing` | `executing` | post-exec NEEDS_FIX |
-| `executing` | `evolving` | post-exec ROLLBACK |
+| `executing` | `planning` | post-exec ROLLBACK (caller regenerates substage → planning) |
 | `executing` | `re-planning` | post-exec REPLAN |
 | `executing` | `executing` | pre-merge PASS (→ merge) |
 | `executing` | `executing` | pre-merge NEEDS_FIX (→ Phase 3 retry) |

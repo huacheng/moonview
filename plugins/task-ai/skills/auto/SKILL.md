@@ -30,8 +30,6 @@ Dialog-driven four-phase flow: Target → Planning → Execution → Acceptance.
 
 **No auto mode to activate.** Notebook existence IS the context. Claude reads `.status.json` + `.target.md` each conversation turn, derives the current phase, and executes the appropriate action. User dialog directly drives phase progression.
 
-**Continuous Objective Evolution.** The Overall Objective is not static — it evolves throughout the lifecycle. Every conversation turn, Claude assesses whether the dialog contains insights that would make the objective more robust, more powerful, or more complete. If so, Claude proposes an evolution (not silently writes).
-
 ```
 Frontend UI: init (create notebook) → .status.json status=draft
   │
@@ -40,23 +38,6 @@ User says anything in conversation
   │
   ▼
 Claude reads state files → derives current phase
-  │
-  ▼
-┌─────────────────────────────────────────────────────────┐
-│ Objective Evolution Check (every turn, all phases)      │
-│                                                         │
-│ Compare current dialog against .target.md:              │
-│ - New capability mentioned? (more powerful)             │
-│ - Edge case identified? (more robust)                   │
-│ - Missing requirement surfaced? (more complete)         │
-│ - Constraint discovered? (more realistic)               │
-│                                                         │
-│ Processing (phase-dependent):                           │
-│ - Phase 1/2/4: immediate proposal → await confirm       │
-│ - Phase 3: affects current work → immediate             │
-│            does not affect → buffer to checkpoint       │
-│ If no evolution → proceed with phase action             │
-└─────────────────────────────────────────────────────────┘
   │
   ▼
 Semantic understanding of user message → execute phase-appropriate action
@@ -115,105 +96,6 @@ Thresholds and retry limits are **adaptive**: read from `.type-profile.md` `## A
 `retry_count` is an in-memory counter. Resets to 0 on phase transition. `delegation_failures` clears on phase transition (new phase = new context).
 
 > **check runtime errors:** If check itself fails (file read error, state.py exception — not low score), it does NOT count toward retry_count. Stop immediately, await user intervention. Only normal execution with score below threshold triggers retry.
-
-### Objective Evolution (Unified)
-
-The Overall Objective evolves continuously based on dialog — both **implicit signals** (semantic detection) and **explicit requests** ("加 X"). This unified mechanism replaces the separate "Pending Refinement Buffer".
-
-#### Evolution Sources
-
-| Source | Detection | Example |
-|--------|-----------|---------|
-| **Implicit** (semantic) | Claude detects improvement opportunity in dialog | "如果网络断了怎么办？" → robustness signal |
-| **Explicit** (user request) | User directly states requirement change | "还需要支持 OAuth 登录" → explicit addition |
-
-#### Evolution Types
-
-| Type | Signal | Example |
-|------|--------|---------|
-| **Power** | New capability mentioned | "这个还需要支持批量操作" |
-| **Robustness** | Edge case identified | "如果网络断了怎么办？" |
-| **Completeness** | Missing requirement surfaced | "等等，还要考虑权限控制" |
-| **Realism** | Constraint discovered | "服务器内存只有 2G" |
-| **Excellence** | Quality bar raised | "性能要求是 100ms 以内" |
-| **Precision** | Scope clarification | "只需要支持 Chrome" |
-
-#### Processing Strategy (Phase-Dependent)
-
-```
-Every conversation turn:
-  1. Read current .target.md (if exists)
-  2. Detect evolution signal (implicit or explicit)
-  3. If detected:
-     a. Classify type (power/robustness/completeness/realism/excellence/precision)
-     b. Assess impact on current work
-
-     Phase 1 (draft):
-       → Immediate: incorporate into draft, present for confirmation
-       → No buffering needed
-
-     Phase 2 (planning):
-       → Immediate proposal + confirmation
-       → If confirmed AND plan exists → REPLAN
-
-     Phase 3 (executing):
-       → Assess impact scope:
-         - Affects current/completed steps → immediate proposal + confirmation → NEEDS_FIX or REPLAN
-         - Does not affect current work → buffer to `.working/.pending-evolutions.md`
-       → Buffer processing at checkpoints (mid-exec / post-exec)
-
-     Phase 4 (evolving):
-       → Incorporate into next stage target generation
-```
-
-#### Buffer File (Phase 3 Only)
-
-Path: `.working/.pending-evolutions.md` (git tracked)
-
-```markdown
-## Pending Evolutions
-- [2026-03-08 14:05] [completeness] 增加 OAuth Google 登录支持
-- [2026-03-08 14:12] [realism] 登录失败限流从5次改为10次
-```
-
-Commit on write: `git commit -m "auto: buffer evolution"`.
-
-#### Checkpoint Processing (Phase 3)
-
-At mid-exec / post-exec check:
-
-```
-if .pending-evolutions.md exists and non-empty:
-    1. For each buffered evolution:
-       - Update .target.md (add/modify requirement)
-       - Update .convergence-baseline.md (add/modify R#, adjust weights)
-    2. Impact assessment:
-       - Pure addition (new R# doesn't affect completed steps) → append to plan tail, continue
-       - Modify existing R# (weight/content change) → NEEDS_FIX or REPLAN
-    3. Clear buffer
-```
-
-#### Impact Assessment
-
-| Level | Judgment | Action |
-|-------|----------|--------|
-| None | New R# unrelated to current/completed steps | Append plan steps, continue |
-| Minor | Modified optional R# detail | Mark, handle at post-exec |
-| Moderate | Modified important R# | Trigger mid-exec check |
-| Major | Modified critical R# or Overall Objective | REPLAN |
-
-#### Withdraw
-
-User can withdraw a buffered evolution before checkpoint processing:
-- "取消刚才的 OAuth 需求" → remove matching entry, confirm removal
-- Already processed → inform user it was already applied
-
-#### Non-Evolution (Do Not Propose)
-
-- User asks a question without implying requirement change
-- User discusses implementation detail (belongs to plan, not objective)
-- User expresses preference that doesn't affect objective ("用 TypeScript 写")
-- Already covered by existing requirement (redundant)
 
 ### Four-File Anchored Review
 
@@ -278,11 +160,10 @@ Phase 4: Acceptance + 自动推进 (status=executing→evolving) — Full auto
   ### satisfied 重入
 
   用户在 satisfied 状态发起 refine（"还需要 X"）：
-  1. status: satisfied → evolving
-  2. 更新 .target.md Overall Objective
+  1. target 处理：status: satisfied → planning（直接进入，无中间 evolving）
+  2. 更新 .target.md Overall Objective + 新阶段定义
   3. 更新 .convergence-baseline.md（新增/修改 R#）
-  4. convergence 因新 R# 下降
-  5. 自动生成下一子阶段目标 → planning → Phase 2
+  4. 自动进入 Phase 2 (Planning)
 ```
 
 ## Dialog Behavior
@@ -321,17 +202,65 @@ Behavior:
 4. auto reads latest state on next trigger (user message / daemon continuation)
 5. auto re-routes from new state
 
-## User Message Classification (Phases 2-4)
+## Pending Refinement Buffer
 
-During auto execution, user messages are semantically classified:
+User messages arriving during auto execution are semantically classified:
 
 | User says | Category | auto behavior |
 |-----------|----------|---------------|
-| "增加 OAuth 支持" | **evolution** | Detect + process per §Objective Evolution |
-| "如果断网怎么办？" | **evolution** (implicit) | Detect + process per §Objective Evolution |
+| "增加 OAuth 支持" | refinement | Write to buffer → confirm → continue |
 | "这个错误什么意思？" | question | Answer → continue |
 | "跳过步骤 3" | directive | Adjust → continue |
 | "继续" | continue | Continue |
+
+### Buffer File
+
+Path: `.working/.pending-refinements.md` (git tracked)
+
+```markdown
+- [2026-03-08 14:05] 增加 OAuth Google 登录支持
+- [2026-03-08 14:12] 登录失败限流从5次改为10次
+```
+
+Each write is committed: `git add .working/.pending-refinements.md && git commit -m "auto: buffer refinement"`.
+
+### Two-Level Processing
+
+**Level 1 — Inter-step quick check** (between exec steps):
+```
+if .pending-refinements.md exists and non-empty:
+    Scan each item → annotate impact scope (which R#)
+    if affects currently executing step:
+        mark needs_reassess = true (trigger mid-exec check after current step)
+    else:
+        continue (leave to checkpoint batch processing)
+```
+
+**Level 2 — Checkpoint batch processing** (at mid-exec / post-exec check):
+```
+if .pending-refinements.md exists and non-empty:
+    1. Call target --refine "..." for each item
+    2. Update .convergence-baseline.md (add/modify R#, adjust weights)
+    3. Impact assessment:
+       - Pure addition (new R# doesn't affect completed steps) → append to plan tail, continue
+       - Modify existing R# (weight/content change) → NEEDS_FIX or REPLAN
+    4. Clear buffer
+```
+
+### Impact Assessment Levels
+
+| Level | Judgment | Action |
+|-------|----------|--------|
+| None | New R# unrelated to current/completed steps | Append plan steps, continue |
+| Minor | Modified optional R# detail | Mark, handle at post-exec |
+| Moderate | Modified important R# | Trigger mid-exec check |
+| Major | Modified critical R# or Overall Objective | REPLAN |
+
+### Confirm/Withdraw
+
+User can withdraw a buffered refinement before it is processed:
+- "取消刚才的 OAuth 需求" → remove matching entry from buffer, confirm removal
+- Already processed (buffer cleared at checkpoint) → inform user it was already applied
 
 ## Architecture
 
@@ -536,12 +465,6 @@ Terminal: BLOCKED at any check → (stop, status → blocked)
 The auto skill runs this loop within a single Claude session:
 
 1. Read .status.json → derive phase (status-based routing). For `draft` status: also read `.target.md` to assess objective clarity and determine if research is needed
-1-pre. **Objective Evolution Check** (every turn, all phases except `cancelled`):
-   - Read current `.target.md` (if exists)
-   - Scan current conversation turn for evolution signals (see §Objective Evolution triggers)
-   - If evolution detected → propose update, await user confirmation before proceeding
-   - If confirmed → update `.target.md` + `.convergence-baseline.md`, then assess phase impact (REPLAN if in planning/executing)
-   - If no evolution or user declines → proceed with normal phase action
 1a. **Load adaptive parameters**: Read `.type-profile.md` `## Auto Adaptation` section. Extract `thresholds`, `retry_limits`, `mid_exec_check_interval`, and `compaction_threshold`. If `.type-profile.md` is absent or lacks the section → use fallback defaults (thresholds from table above, check interval = 3, compaction = 82%)
 1b. **Compute audit budget**: Before each check invocation, compute the adaptive D1-D6 evaluation round budget based on change scope. Run:
    ```bash

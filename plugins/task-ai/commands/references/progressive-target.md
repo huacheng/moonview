@@ -126,11 +126,11 @@ When `check post-exec` emits ROLLBACK:
 
 This prevents wasted iteration on approaches that move the task further from its objective.
 
-## Objective Evolution Buffer (v2)
+## Pending Refinement Buffer (v2)
 
-During Phase 3 execution, requirement changes (both implicit signals and explicit requests) that don't affect current work are buffered to `.pending-evolutions.md`. See `auto/SKILL.md` §Objective Evolution (Unified) for the complete mechanism.
+During auto execution, new requirements or scope changes may be discovered but cannot be acted on mid-stage. These are captured in `.pending-refinements.md` as an async buffer:
 
-- **Writers**: auto main loop during Phase 3 execution
-- **Consumers**: checkpoint processing (mid-exec / post-exec check)
-- **Format**: append-only markdown list with evolution type, timestamp, and content
-- **Lifecycle**: cleared after checkpoint incorporates entries into `.target.md` and `.convergence-baseline.md`
+- **Writers**: any skill during auto mode that observes unaddressed scope (exec, check, verify)
+- **Consumers**: `target` reads and incorporates pending refinements when transitioning from `evolving` → `planning`
+- **Format**: append-only markdown list with source attribution and timestamp
+- **Lifecycle**: cleared after `target` consumes the entries into the next stage's requirements
