@@ -30,6 +30,8 @@ Dialog-driven four-phase flow: Target → Planning → Execution → Acceptance.
 
 **No auto mode to activate.** Notebook existence IS the context. Claude reads `.status.json` + `.target.md` each conversation turn, derives the current phase, and executes the appropriate action. User dialog directly drives phase progression.
 
+**Continuous Objective Evolution.** The Overall Objective is not static — it evolves throughout the lifecycle. Every conversation turn, Claude assesses whether the dialog contains insights that would make the objective more robust, more powerful, or more complete. If so, Claude proposes an evolution (not silently writes).
+
 ```
 Frontend UI: init (create notebook) → .status.json status=draft
   │
@@ -38,6 +40,20 @@ User says anything in conversation
   │
   ▼
 Claude reads state files → derives current phase
+  │
+  ▼
+┌─────────────────────────────────────────────────────────┐
+│ Objective Evolution Check (every turn, all phases)      │
+│                                                         │
+│ Compare current dialog against .target.md:              │
+│ - New capability mentioned? (more powerful)             │
+│ - Edge case identified? (more robust)                   │
+│ - Missing requirement surfaced? (more complete)         │
+│ - Constraint discovered? (more realistic)               │
+│                                                         │
+│ If evolution detected → propose update, await confirm   │
+│ If no evolution → proceed with phase action             │
+└─────────────────────────────────────────────────────────┘
   │
   ▼
 Semantic understanding of user message → execute phase-appropriate action
@@ -97,53 +113,71 @@ Thresholds and retry limits are **adaptive**: read from `.type-profile.md` `## A
 
 > **check runtime errors:** If check itself fails (file read error, state.py exception — not low score), it does NOT count toward retry_count. Stop immediately, await user intervention. Only normal execution with score below threshold triggers retry.
 
+### Objective Evolution (All Phases)
+
+The Overall Objective evolves continuously based on dialog. This is NOT the same as the Pending Refinement Buffer (which handles explicit "add X" requests during execution). Objective Evolution is **semantic detection** of implicit improvements.
+
+#### Evolution Triggers
+
+| Signal in Dialog | Evolution Type | Example |
+|------------------|---------------|---------|
+| New capability mentioned | **Power** | "这个还需要支持批量操作" → adds batch capability |
+| Edge case identified | **Robustness** | "如果网络断了怎么办？" → adds offline handling |
+| Missing requirement surfaced | **Completeness** | "等等，还要考虑权限控制" → adds auth requirement |
+| Constraint discovered | **Realism** | "服务器内存只有 2G" → adds memory constraint |
+| Quality bar raised | **Excellence** | "性能要求是 100ms 以内" → tightens perf requirement |
+| Scope clarification | **Precision** | "只需要支持 Chrome" → narrows browser scope |
+
+#### Evolution Flow
+
+```
+Every conversation turn (all phases):
+  1. Read current .target.md
+  2. Scan dialog for evolution signals (table above)
+  3. If signal detected:
+     a. Classify: power / robustness / completeness / realism / excellence / precision
+     b. Draft evolution proposal:
+        "我注意到你提到了 [X]，这会让目标更 [robust/powerful/...]。
+         建议更新 Overall Objective：
+         - 原：[current]
+         - 新：[proposed]
+         确认更新？"
+     c. Wait for user confirmation
+     d. If confirmed → update .target.md + .convergence-baseline.md (add/modify R#)
+     e. Assess impact on current phase:
+        - Phase 1 (draft): no impact, continue definition
+        - Phase 2 (planning): if plan exists, trigger REPLAN
+        - Phase 3 (executing): route to Pending Refinement Buffer processing
+        - Phase 4 (evolving): incorporate into next stage target
+  4. If no signal → proceed with normal phase action
+```
+
+#### Evolution vs Refinement Buffer
+
+| Aspect | Objective Evolution | Pending Refinement Buffer |
+|--------|--------------------|-----------------------------|
+| **Trigger** | Implicit in dialog (semantic detection) | Explicit user request ("add X") |
+| **Scope** | Overall Objective + high-level requirements | Specific features or details |
+| **Applies to** | All phases, every turn | Phases 2-4 only (during execution) |
+| **Processing** | Immediate proposal + confirmation | Buffered + batch at checkpoints |
+| **Impact** | May trigger REPLAN | Assessed at checkpoint |
+
+#### Non-Evolution (Do Not Propose)
+
+- User asks a question without implying requirement change
+- User discusses implementation detail (belongs to plan, not objective)
+- User expresses preference that doesn't affect objective ("用 TypeScript 写")
+- Already covered by existing requirement (redundant)
+
 ### Four-File Anchored Review
 
 check evaluates deliverables against `.target.md`, `.convergence-baseline.md`, and `.plan.md` per D1-D6 dimension. See `check/SKILL.md` §Four-File Anchored Review for the full dimension-anchor mapping table.
-
-### Context Extraction (Phase 1 Entry)
-
-When `status=draft` and auto starts, **before** prompting for objectives:
-
-1. **Scan conversation history** — look for requirement signals:
-   - Explicit asks: "我想要...", "需要实现...", "帮我做...", "I want...", "I need...", "Build me..."
-   - Problem statements: "现在的问题是...", "The issue is...", "This doesn't work..."
-   - Feature descriptions: technical terms, API names, UI elements, behavior descriptions
-   - Constraints: "必须...", "不能...", "should", "must not", performance requirements
-
-2. **If sufficient signals found** (≥2 distinct requirement-like statements):
-   - Extract and structure into `.target.md` draft format:
-     ```markdown
-     ## Overall Objective
-     [Synthesized from conversation — 1-2 sentences]
-
-     ## Requirements (extracted)
-     - R1: [first requirement]
-     - R2: [second requirement]
-     ...
-
-     ## Constraints (if any)
-     - [extracted constraints]
-
-     ---
-     *[Auto-extracted from conversation. Please confirm or revise.]*
-     ```
-   - **Present draft to user** — do NOT write `.target.md` yet
-   - Wait for user confirmation/revision before proceeding
-
-3. **If insufficient signals** (< 2 requirement statements, or only vague discussion):
-   - Fall back to guided dialog: "我注意到我们讨论了一些想法，但还没有明确的目标。请描述你想要完成什么？"
-
-4. **After user confirms/revises** → call `/task-ai:target` to write files
-
-This enables seamless flow: user discusses requirements → says "auto" → auto extracts and confirms → proceeds to planning.
 
 ### Detailed Phase Flow
 
 ```
 Phase 1: Overall Objective (status=draft) — Human in the loop
-  0. Context Extraction: scan conversation → if signals found, present draft and await confirmation
-  1. 对话式 refine：引导用户定义/确认 Overall Objective
+  1. 对话式 refine：引导用户定义 Overall Objective
   2. Research（LLM 自决）：
      - 目标清晰、领域熟悉 → 跳过 research
      - 目标模糊或领域陌生 → 自动完成 research 全流程（O1→O2→O3 一次性完成），呈现结果
@@ -215,13 +249,10 @@ Phase 1 (Overall Objective) — waits for user confirmation (only users can vali
 
 | User says | Claude does |
 |-----------|------------|
-| (auto starts, conversation has requirements) | **Context Extraction** → present draft → await confirmation |
-| (auto starts, conversation is vague) | Ask: "请描述你想要完成什么？" |
-| "I need WebSocket auth with token refresh" | Write/update .target.md draft |
-| "Also needs backward compatibility" | Append requirement to draft |
+| "I need WebSocket auth with token refresh" | Write/update .target.md |
+| "Also needs backward compatibility" | Append requirement to .target.md |
 | "Help me research this area" | 执行 research 全流程（O1→O2→O3 一次性完成），呈现结果 |
-| "OK looks good" / "Confirmed" / "是的" | 写入 .target.md + .convergence-baseline.md → 自动生成 Stage 1 目标 → Phase 2 |
-| "不对，应该是..." / "No, it should be..." | Revise draft, present again |
+| "OK looks good" / "Confirmed" | 写入 .target.md + .convergence-baseline.md → 自动生成 Stage 1 目标 → Phase 2 |
 | Silence | **Do not advance** — wait for user confirmation |
 
 Phases 2-4 — full auto, user can intervene:
@@ -507,6 +538,12 @@ Terminal: BLOCKED at any check → (stop, status → blocked)
 The auto skill runs this loop within a single Claude session:
 
 1. Read .status.json → derive phase (status-based routing). For `draft` status: also read `.target.md` to assess objective clarity and determine if research is needed
+1-pre. **Objective Evolution Check** (every turn, all phases except `cancelled`):
+   - Read current `.target.md` (if exists)
+   - Scan current conversation turn for evolution signals (see §Objective Evolution triggers)
+   - If evolution detected → propose update, await user confirmation before proceeding
+   - If confirmed → update `.target.md` + `.convergence-baseline.md`, then assess phase impact (REPLAN if in planning/executing)
+   - If no evolution or user declines → proceed with normal phase action
 1a. **Load adaptive parameters**: Read `.type-profile.md` `## Auto Adaptation` section. Extract `thresholds`, `retry_limits`, `mid_exec_check_interval`, and `compaction_threshold`. If `.type-profile.md` is absent or lacks the section → use fallback defaults (thresholds from table above, check interval = 3, compaction = 82%)
 1b. **Compute audit budget**: Before each check invocation, compute the adaptive D1-D6 evaluation round budget based on change scope. Run:
    ```bash
@@ -538,7 +575,7 @@ The auto skill runs this loop within a single Claude session:
 
 | Current Status | First Step |
 |----------------|-----------|
-| `draft` | Phase 1（对话式定义 Overall Objective）— **先做对话上下文摘要**（见 §Context Extraction），若提炼出需求则呈现草稿待确认；否则引导用户定义目标。LLM 自决是否 research，确认后写入 .target.md + .convergence-baseline.md，自动生成 Stage 1 目标 → planning |
+| `draft` | Phase 1（对话式定义 Overall Objective）— 引导用户定义目标，LLM 自决是否 research，确认后写入 .target.md + .convergence-baseline.md，自动生成 Stage 1 目标 → planning |
 | `planning` | Phase 2（plan → check）— Execute plan → verify → check (post-plan) |
 | `re-planning` | Phase 2（plan → check，带 check 反馈）— Read `phase` field: if `needs-plan` → execute plan; if `needs-check` → execute verify → check (post-plan); if empty → default to plan |
 | `review` | Phase 3（post-plan 已通过，exec）— Execute exec |
