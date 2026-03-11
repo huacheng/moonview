@@ -164,10 +164,9 @@ Phase 4: Acceptance + 自动推进 (status=executing→evolving) — Full auto
   ### satisfied 重入
 
   用户在 satisfied 状态发起 refine（"还需要 X"）：
-  1. target 处理：status: satisfied → planning（直接进入，无中间 evolving）
-  2. 更新 .target.md Overall Objective + 新阶段定义
-  3. 更新 .convergence-baseline.md（新增/修改 R#）
-  4. 自动进入 Phase 2 (Planning)
+  1. **auto 设置 status: satisfied → evolving**（auto 负责状态转换）
+  2. auto 调用 target 更新 .target.md Overall Objective + .convergence-baseline.md
+  3. 从 evolving 走正常流程：evolving 入口决策 → 自动生成子阶段目标 → planning → Phase 2
 ```
 
 ## Dialog Behavior
