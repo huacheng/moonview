@@ -104,30 +104,18 @@ git reset --hard <commit>          # in the task's worktree
 
 ## .gitignore
 
-**Project root `.gitignore`** (managed by `init`):
+Add to project `.gitignore`:
 ```
 .worktrees/
 **/.working/.auto-stop
 **/.working/.lock
-**/.working/.library-state.json
+.library/.changelog
+.library/.changelog-archive/.lock
+.library/.memory/.thinking/raw/
+.library/.memory/.thinking/patterns/.lock
+.library/.inconsistency.log
+.library/.ioc.md
+**/.library-state.json
 **/.lock
 **/.lock.stale.*
-```
-
-**Library `.gitignore`** (managed by `library init`, inside `.library/`):
-```
-.changelog
-.changelog.lock
-.changelog-archive/.lock
-.memory/.thinking/raw/
-.memory/.thinking/patterns/.lock
-.inconsistency.log
-.ioc.md
-.plugin-registry.md
-.last-maintained
-.last-scheduled
-.scheduled.log
-**/.lock
-**/.lock.stale.*
-**/.last-scan*
 ```

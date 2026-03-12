@@ -136,6 +136,12 @@ _GI_ENTRIES=(
   "**/.working/.auto-stop"
   "**/.working/.lock"
   "**/.working/.library-state.json"
+  ".library/.changelog"
+  ".library/.changelog-archive/.lock"
+  ".library/.memory/.thinking/raw/"
+  ".library/.memory/.thinking/patterns/.lock"
+  ".library/.inconsistency.log"
+  ".library/.ioc.md"
   "**/.lock"
   "**/.lock.stale.*"
 )

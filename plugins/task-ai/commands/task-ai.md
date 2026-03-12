@@ -79,23 +79,6 @@ Writers should keep `.summary.md` under ~200 lines. It is a context window optim
 
 > **See `commands/references/summary-formats.md`** for the detailed table formats (experiences index, per-type summaries, references index) and filename conventions.
 
-### Library Access Rule (HARD CONSTRAINT)
-
-**NEVER use `Read` tool directly on `.library/` files.** Always use `/task-ai:library search "<keywords>"` instead.
-
-| ❌ Wrong | ✅ Correct |
-|----------|-----------|
-| `Read .library/.memory/.experiences/software/auth-impl.md` | `/task-ai:library search "auth software"` |
-| `Glob .library/.memory/.references/*.md` | `/task-ai:library search "jwt session"` |
-
-**Why**:
-1. `library search` uses index-based lookup with relevance scoring — O(1) vs O(n) full scan
-2. Returns ranked results based on keyword match, quality_status, and effectiveness_mark
-3. Handles deduplication (multiple versions of same topic)
-4. Tracks usage for `maintain` effectiveness analysis
-
-**Exception**: `library` sub-command itself may read files directly during `maintain`, `status`, and internal operations.
-
 ### .status.json Schema
 
 ```json

@@ -220,10 +220,11 @@ Lightweight periodic maintenance — timestamp-gated (24h interval), suitable fo
 1. **Staleness check** — scan `.memory/.references/` for files older than 30 days, report stale count
 2. **T3→T4 production validation** — scan all `.skills/.active/` T3 skills, promote to T4 if `usage_count >= 3` and zero REPLAN failures (same logic as `--promote-skill`)
 3. **Security rules evolution** — invoke `core-rule-auto.sh cron-job` (Core: 7d / Extended: 1d, own timestamp gating)
-4. **Changelog size check** — warn if `.changelog` exceeds 2000-line threshold
+4. **Changelog auto-compact** — run `--compact` if last compact was ≥30 days ago (archives entries >90 days old)
 
 **Timestamp gating:**
 - Reads `.last-scheduled` (epoch seconds); skips if last run < 24h ago
+- Reads `.last-compact` (epoch seconds); runs compact if last run ≥ 30 days ago
 - `--force` bypasses the timestamp check
 - On completion, writes current epoch to `.last-scheduled`
 

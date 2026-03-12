@@ -484,20 +484,25 @@ while [[ $# -gt 0 ]]; do
           echo "  core-rule-auto.sh not found, skipping"
       fi
 
-      # 4. Changelog size check
+      # 4. Changelog auto-compact (monthly)
       echo ""
-      echo "--- [4/4] Changelog Size Check ---"
-      CHANGELOG="$LIB_PATH/.changelog"
-      if [[ -f "$CHANGELOG" ]]; then
-          LINE_COUNT=$(wc -l < "$CHANGELOG")
-          echo "  Changelog: $LINE_COUNT lines"
-          if [[ "$LINE_COUNT" -gt 2000 ]]; then
-              echo "  [WARN] Exceeds 2000-line threshold — run: library maintain --compact"
-          else
-              echo "  Within threshold"
+      echo "--- [4/4] Changelog Auto-Compact ---"
+      COMPACT_TS_FILE="$LIB_PATH/.last-compact"
+      COMPACT_INTERVAL=$((30 * 24 * 3600))  # 30 days in seconds
+      NOW_EPOCH=$(date +%s)
+      LAST_COMPACT=0
+      if [[ -f "$COMPACT_TS_FILE" ]]; then
+          LAST_COMPACT=$(cat "$COMPACT_TS_FILE" 2>/dev/null || echo 0)
+      fi
+      COMPACT_AGE=$((NOW_EPOCH - LAST_COMPACT))
+      if [[ $COMPACT_AGE -ge $COMPACT_INTERVAL ]]; then
+          echo "  Running compact (last run: $((COMPACT_AGE / 86400)) days ago)..."
+          if bash "$SCRIPT_DIR/maintain.sh" --compact 2>&1 | sed 's/^/  /'; then
+              date +%s > "$COMPACT_TS_FILE"
           fi
       else
-          echo "  No changelog found"
+          DAYS_UNTIL=$((($COMPACT_INTERVAL - COMPACT_AGE) / 86400))
+          echo "  Compact up to date — next in ${DAYS_UNTIL} days"
       fi
 
       # Update timestamp
