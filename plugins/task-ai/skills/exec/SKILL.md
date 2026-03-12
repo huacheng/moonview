@@ -30,7 +30,7 @@ Execute the implementation plan for a task module that has passed evaluation.
 /task-ai:exec [--step N]
 ```
 
-**Notebook auto-detection:** The notebook is automatically resolved from CWD (`.working/.status.json`) or the current git branch (`task/<notebook>`). No manual notebook parameter needed.
+**Notebook auto-detection:** The notebook is automatically resolved from CWD (`.status.json`) or the current git branch (`task/<notebook>`). No manual notebook parameter needed.
 
 ## Prerequisites
 
@@ -67,7 +67,7 @@ Read the `type` field from `.status.json` to determine the task domain. Executio
 For each implementation step:
 
 1. **Read** relevant files (source code, configs, scripts, documentation)
-   > **Output directory**: All non-system file output (code, configs, assets) goes to `<notebook>/.deliverables/` — merge only copies this directory to main branch, so anything outside it won't be preserved. System files (`.status.json`, `.plan.md`, etc.) remain in `.working/`.
+   > **Output directory**: All non-system file output (code, configs, assets) goes to `.working/.deliverables/` — merge only copies this directory to main branch, so anything outside it won't be preserved. System files (`.status.json`, `.plan.md`, etc.) also remain in `.working/`.
 2. **VH confirmation** (VFP-applicable types with VH stubs): If (`type` contains `software` OR `.type-profile.md` contains `## Verification Cycle`) AND `.test/<date>-vh-stubs.test.*` exists (with vh-baseline.md confirming initial failure state), run **only** the tests corresponding to the current step (identified by the `[VH: ...]` annotations in `.plan.md`) before implementing:
    - **Expected: all Red (failing)** → proceed to implementation
    - **Unexpected: any Green (passing)** → log warning in `.notes/`: "Step N: test X was Green before implementation — test may be trivially satisfied or implementation leaked from a prior step". Continue implementation but flag for review
@@ -174,7 +174,7 @@ For long-running executions, intermediate progress can be observed by:
 - **VFP protocol reference**: The Verification-First Protocol (VH confirmation, HS confirmation, Cumulative Green Gate, Refactor window) is defined in `commands/references/verification-first-protocol.md`. Refer to that document for full VFP applicability rules, VH stub design patterns, and CGG thresholds
 - **Evidence-based decisions**: When uncertain about APIs, library usage, or compatibility, use shell commands to verify (curl official docs, check installed versions, read node_modules source, etc.) before implementing
 - **Experience invalidation**: If implementation reveals that a previously loaded experience file (`<semantic>-impl.md`, `-verify.md`, or `-eval.md`) provided guidance that contradicts actual runtime behavior (e.g., documented API signature doesn't match, performance claim is wrong), set `quality_status: invalidated` on that file — acquire `.memory/.experiences/.lock` → update frontmatter → write atomically (`.tmp → rename`) → append `experience` changelog line with tag `quality_status:invalidated` → release lock
-- **Concurrency**: Exec acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)
+- **Concurrency**: Exec acquires `.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`)
 - **Reference collection**: Primary reference collection is handled by the `research` sub-command before planning. During execution, if you discover valuable implementation details via web searches, you may still save findings to `$NB_WORKSPACES_LIBRARY/.memory/.references/` — follow the full eight-step Library Write Protocol (see `skills/library/SKILL.md`): acquire `.memory/.references/.lock` → sanitize content (ten categories, `references/injection-rules.md`) → apply source classification (`references/blocked-sources.md`) → write atomically → append changelog → update index → update relations → release lock
 - **`/task-ai:verify` integration**: Per-step verification can optionally invoke `verify --checkpoint step-N` for domain-specific testing. For lightweight checks (build + lint), inline verification is sufficient
 - **Auto-mode safety boundaries**: When exec runs within `auto` mode (unattended), the following operations are PROHIBITED unless the plan explicitly calls for them: modifying `.env` or credential files, running destructive commands (`rm -rf`, `git push --force`, `DROP TABLE`), installing system-level packages (`apt install`, `brew install`), sending external requests (email, webhook, API calls to production). Violation → stop execution and signal `(mid-exec)` for human review

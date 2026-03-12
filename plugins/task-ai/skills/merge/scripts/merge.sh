@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # /task-ai:merge implementation
-# Copy <notebook>/.deliverables/ to main — does NOT do full git merge, delete branches or worktrees.
+# Copy .working/.deliverables/ to main — does NOT do full git merge, delete branches or worktrees.
 # Usage: merge.sh <notebook>
 
 set -euo pipefail
@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../../core/lib.sh"
 
 NOTEBOOK="${1:-}"
-resolve_workdir "$NOTEBOOK"
+resolve_nb_workdir "$NOTEBOOK"
 NOTEBOOK="$NB_NOTEBOOK"
 
 # D2: Re-validate notebook name (find_nb_context derives name from directory/branch without full sanitization)
@@ -19,12 +19,12 @@ if [[ ! "$NOTEBOOK" =~ ^[a-zA-Z0-9_-]+$ ]]; then
     exit 1
 fi
 
-if [[ ! -d "$WORK_DIR" ]]; then
+if [[ ! -d "$TASKAI_WORK_DIR" ]]; then
     echo "[ERROR] Working directory not found." >&2
     exit 1
 fi
 
-STATUS_JSON="$WORK_DIR/.status.json"
+STATUS_JSON="$TASKAI_WORK_DIR/.status.json"
 STATE_PY="$TASK_AI_ROOT/core/state.py"
 # D3: Cleanup handler — remove temp files on exit
 MERGE_TMPDIR=""
@@ -60,7 +60,7 @@ reject_no_accept() {
 }
 
 # D1: Verify ACCEPT verdict exists (per SKILL.md step 3)
-ANALYSIS_DIR="$WORK_DIR/.analysis"
+ANALYSIS_DIR="$TASKAI_WORK_DIR/.analysis"
 if [[ ! -d "$ANALYSIS_DIR" ]]; then
     reject_no_accept "Analysis directory not found. Run 'check --checkpoint post-exec' first."
 fi
@@ -123,9 +123,9 @@ fi
 echo "[GIT] Copying .deliverables/ from $TASK_BRANCH to $MAIN_BRANCH..."
 
 # Resolve paths before branch switch (paths vanish after checkout master)
-NB_DIR="$(dirname "$WORK_DIR")"
-PROJECT_DIR="$(dirname "$NB_DIR")"
-SRC_DELIVERABLES="$NB_DIR/.deliverables"
+NB_DIR="$(dirname "$TASKAI_WORK_DIR")"
+PROJECT_DIR="$(dirname "$(dirname "$NB_DIR")")"
+SRC_DELIVERABLES="$TASKAI_WORK_DIR/.deliverables"
 DELIVERABLES_TARGET="$PROJECT_DIR/.deliverables/$NOTEBOOK"
 
 # D3: Save deliverables to temp dir before switching branches (cleaned up by cleanup_merge trap)

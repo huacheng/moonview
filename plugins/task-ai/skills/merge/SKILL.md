@@ -1,6 +1,6 @@
 ---
 name: merge
-description: "Copy deliverables from task branch to main — selective copy of <notebook>/.deliverables/ only. Pure file operation, no status changes. Use when the user says 'merge', 'land it', or wants to copy current deliverables to main branch."
+description: "Copy deliverables from task branch to main — selective copy of .working/.deliverables/ only. Pure file operation, no status changes. Use when the user says 'merge', 'land it', or wants to copy current deliverables to main branch."
 model_tier: medium
 auto_delegatable: false
 triggers:
@@ -19,7 +19,7 @@ arguments: []
 
 # /task-ai:merge — Copy Deliverables to Main
 
-Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/<notebook>/` on main.
+Copy a completed task's `.working/.deliverables/` to `<project>/.deliverables/<notebook>/` on main.
 
 ## Usage
 
@@ -27,7 +27,7 @@ Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/
 /task-ai:merge
 ```
 
-**Notebook auto-detection:** The notebook is automatically resolved from CWD (`.working/.status.json`) or the current git branch (`task/<notebook>`). No manual notebook parameter needed.
+**Notebook auto-detection:** The notebook is automatically resolved from CWD (`.status.json`) or the current git branch (`task/<notebook>`). No manual notebook parameter needed.
 
 ## Prerequisites
 
@@ -42,18 +42,18 @@ Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/
 1. **If worktree**: `cd <project-root>` first (worktree is locked to task branch)
 2. **Checkout main** (non-worktree) or already on main (worktree, from main worktree)
 3. **Copy deliverables only** — does NOT do full git merge:
-   - Save `<notebook>/.deliverables/` content from task branch to a temp directory (before branch switch)
+   - Save `.working/.deliverables/` content from task branch to a temp directory (before branch switch)
    - Checkout main
    - Copy temp content to `<project>/.deliverables/<notebook>/` on main
    - Commit
    ```
-   Source: <project>/<notebook>/.deliverables/*  (task branch)
+   Source: <project>/.worktrees/task-<notebook>/.working/.deliverables/*  (task branch)
    Target: <project>/.deliverables/<notebook>/*  (main branch)
    ```
    Where `<task-branch>` is read from `.status.json` `branch` field (defaults to `task/<notebook>` if unset).
-   If the task branch has no `<notebook>/.deliverables/` directory, the copy is silently skipped (no error).
+   If the task branch has no `.working/.deliverables/` directory, the copy is silently skipped (no error).
 
-> **Why not full git merge?** Task branches contain system files (`.working/`, `.status.json`, `.plan.md`, etc.) that should NOT pollute the main branch. Only `<notebook>/.deliverables/` content (actual code output) is copied to the project-level `.deliverables/` on main.
+> **Why not full git merge?** Task branches contain system files (`.working/`, `.status.json`, `.plan.md`, etc.) that should NOT pollute the main branch. Only `.working/.deliverables/` content (actual code output) is copied to the project-level `.deliverables/` on main.
 
 > **Note**: Merge does NOT delete branches or worktrees. The user can clean them up manually or via a separate cleanup command when ready.
 
@@ -65,8 +65,8 @@ Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/
 2. **Validate dependencies**: read `depends_on` from `.status.json`, check each dependency module's `.status.json` status against its required level (simple string → `satisfied`, extended object → at-or-past `min_status`). If any dependency is not met, REJECT with error listing blocking dependencies
 3. **Verify** ACCEPT verdict: check latest `.analysis/` file for `post-exec-accept`
 4. **Read** `.summary.md` for task context (plan overview, completed steps, key decisions)
-5. **Copy deliverables**: Save `<notebook>/.deliverables/` to temp → checkout main → copy to `<project>/.deliverables/<notebook>/` → commit on main
-6. **If no `<notebook>/.deliverables/`**: skip copy silently (no error)
+5. **Copy deliverables**: Save `.working/.deliverables/` to temp → checkout main → copy to `<project>/.deliverables/<notebook>/` → commit on main
+6. **If no `.working/.deliverables/`**: skip copy silently (no error)
 7. **Checkout back** to task branch
 8. **Report** merge result: "Deliverables copied to `.deliverables/<notebook>/` on main."
 
@@ -93,5 +93,5 @@ Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/
 - Status transitions (`executing` → `evolving`) are handled by auto after check post-exec ACCEPT
 - Refactoring is exec's per-step responsibility (exec Per-Step step 6 Refactor window) — merge does not refactor
 - Merge does **not** delete branches or worktrees — the user retains full control over cleanup timing
-- **Concurrency**: Lock acquisition/release is handled by the caller (auto mode or CLI dispatcher). `merge.sh` assumes `.working/.lock` is already held (see Concurrency Protection in `commands/task-ai.md`)
+- **Concurrency**: Lock acquisition/release is handled by the caller (auto mode or CLI dispatcher). `merge.sh` assumes `.lock` is already held (see Concurrency Protection in `commands/task-ai.md`)
 - **Note:** Deliverables accumulate on the task branch. Users can invoke merge at any time to copy current deliverables to main. Status transitions are handled by auto.

@@ -29,7 +29,7 @@ task-ai(<module>):<type> <description>
 | `feat` | New feature code during exec | Project files |
 | `fix` | Bugfix code during exec | Project files |
 | `refactor` | Code cleanup before merge | Project files |
-| `merge` | Copy <notebook>/.deliverables/ to main; stage completion | $NB_WORKSPACES_ROOT/ directory files |
+| `merge` | Copy .working/.deliverables/ to main; stage completion | $NB_WORKSPACES_ROOT/ directory files |
 | `report` | Report generation | $NB_WORKSPACES_ROOT/ directory files |
 | `cancel` | Task cancellation | $NB_WORKSPACES_ROOT/ directory files |
 | `highlight` | Experience distillation and ad-hoc capture | $NB_WORKSPACES_LIBRARY/ files |
@@ -68,7 +68,7 @@ task-ai(auth-refactor):target stage 2 defined
 
 After task completion confirmed (`check --checkpoint post-exec` ACCEPT), the `merge` sub-command copies deliverables to main:
 
-1. **Save** `<notebook>/.deliverables/` content from task branch to temp dir
+1. **Save** `.working/.deliverables/` content from task branch to temp dir
 2. **Checkout main**, copy to `<project>/.deliverables/<notebook>/`, commit
 3. **Checkout back** to task branch for state transition (→ `evolving`)
 
@@ -90,7 +90,7 @@ git worktree add .worktrees/task-<module> -b task/<notebook>
 - Each task runs in an isolated directory with full project copy
 - Multiple tasks can `exec` simultaneously without conflict
 - `auto` daemon operates in the task's worktree directory
-- On completion, copy deliverables: `merge` copies `<notebook>/.deliverables/` to `<project>/.deliverables/<notebook>/` on main
+- On completion, copy deliverables: `merge` copies `.working/.deliverables/` to `<project>/.deliverables/<notebook>/` on main
 
 ## Rollback
 
@@ -107,8 +107,8 @@ git reset --hard <commit>          # in the task's worktree
 Add to project `.gitignore`:
 ```
 .worktrees/
-**/.working/.auto-stop
-**/.working/.lock
+**/.auto-stop
+**/.lock
 .library/.changelog
 .library/.changelog-archive/.lock
 .library/.memory/.thinking/raw/

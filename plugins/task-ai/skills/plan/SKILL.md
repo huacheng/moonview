@@ -38,7 +38,7 @@ Generate an implementation plan from `.target.md`. Annotation processing is hand
 /task-ai:plan --refine "Add caching layer between API and database"
 ```
 
-**Notebook auto-detection:** The notebook is automatically resolved from CWD (`.working/.status.json`) or the current git branch (`task/<notebook>`). No manual notebook parameter needed.
+**Notebook auto-detection:** The notebook is automatically resolved from CWD (`.status.json`) or the current git branch (`task/<notebook>`). No manual notebook parameter needed.
 
 `--generate` is the default behavior — the flag exists for explicitness when invoked from auto mode or scripts. Omitting it has the same effect.
 
@@ -54,11 +54,14 @@ The agent maintains phase awareness via `.status.json` (see Phase Awareness Prot
 
 ## Execution Steps
 
-1. Read `.target.md` for requirements. **Stage awareness**: read `.status.json` `stage` field (default `{ current: 1, history: [] }` if missing). If `stage.current > 1` (multi-stage mode):
-   - Only read the current `[ACTIVE]` stage's Objective/Requirements/Constraints from `.target.md` — plan scope is limited to the current stage
-   - Also read prior `[COMPLETE]` stages' `### Results` sections as context (already-implemented capabilities)
-   - Library context loading (steps 10-12) naturally includes prior-stage experience files distilled by highlight
-   - If `stage.current == 1`: read entire `.target.md` as before (backward compatible)
+1. Read `.target.md` for requirements.
+   - **Unconfirmed gate**: If `.target.md` contains `[UNCONFIRMED]` marker → REJECT with error "Overall Objective is unconfirmed. Confirm the target before planning." This prevents planning on objectives still under discussion.
+   - **Stage awareness**: read `.status.json` `stage` field (default `{ current: 1, history: [] }` if missing). If `stage.current > 1` (multi-stage mode):
+     - Only read the current `[ACTIVE]` stage's Objective/Requirements/Constraints from `.target.md` — plan scope is limited to the current stage
+     - Also read prior `[COMPLETE]` stages' `### Results` sections as context (already-implemented capabilities)
+     - Library context loading (steps 10-12) naturally includes prior-stage experience files distilled by highlight
+     - If `stage.current == 1`: read entire `.target.md` as before (backward compatible)
+   - **Stage advance archive**: If existing `.plan.md` has a stage marker (`<!-- stage: N -->`) different from current `stage.current`, archive it as `.plan-stage-<N>.md` (where N is the old stage number). This preserves prior stage plans for reference. If same stage → use `.plan-superseded.md` logic in step 15
 2. **Read `.convergence-baseline.md`** from `.working/` directory for requirement coverage mapping. This file contains numbered requirements (R1, R2, ...) extracted by `target` from the convergence baseline:
    - If `.convergence-baseline.md` exists → parse the R# requirement list for use in plan step annotation (step 16)
    - If `.convergence-baseline.md` does not exist → warn ("convergence baseline not found — skipping R# coverage mapping") and continue. This is backward compatible — older targets may not have generated it
@@ -165,7 +168,7 @@ Plan methodology adapts to the task domain — a software task needs test-first 
 - All plan research should consider the full context of the task module (read `.target.md` and `.plan.md`)
 - When researching implementation plans, use the project codebase as context (read relevant project files)
 - **Evidence-based decisions**: Primary domain research is handled by the `research` sub-command (step 3). For plan-specific decisions, use shell commands to verify claims (curl docs/APIs, npm info, etc.) rather than relying solely on internal knowledge
-- **Concurrency**: Plan acquires `.working/.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`). Reference writing is handled by the `research` sub-command (which manages its own `.memory/.references/.lock`)
+- **Concurrency**: Plan acquires `.lock` before proceeding and releases on completion (see Concurrency Protection in `commands/task-ai.md`). Reference writing is handled by the `research` sub-command (which manages its own `.memory/.references/.lock`)
 - **Task-type-aware test design**: `.test/` criteria must use domain-appropriate verification methods (e.g., unit tests for code, SSIM/PSNR for image processing, SNR for audio/DSP, schema validation for data pipelines). Research established best practices for the task domain before writing test criteria. See `commands/references/test-strategy-by-type.md` for the full domain test strategy reference
 - **Convergence baseline R# mapping**: Plan steps should annotate `Covers: R#` to map to convergence baseline requirements when `.convergence-baseline.md` is present. This enables check to verify requirement coverage at post-plan and track convergence at post-exec. The mapping is advisory (soft warning for gaps) — the hard coverage check is performed by `check --checkpoint post-plan`
 - **Regression test in plan**: Plan's primary role is to DESIGN tests (step 18-19), not execute the full RED→GREEN cycle (that is exec's job per `commands/references/test-strategy-by-type.md` Phase Responsibilities). However, plan's L1 self-audit (step 26) and re-plan regression check (step 16) both apply fixes to `.plan.md` — these must include contract-test verification per the Regression Test Protocol. Step 19 generates the RED baseline that exec will use for RED→GREEN

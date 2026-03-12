@@ -59,8 +59,8 @@ When the user expresses intent to modify the target during `planning` status, th
 
 | Marker | Applies To | Meaning |
 |--------|------------|---------|
-| `[DRAFT]` | Overall Objective | Goal is being discussed/refined (Phase 1 dialog in progress) |
-| `[PENDING]` | Overall Objective | Goal confirmed by user, awaiting Stage 1 generation |
+| `[UNCONFIRMED]` | Overall Objective | Goal is being discussed/refined (Phase 1 dialog in progress) |
+| `[CONFIRMED]` | Overall Objective | Goal confirmed by user, awaiting Stage 1 generation |
 | (no marker) | Overall Objective | Goal is being executed (Stage 1+ active) |
 | `[ACTIVE]` | Stage | Currently executing stage |
 | `[COMPLETE]` | Stage | Completed stage |
@@ -69,7 +69,7 @@ When the user expresses intent to modify the target during `planning` status, th
 ```markdown
 # Task Target: notebook-name
 
-## Overall Objective [DRAFT]
+## Overall Objective [UNCONFIRMED]
 
 Build a JWT authentication system
 
@@ -90,7 +90,7 @@ Build a JWT authentication system
 ```markdown
 # Task Target: notebook-name
 
-## Overall Objective [PENDING]
+## Overall Objective [CONFIRMED]
 
 Build a JWT authentication system with refresh tokens and OAuth support
 
@@ -150,16 +150,16 @@ Build a JWT authentication system with refresh tokens and OAuth support
 
    3d. **ELSE** (normal mode, including first definition) → **Normal/Multi-stage Analysis Mode**:
       - **IF status == `draft`** (Phase 1 dialog in progress):
-        - Write `.target.md` with `## Overall Objective [DRAFT]` marker (goal under discussion)
-        - When user confirms objective: update marker `[DRAFT]` → `[PENDING]` (goal confirmed, awaiting Stage 1)
+        - Write `.target.md` with `## Overall Objective [UNCONFIRMED]` marker (goal under discussion)
+        - When user confirms objective: update marker `[UNCONFIRMED]` → `[CONFIRMED]` (goal confirmed, awaiting Stage 1)
         - Evaluate objective complexity:
           - Is it beyond a single plan→exec→ACCEPT cycle?
           - Are there natural stage boundaries?
           - **IF suggests splitting**: propose stages to user as guidance (e.g., "Suggest starting with: 1.Basic auth, then evolving to OAuth, then RBAC"), but generate only the first stage in `.target.md` — subsequent stages emerge through the evolving → target cycle
-        - When generating Stage 1: remove `[PENDING]` from Overall Objective, add `## Stage 1: <name> [ACTIVE]`
+        - When generating Stage 1: remove `[CONFIRMED]` from Overall Objective, add `## Stage 1: <name> [ACTIVE]`
       - **ELIF status == `planning`**: update existing `.target.md` content (no marker changes)
       - **ELSE** (status ∉ {`draft`, `planning`}): update current stage target content (no multi-stage analysis — plan is already based on current stage target)
-      - Atomic write to `.working/.target.md` + update `.status.json` + Git commit: `task-ai(<notebook>):target update objective`
+      - Atomic write to `.target.md` + update `.status.json` + Git commit: `task-ai(<notebook>):target update objective`
       - Execute highlight protocol scope=thinking-raw (optional, high-value). Inline call failure should not block target's main flow — highlight is enhancement, not gating.
 
    3e. **Convergence Baseline Generation** (after `.target.md` write, before Git commit):
@@ -193,7 +193,7 @@ Build a JWT authentication system with refresh tokens and OAuth support
       Include `.convergence-baseline.md` in the Git commit scope alongside `.target.md` and `.status.json`.
 
 4. **If `objective` is omitted (Read Mode)**:
-   - **Read**: Read the content of `.working/.target.md`.
+   - **Read**: Read the content of `.target.md`.
    - **Display**: Output the structured objective to the conversation window.
 5. **Validation**: Confirm the target reflects the user's intent.
 6. **Next Step Prompt** (output after write mode completes — guides the user to the correct next lifecycle step).
