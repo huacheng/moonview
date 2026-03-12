@@ -31,8 +31,8 @@ satisfied → evolving → auto-generates substage → planning → ...
 
 | Marker | Applies To | Meaning |
 |--------|------------|---------|
-| `[DRAFT]` | Overall Objective | Goal is being discussed/refined (Phase 1 in progress) |
-| `[PENDING]` | Overall Objective | Goal confirmed, awaiting execution (user confirmed, not yet planning) |
+| `[UNCONFIRMED]` | Overall Objective | Goal is being discussed/refined — plan MUST NOT proceed until confirmed |
+| `[CONFIRMED]` | Overall Objective | Goal confirmed, awaiting execution (user confirmed, not yet planning) |
 | (no marker) | Overall Objective | Goal is being executed (Stage 1+ active) |
 | `[ACTIVE]` | Stage | Currently executing stage |
 | `[COMPLETE]` | Stage | Completed stage |
@@ -41,8 +41,8 @@ satisfied → evolving → auto-generates substage → planning → ...
 ```markdown
 # Task Target: notebook-name
 
-## Overall Objective [DRAFT]
-<user's initial goal description, still under discussion>
+## Overall Objective [UNCONFIRMED]
+<user's initial goal description, still under discussion — plan MUST NOT proceed>
 
 ## Requirements
 ...
@@ -55,7 +55,7 @@ satisfied → evolving → auto-generates substage → planning → ...
 ```markdown
 # Task Target: notebook-name
 
-## Overall Objective [PENDING]
+## Overall Objective [CONFIRMED]
 <confirmed goal, awaiting Stage 1 generation>
 
 ## Requirements
@@ -107,7 +107,7 @@ satisfied → evolving → auto-generates substage → planning → ...
 ```
 
 **Key differences from old model:**
-- `[DRAFT]` and `[PENDING]` track Overall Objective status during Phase 1
+- `[UNCONFIRMED]` and `[CONFIRMED]` track Overall Objective status during Phase 1
 - `[ACTIVE]` and `[COMPLETE]` track Stage execution status
 - Original top-level Objective becomes `## Overall Objective` (no marker) when Stage 1 starts
 - Stage 1 content is retroactively wrapped as `## Stage 1 [COMPLETE]` by auto (on check ACCEPT)

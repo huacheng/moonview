@@ -59,6 +59,7 @@ The agent maintains phase awareness via `.status.json` (see Phase Awareness Prot
    - Also read prior `[COMPLETE]` stages' `### Results` sections as context (already-implemented capabilities)
    - Library context loading (steps 10-12) naturally includes prior-stage experience files distilled by highlight
    - If `stage.current == 1`: read entire `.target.md` as before (backward compatible)
+   - **BLOCKING CHECK**: If `.target.md` contains `## Overall Objective [UNCONFIRMED]`, REJECT with error: "Cannot generate plan — objective is not confirmed. Run `/task-ai:target` to confirm the objective first." This prevents planning on unconfirmed goals
 2. **Read `.convergence-baseline.md`** from `.working/` directory for requirement coverage mapping. This file contains numbered requirements (R1, R2, ...) extracted by `target` from the convergence baseline:
    - If `.convergence-baseline.md` exists → parse the R# requirement list for use in plan step annotation (step 16)
    - If `.convergence-baseline.md` does not exist → warn ("convergence baseline not found — skipping R# coverage mapping") and continue. This is backward compatible — older targets may not have generated it

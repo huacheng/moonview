@@ -92,7 +92,10 @@ case "$STATUS" in
             echo "[ERROR] .target.md is empty or has no sections — fill target before running auto"
             exit 1
         fi
-        if grep -q '\[PROPOSED\]' "$TARGET_MD"; then
+        if grep -q '\[UNCONFIRMED\]' "$TARGET_MD"; then
+            echo "[PAUSE] Objective is [UNCONFIRMED] — confirm the objective before running auto"
+            exit 0
+        elif grep -q '\[PROPOSED\]' "$TARGET_MD"; then
             echo "[PAUSE] Pending [PROPOSED] items in .target.md — review and confirm before continuing"
             exit 0
         elif ! grep -q '## Research Insights' "$TARGET_MD" || \
