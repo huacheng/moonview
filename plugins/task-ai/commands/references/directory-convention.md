@@ -47,21 +47,19 @@ $NB_WORKSPACES_ROOT/                        # 环境变量: NB_WORKSPACES_ROOT
 ├── project-a/                              # 项目目录（独立 git 仓库）
 │   ├── .git/
 │   ├── .gitignore                          # task-ai 自动添加 .working/ 临时文件忽略规则
-│   ├── .deliverables/                      # project 级交付物目录
-│   │   └── <notebook>/                     # 按 notebook 隔离
-│   │       └── .report.md                  # 完成报告（由 report 子命令生成）
+│   ├── .deliverables/                      # project 级交付物目录（所有 notebook 共用）
+│   │   └── .report-<notebook>.md           # 完成报告（由 report 子命令生成）
 │   │
 │   └── .worktrees/                         # git worktrees 目录
 │       ├── task-notebook-1/                # 环境变量: NB_WORK_DIR — notebook 根目录
+│       │   ├── .deliverables/              # 任务交付物（exec 阶段产出，merge 时复制到 project 级）
 │       │   └── .working/                   # 环境变量: TASKAI_WORK_DIR — task-ai 系统文件目录
-│       │       ├── .deliverables/          # 任务交付物（exec 阶段产出，merge 时复制到 project 级）
 │       │       ├── .status.json            # 任务元数据（status/phase/type...）
 │       │       ├── .target.md              # 需求目标（人工编写）
 │       │       ├── .convergence-baseline.md # 加权 R# 收敛评分基线
 │       │       ├── .pending-refinements.md # 异步需求缓冲区
-│       │       ├── .plan.md                # 实施计划（含 <!-- stage: N --> 标记）
-│       │       ├── .plan-stage-<N>.md      # 阶段 N 计划归档（stage advance 时创建）
-│       │       ├── .plan-superseded.md     # 同阶段重规划归档
+│       │       ├── .plan.md                # 实施计划
+│       │       ├── .plan-superseded.md     # 旧计划归档
 │       │       ├── .type-profile.md        # 任务域方法论
 │       │       ├── .summary.md             # 压缩上下文摘要
 │       │       ├── .auto-stop              # 停止信号（临时，gitignore）
@@ -151,11 +149,11 @@ Project names and notebook names share the same validation rule: ASCII letters, 
 
 ## Merge Path Mapping
 
-During `merge`, `<notebook>/.working/.deliverables/` on the task branch is copied to `<project>/.deliverables/<notebook>/` on main. No full git merge — only deliverables are transferred.
+During `merge`, `<notebook>/.deliverables/` on the task branch is copied to `<project>/.deliverables/` on main. No full git merge — only deliverables are transferred. All notebooks share the same project-level deliverables directory.
 
 ```
-Source (task branch):  <project>/.worktrees/task-<notebook>/.working/.deliverables/*
-Target (main branch):  <project>/.deliverables/<notebook>/*
+Source (task branch):  <project>/.worktrees/task-<notebook>/.deliverables/*
+Target (main branch):  <project>/.deliverables/*
 ```
 
-Non-system file output (code, configs, assets) during exec MUST be written to `.working/.deliverables/`, not elsewhere in the project tree.
+Non-system file output (code, configs, assets) during exec MUST be written to `$NB_WORK_DIR/.deliverables/`, not elsewhere in the project tree.

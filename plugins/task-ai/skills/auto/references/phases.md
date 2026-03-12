@@ -5,16 +5,16 @@ Referenced from `auto/SKILL.md` §Four-Phase Flow.
 ## Phase 1: Overall Objective (status=draft) — Human in the loop
 
 1. Conversational refine: guide user to define Overall Objective
-   - .target.md shows `## Overall Objective [UNCONFIRMED]` (objective still under discussion)
+   - .target.md shows `## Overall Objective [DRAFT]` (objective still under discussion)
 2. Research (LLM decides):
    - Objective clear, domain familiar → skip research
    - Objective vague or domain unfamiliar → auto-complete research full flow (O1→O2→O3 in one pass), present results
    - User can explicitly request research
 3. After user confirmation:
-   - Update .target.md: `[UNCONFIRMED]` → `[CONFIRMED]` (objective confirmed, awaiting execution)
+   - Update .target.md: `[DRAFT]` → `[PENDING]` (objective confirmed, awaiting execution)
    - Generate .convergence-baseline.md
 4. Auto-generate Stage 1 target:
-   - .target.md: remove `[CONFIRMED]`, add `## Stage 1: <name> [ACTIVE]`
+   - .target.md: remove `[PENDING]`, add `## Stage 1: <name> [ACTIVE]`
    - status → planning
 
 ## Phase 2: Planning (status=planning) — Full auto + user can intervene
@@ -27,7 +27,7 @@ Referenced from `auto/SKILL.md` §Four-Phase Flow.
 
 ## Phase 3: Execution (status=executing) — Full auto + user can intervene
 
-- All non-system output (code, configs, assets) goes to `.working/.deliverables/` (merge only copies this directory — anything outside it won't reach main branch)
+- All non-system output (code, configs, assets) goes to `<notebook>/.deliverables/` (merge only copies this directory — anything outside it won't reach main branch)
 - Execute exec step by step
 - Key checkpoints trigger verify → check(mid-exec): significant issues, or every N steps (N from `.type-profile.md` Auto Adaptation `mid-exec check interval`, fallback 3)
 - All steps done → verify → check(post-exec)

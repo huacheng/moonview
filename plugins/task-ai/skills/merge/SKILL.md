@@ -1,6 +1,6 @@
 ---
 name: merge
-description: "Copy deliverables from task branch to main — selective copy of .working/.deliverables/ only. Pure file operation, no status changes. Use when the user says 'merge', 'land it', or wants to copy current deliverables to main branch."
+description: "Copy deliverables from task branch to main — selective copy of <notebook>/.deliverables/ only. Pure file operation, no status changes. Use when the user says 'merge', 'land it', or wants to copy current deliverables to main branch."
 model_tier: medium
 auto_delegatable: false
 triggers:
@@ -19,7 +19,7 @@ arguments: []
 
 # /task-ai:merge — Copy Deliverables to Main
 
-Copy a completed task's `.working/.deliverables/` to `<project>/.deliverables/<notebook>/` on main.
+Copy a completed task's `<notebook>/.deliverables/` to `<project>/.deliverables/` on main. All notebooks share the same project-level deliverables directory.
 
 ## Usage
 
@@ -42,18 +42,18 @@ Copy a completed task's `.working/.deliverables/` to `<project>/.deliverables/<n
 1. **If worktree**: `cd <project-root>` first (worktree is locked to task branch)
 2. **Checkout main** (non-worktree) or already on main (worktree, from main worktree)
 3. **Copy deliverables only** — does NOT do full git merge:
-   - Save `.working/.deliverables/` content from task branch to a temp directory (before branch switch)
+   - Save `<notebook>/.deliverables/` content from task branch to a temp directory (before branch switch)
    - Checkout main
-   - Copy temp content to `<project>/.deliverables/<notebook>/` on main
+   - Copy temp content to `<project>/.deliverables/` on main
    - Commit
    ```
-   Source: <project>/.worktrees/task-<notebook>/.working/.deliverables/*  (task branch)
-   Target: <project>/.deliverables/<notebook>/*  (main branch)
+   Source: <project>/<notebook>/.deliverables/*  (task branch)
+   Target: <project>/.deliverables/*  (main branch)
    ```
    Where `<task-branch>` is read from `.status.json` `branch` field (defaults to `task/<notebook>` if unset).
-   If the task branch has no `.working/.deliverables/` directory, the copy is silently skipped (no error).
+   If the task branch has no `<notebook>/.deliverables/` directory, the copy is silently skipped (no error).
 
-> **Why not full git merge?** Task branches contain system files (`.working/`, `.status.json`, `.plan.md`, etc.) that should NOT pollute the main branch. Only `.working/.deliverables/` content (actual code output) is copied to the project-level `.deliverables/` on main.
+> **Why not full git merge?** Task branches contain system files (`.working/`, `.status.json`, `.plan.md`, etc.) that should NOT pollute the main branch. Only `<notebook>/.deliverables/` content (actual code output) is copied to the project-level `.deliverables/` on main.
 
 > **Note**: Merge does NOT delete branches or worktrees. The user can clean them up manually or via a separate cleanup command when ready.
 
@@ -65,10 +65,10 @@ Copy a completed task's `.working/.deliverables/` to `<project>/.deliverables/<n
 2. **Validate dependencies**: read `depends_on` from `.status.json`, check each dependency module's `.status.json` status against its required level (simple string → `satisfied`, extended object → at-or-past `min_status`). If any dependency is not met, REJECT with error listing blocking dependencies
 3. **Verify** ACCEPT verdict: check latest `.analysis/` file for `post-exec-accept`
 4. **Read** `.summary.md` for task context (plan overview, completed steps, key decisions)
-5. **Copy deliverables**: Save `.working/.deliverables/` to temp → checkout main → copy to `<project>/.deliverables/<notebook>/` → commit on main
-6. **If no `.working/.deliverables/`**: skip copy silently (no error)
+5. **Copy deliverables**: Save `<notebook>/.deliverables/` to temp → checkout main → copy to `<project>/.deliverables/` → commit on main
+6. **If no `<notebook>/.deliverables/`**: skip copy silently (no error)
 7. **Checkout back** to task branch
-8. **Report** merge result: "Deliverables copied to `.deliverables/<notebook>/` on main."
+8. **Report** merge result: "Deliverables copied to `.deliverables/` on main."
 
 ## State Transitions
 

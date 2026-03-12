@@ -127,17 +127,6 @@ case "$CURRENT_STATUS_GUARD" in
         ;;
 esac
 
-# 0b. Guard: reject unconfirmed targets (SKILL.md step 1)
-TARGET_FILE="$TASKAI_WORK_DIR/.target.md"
-if [[ -f "$TARGET_FILE" ]] && grep -q '\[UNCONFIRMED\]' "$TARGET_FILE"; then
-    echo "[ERROR] Overall Objective is unconfirmed. Confirm the target before planning." >&2
-    exit 1
-fi
-
-# 0c. Read current stage for archive logic
-CURRENT_STAGE=$(python3 "$STATE_PY" get "$STATUS_JSON" stage.current 2>/dev/null) || CURRENT_STAGE="1"
-[[ -z "$CURRENT_STAGE" ]] && CURRENT_STAGE="1"
-
 # 1. Invoke Research for Type Discovery
 # D3: python3 calls with error handling
 TYPE=$(python3 "$STATE_PY" get "$STATUS_JSON" type 2>/dev/null) || TYPE=""
@@ -161,55 +150,33 @@ fi
 
 echo "Planning for task type: $TYPE"
 
-# 2. Archive existing plan (SKILL.md step 1 stage advance + step 15 replan)
-if [[ -f "$PLAN_FILE" ]]; then
-    # Extract stage marker from existing plan: <!-- stage: N -->
-    PLAN_STAGE=$(grep -oP '<!-- stage: \K[0-9]+' "$PLAN_FILE" 2>/dev/null || echo "")
-    [[ -z "$PLAN_STAGE" ]] && PLAN_STAGE="1"  # Default to stage 1 if no marker
-
-    if [[ "$PLAN_STAGE" != "$CURRENT_STAGE" ]]; then
-        # Stage advance: archive as .plan-stage-<N>.md
-        ARCHIVE_FILE="$TASKAI_WORK_DIR/.plan-stage-$PLAN_STAGE.md"
-        if ! mv "$PLAN_FILE" "$ARCHIVE_FILE"; then
-            echo "[ERROR] Failed to archive .plan.md as stage $PLAN_STAGE - aborting" >&2
-            exit 1
-        fi
-        echo "[INFO] Stage $PLAN_STAGE plan archived to $ARCHIVE_FILE"
-        git add "$ARCHIVE_FILE" 2>/dev/null || true
-
-        # Also archive superseded files if they exist
-        if [[ -f "$TASKAI_WORK_DIR/.plan-superseded.md" ]]; then
-            mv "$TASKAI_WORK_DIR/.plan-superseded.md" "$TASKAI_WORK_DIR/.plan-superseded-stage-$PLAN_STAGE.md" 2>/dev/null || true
-            git add "$TASKAI_WORK_DIR/.plan-superseded-stage-$PLAN_STAGE.md" 2>/dev/null || true
-        fi
-    elif [[ "$CURRENT_STATUS_GUARD" == "review" || "$CURRENT_STATUS_GUARD" == "executing" || "$CURRENT_STATUS_GUARD" == "re-planning" ]]; then
-        # Same stage replan: archive as .plan-superseded.md
-        SUPERSEDED="$TASKAI_WORK_DIR/.plan-superseded.md"
-        if [[ -f "$SUPERSEDED" ]]; then
-            # Append numeric suffix if superseded file exists
-            i=2
-            while [[ -f "$TASKAI_WORK_DIR/.plan-superseded-$i.md" ]]; do
-                ((i++))
-                # D3: Safety cap to prevent infinite loop on filesystem anomalies
-                if [[ $i -gt 100 ]]; then
-                    echo "[ERROR] Too many superseded plans (>100) — aborting" >&2
-                    exit 1
-                fi
-            done
-            SUPERSEDED="$TASKAI_WORK_DIR/.plan-superseded-$i.md"
-        fi
-        # D3: mv with error handling - abort if fails to prevent data loss
-        if ! mv "$PLAN_FILE" "$SUPERSEDED"; then
-            echo "[ERROR] Failed to archive .plan.md - aborting" >&2
-            exit 1
-        fi
-        echo "[INFO] Existing .plan.md archived to $SUPERSEDED"
-        # D6: Add superseded file to git so it's tracked
-        git add "$SUPERSEDED" 2>/dev/null || true
+# 2. Generate .plan.md (Scaffold)
+# Archive existing plan only when re-planning (SKILL.md step 14)
+if [[ -f "$PLAN_FILE" ]] && [[ "$CURRENT_STATUS_GUARD" == "review" || "$CURRENT_STATUS_GUARD" == "executing" || "$CURRENT_STATUS_GUARD" == "re-planning" ]]; then
+    SUPERSEDED="$TASKAI_WORK_DIR/.plan-superseded.md"
+    if [[ -f "$SUPERSEDED" ]]; then
+        # Append numeric suffix if superseded file exists
+        i=2
+        while [[ -f "$TASKAI_WORK_DIR/.plan-superseded-$i.md" ]]; do
+            ((i++))
+            # D3: Safety cap to prevent infinite loop on filesystem anomalies
+            if [[ $i -gt 100 ]]; then
+                echo "[ERROR] Too many superseded plans (>100) — aborting" >&2
+                exit 1
+            fi
+        done
+        SUPERSEDED="$TASKAI_WORK_DIR/.plan-superseded-$i.md"
     fi
+    # D3: mv with error handling - abort if fails to prevent data loss
+    if ! mv "$PLAN_FILE" "$SUPERSEDED"; then
+        echo "[ERROR] Failed to archive .plan.md - aborting" >&2
+        exit 1
+    fi
+    echo "[INFO] Existing .plan.md archived to $SUPERSEDED"
+    # D6: Add superseded file to git so it's tracked
+    git add "$SUPERSEDED" 2>/dev/null || true
 fi
 cat > "$PLAN_FILE" <<EOF
-<!-- stage: $CURRENT_STAGE -->
 # Implementation Plan: $NOTEBOOK
 
 ## Step 1: Initialize Project

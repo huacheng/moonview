@@ -54,14 +54,11 @@ The agent maintains phase awareness via `.status.json` (see Phase Awareness Prot
 
 ## Execution Steps
 
-1. Read `.target.md` for requirements.
-   - **Unconfirmed gate**: If `.target.md` contains `[UNCONFIRMED]` marker → REJECT with error "Overall Objective is unconfirmed. Confirm the target before planning." This prevents planning on objectives still under discussion.
-   - **Stage awareness**: read `.status.json` `stage` field (default `{ current: 1, history: [] }` if missing). If `stage.current > 1` (multi-stage mode):
-     - Only read the current `[ACTIVE]` stage's Objective/Requirements/Constraints from `.target.md` — plan scope is limited to the current stage
-     - Also read prior `[COMPLETE]` stages' `### Results` sections as context (already-implemented capabilities)
-     - Library context loading (steps 10-12) naturally includes prior-stage experience files distilled by highlight
-     - If `stage.current == 1`: read entire `.target.md` as before (backward compatible)
-   - **Stage advance archive**: If existing `.plan.md` has a stage marker (`<!-- stage: N -->`) different from current `stage.current`, archive it as `.plan-stage-<N>.md` (where N is the old stage number). This preserves prior stage plans for reference. If same stage → use `.plan-superseded.md` logic in step 15
+1. Read `.target.md` for requirements. **Stage awareness**: read `.status.json` `stage` field (default `{ current: 1, history: [] }` if missing). If `stage.current > 1` (multi-stage mode):
+   - Only read the current `[ACTIVE]` stage's Objective/Requirements/Constraints from `.target.md` — plan scope is limited to the current stage
+   - Also read prior `[COMPLETE]` stages' `### Results` sections as context (already-implemented capabilities)
+   - Library context loading (steps 10-12) naturally includes prior-stage experience files distilled by highlight
+   - If `stage.current == 1`: read entire `.target.md` as before (backward compatible)
 2. **Read `.convergence-baseline.md`** from `.working/` directory for requirement coverage mapping. This file contains numbered requirements (R1, R2, ...) extracted by `target` from the convergence baseline:
    - If `.convergence-baseline.md` exists → parse the R# requirement list for use in plan step annotation (step 16)
    - If `.convergence-baseline.md` does not exist → warn ("convergence baseline not found — skipping R# coverage mapping") and continue. This is backward compatible — older targets may not have generated it

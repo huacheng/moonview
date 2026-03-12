@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # /task-ai:merge implementation
-# Copy .working/.deliverables/ to main — does NOT do full git merge, delete branches or worktrees.
+# Copy <notebook>/.deliverables/ to main — does NOT do full git merge, delete branches or worktrees.
 # Usage: merge.sh <notebook>
 
 set -euo pipefail
@@ -125,8 +125,8 @@ echo "[GIT] Copying .deliverables/ from $TASK_BRANCH to $MAIN_BRANCH..."
 # Resolve paths before branch switch (paths vanish after checkout master)
 NB_DIR="$(dirname "$TASKAI_WORK_DIR")"
 PROJECT_DIR="$(dirname "$(dirname "$NB_DIR")")"
-SRC_DELIVERABLES="$TASKAI_WORK_DIR/.deliverables"
-DELIVERABLES_TARGET="$PROJECT_DIR/.deliverables/$NOTEBOOK"
+SRC_DELIVERABLES="$NB_DIR/.deliverables"
+DELIVERABLES_TARGET="$PROJECT_DIR/.deliverables"
 
 # D3: Save deliverables to temp dir before switching branches (cleaned up by cleanup_merge trap)
 MERGE_TMPDIR=$(mktemp -d)
@@ -148,7 +148,7 @@ if ! git checkout "$MAIN_BRANCH"; then
     exit 1
 fi
 
-# Phase 1b: Copy deliverables from temp to project-level .deliverables/<notebook>/
+# Phase 1b: Copy deliverables from temp to project-level .deliverables/
 MERGE_FAILED=0
 if [[ "$HAS_DELIVERABLES" -eq 1 ]]; then
     # D3: Explicit error handling for mkdir/cp on master branch
@@ -182,4 +182,4 @@ fi
 
 # v2: merge is pure file copy — no status changes
 # Status transitions (executing → evolving) are handled by auto after check post-exec ACCEPT
-echo "Deliverables copied to .deliverables/$NOTEBOOK/ on $MAIN_BRANCH."
+echo "Deliverables copied to .deliverables/ on $MAIN_BRANCH."
