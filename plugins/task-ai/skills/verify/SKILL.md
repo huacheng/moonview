@@ -68,10 +68,31 @@ When `--generate-skill-tests` is passed with `--target <path-to-SKILL.md>`, veri
 9. **Determine** verification strategy: use `.type-profile.md` "Verification Standards" first, supplement with per-type seed file `init/references/seed-types/<type>.md` (verify section), combine with `.references/` domain knowledge. If verification reveals that `.type-profile.md` standards are inadequate, update its "Verification Standards" section with findings. For hybrid types (`A|B`), read seed files and experience for all segments
    > **See `commands/references/test-strategy-by-type.md`** §VFP Applicability for per-type VH mode defaults and compliance thresholds.
 10. **Execute** verification procedures per checkpoint scope:
-    - **VFP delegation** (`full` or `step-N` checkpoint, `type` contains `software`): Follow `auto/references/plugin-delegation.md` to attempt matching the `tdd` capability slot. For `software` types, tdd delegation is **default-enabled** (not optional) at `full` and `step-N` checkpoints. If matched, invoke via Task subagent — delegate test generation/execution, merge results into standard verification output. No match or failure → continue standard verification flow
-    - `quick`: build, lint, type check — fast feedback loop
-    - `full`: all `.test/` criteria, acceptance tests from `.target.md`, regression tests
-    - `step-N`: only criteria associated with step N from `.test/` criteria file
+
+    **10a. Detect test command** (for `software` types):
+    | Project Marker | Test Command |
+    |----------------|--------------|
+    | `package.json` with `scripts.test` | `npm test` |
+    | `pyproject.toml` or `setup.py` | `pytest` or `python -m unittest` |
+    | `go.mod` | `go test ./...` |
+    | `Cargo.toml` | `cargo test` |
+    | `tests/*.test.sh` | `bash tests/*.test.sh` |
+    | Fallback | Read `.type-profile.md` "Verification Standards" |
+
+    **10b. Execute by checkpoint**:
+    - `quick`: build + lint + type check (fast feedback)
+      - Node.js: `npm run lint`, `npm run typecheck` (if available)
+      - Python: `ruff check .` or `flake8`
+      - Go: `go build ./...`, `go vet ./...`
+    - `full`: detected test command + acceptance tests from `.target.md`
+    - `step-N`: filter tests by naming convention (`step-N.test.*` or `test_step_N.*`)
+
+    **10c. VFP delegation** (`full` or `step-N` checkpoint, `type` contains `software`): Follow `auto/references/plugin-delegation.md` to attempt matching the `tdd` capability slot. If matched, invoke via Task subagent. No match or failure → continue standard flow
+
+    **10d. Non-software types**:
+    - `documentation`: link validation, spell check
+    - `infrastructure`: `terraform validate`, `ansible-playbook --syntax-check`, `kubectl --dry-run`
+    - Other: read `.type-profile.md` "Verification Standards"
 11. **Write** `.test/<YYYY-MM-DD>-<checkpoint>-results.md` with structured test outcomes (pass/fail per criterion, raw output, metrics). For `software` types, append a **VFP Metrics** section:
     ```markdown
     ## VFP Metrics

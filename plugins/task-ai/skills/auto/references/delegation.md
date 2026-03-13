@@ -2,6 +2,26 @@
 
 Referenced from `auto/SKILL.md` §Subagent Delegation.
 
+## Sub-command Classification
+
+Sub-commands are classified by execution mode and output verification requirements. This classification determines how auto invokes each command and whether output verification gates apply.
+
+| Category | Sub-commands | Execution Mode | Output Verification |
+|----------|-------------|----------------|---------------------|
+| **Independent** | `plan`, `verify`, `check`, `summarize` | Skill tool invocation (fresh context) | **Required** — must produce expected output files |
+| **Context-sensitive** | `exec`, `highlight`, `report` | Read SKILL.md + inline execute (shared context) | Not required — operates on conversation state |
+
+**Independent commands** produce durable file outputs that can be verified:
+- `plan` → `.plan.md`
+- `verify` → `.test/<date>-*-results.md`
+- `check` → `.analysis/<date>-*.md`
+- `summarize` → `.summary.md` (with Recovery Header)
+
+**Context-sensitive commands** need conversation history for semantic understanding:
+- `exec` — needs prior step results and decision context
+- `highlight` — needs raw thinking access for experience extraction
+- `report` — needs full execution context for comprehensive reporting
+
 ## Dynamic Judgment (Not Static)
 
 SKILL.md `auto_delegatable` and `model_tier` are **default hints**. Actual delegation decisions are made dynamically by the auto main session based on context.

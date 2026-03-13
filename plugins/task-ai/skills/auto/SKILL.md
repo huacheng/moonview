@@ -154,6 +154,37 @@ Behavior:
 
 > **See `references/refinement-buffer.md`** for the pending refinement buffer mechanism, two-level processing, and impact assessment.
 
+### Sub-command Classification
+
+Sub-commands are classified by execution mode and context requirements:
+
+| Category | Sub-commands | Execution Mode | Context Sharing |
+|----------|-------------|----------------|-----------------|
+| **Independent** | `plan`, `verify`, `check`, `summarize` | Skill tool invocation | Fresh context, receives .summary.md for recovery |
+| **Context-sensitive** | `exec`, `highlight`, `report` | Read SKILL.md + inline execute | Full shared context, no delegation |
+
+**Why classification matters**:
+- **Independent** commands produce durable file outputs (`.plan.md`, `results.md`, `.analysis/*.md`) — delegation safe, verifiable via output file check
+- **Context-sensitive** commands need conversation history for semantic understanding (exec needs prior step results, highlight needs raw thinking access) — must execute inline
+
+### Output Verification Gate
+
+After each **Independent** command completes (whether delegated or inline), auto verifies required output files exist:
+
+| Command | Required Output | Verification Rule |
+|---------|----------------|-------------------|
+| `plan` | `.plan.md` | File exists AND non-empty |
+| `verify` | `.test/<date>-*-results.md` | At least one results file created/updated |
+| `check` | `.analysis/<date>-*.md` | Evaluation file created |
+| `summarize` | `.summary.md` | File exists AND contains Recovery Header |
+
+**On verification failure**:
+1. Re-invoke command with explicit output instruction: "You MUST write {expected_file} before completing"
+2. Verify again
+3. If still fails → set status to `blocked`, stop loop with error: "Command {cmd} failed to produce required output after retry"
+
+> This gate prevents Phase 2/3 from proceeding without durable deliverables — solving the "stage-2 no .plan.md" problem.
+
 ## Architecture
 
 Auto mode runs as a **single long-lived Claude session**. The daemon monitors externally; it does NOT dispatch individual commands.
@@ -284,6 +315,12 @@ The auto skill runs this loop within a single Claude session:
 2. LOOP:
    2.1. Check for .auto-stop file → if exists, break loop
    2.2. Context check: if context window usage ≥ `compaction_threshold` (adaptive from `.type-profile.md`, fallback 82%) AND `compaction_count == 0`, construct and send **Structured Compaction Prompt** (see template below). Increment `compaction_count`. (Only the first compaction is active — see Compaction frequency limit)
+   2.2a. **Mandatory summarize checkpoints** — invoke `summarize` (with Recovery Header) when:
+      - **Phase change**: `.status.json` status changed since last iteration
+      - **Before Independent command**: about to invoke `plan`, `verify`, `check`, or `summarize` via Skill tool
+      - **Iteration interval**: `iteration_count % 3 == 0` (every 3 iterations)
+      - **Context threshold**: context usage ≥ 70% (earlier than compaction threshold)
+      This ensures `.summary.md` is always fresh for context recovery and Independent command delegation.
    2.3. Execute current step — read target SKILL.md metadata (`model_tier`, `auto_delegatable`):
       - Evaluate four delegation factors (phase, context dependency, complexity, execution history)
       - **If delegatable**: Invoke via Task subagent with `model = tier_to_model(model_tier)`. Subagent receives SKILL.md + `.summary.md` + `.status.json` + input files. On completion, read output files. On failure/timeout → fallback to inline

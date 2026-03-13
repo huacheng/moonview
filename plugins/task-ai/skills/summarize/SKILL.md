@@ -56,8 +56,14 @@ Regenerate `.summary.md` files for a task module. Used to recover lost context o
    - `.bugfix/.summary.md` — condensed summary of all issues and fixes
    - `.test/.summary.md` — condensed summary of all criteria and results
    - `.notes/.summary.md` — condensed summary of all research and decisions
-10. **Generate + write** task-level `.summary.md` (write to `.summary.md.tmp` then rename for crash safety) with condensed context:
-    - Status, phase, progress (`completed_steps` from `.status.json` / total steps from `.plan.md`)
+10. **Generate + write** task-level `.summary.md` (write to `.summary.md.tmp` then rename for crash safety). **MUST include Recovery Header at the top**:
+    ```markdown
+    <!-- TASK-AI RECOVERY CONTEXT — On context loss, read this file then execute recovery protocol -->
+    **Status**: {status from .status.json} | **Phase**: {derived phase} | **Progress**: {completed_steps}/{total_steps}
+    **Next Action**: {what to do next based on current state}
+    ---
+    ```
+    Followed by condensed context sections:
     - Plan overview (3-5 sentence summary)
     - Current state (what was last done, what's next)
     - Key decisions (architectural/design decisions)
