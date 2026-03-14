@@ -90,7 +90,14 @@ Requirement layer (strongest) → Planning → Evaluation → Methodology → In
     - Write back atomically (`.status.json.tmp` + rename)
     - **VERIFY**: After write, read `.status.json` again to confirm `status` field matches expected value. If unchanged when a change was expected, retry or abort
 13. **Write `.summary.md`** (atomic write via `.summary.md.tmp` + rename) with condensed context reflecting annotation changes
-14. **Execute highlight** protocol `scope=thinking-raw` — see `highlight/SKILL.md` §3.3. Optional (medium-value). Captures cross-impact assessment reasoning. Inline call failure should not block annotate's main flow — highlight is enhancement, not gating
+14. **Thinking capture** (medium-value, non-blocking — failure does not block annotate):
+    If cross-impact assessment involved non-trivial reasoning, write a CoT record:
+    1. Write `/tmp/thinking-annotate.md` with frontmatter (`source: highlight-annotate`, quality H/M/L) and content (Problem/Reasoning Chain/Conclusion)
+    2. Call `write_thinking_raw` helper (defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`):
+       ```bash
+       write_thinking_raw annotate /tmp/thinking-annotate.md <notebook>
+       ```
+    3. Skip silently on any error
 15. **Git commit** (skip if all annotations were unresolvable and no files changed): `task-ai(<notebook>):annotate annotations processed`
 16. **Generate execution report** (print to screen)
 17. **Release `.lock`**

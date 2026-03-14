@@ -135,7 +135,31 @@ For each implementation step:
     - **Update `.status.json`** — Use Edit tool to set `"updated"` timestamp
     - Write task-level `.summary.md` with condensed context: current progress, steps completed, key decisions, issues encountered, remaining work (integrate from directory summaries)
     - If all steps complete: execute highlight protocol scope=impl — see `highlight/SKILL.md` §3.1. Extract implementation experience from current execution context, write to library. Inline call failure should not block exec's main flow — highlight is an enhancement step, not a gating requirement
-    - If all steps complete: execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture implementation decisions and problem-solving reasoning. Inline call failure should not block exec's main flow (same fault isolation)
+    - If all steps complete — **thinking capture** (high-value, non-blocking):
+      Reflect on implementation decisions and problem-solving reasoning, then write a CoT record:
+      1. Write `/tmp/thinking-exec.md`:
+         ```markdown
+         ---
+         source: highlight-exec
+         notebook: <notebook-name>
+         created_at: <ISO-8601>
+         quality:
+           thinking: <H|M|L>
+           justification: "<1-sentence>"
+         ---
+         ## CoT Capture — exec phase (<date>)
+         ### Problem
+         <what implementation challenge was reasoned about>
+         ### Reasoning Chain
+         <key steps, workarounds discovered, deviations from plan>
+         ### Conclusion
+         <what was decided>
+         ```
+      2. Call `write_thinking_raw` helper (defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`):
+         ```bash
+         write_thinking_raw exec /tmp/thinking-exec.md <notebook>
+         ```
+      3. Skip silently on any error
 11. **Report** execution summary with per-step results. Then output next step prompt based on outcome:
     - All steps done → "Execution complete. Next: `/task-ai:check --checkpoint post-exec` to evaluate the result."
     - Significant issue mid-exec → "Issue encountered. Next: `/task-ai:check --checkpoint mid-exec` to evaluate and determine fix approach."

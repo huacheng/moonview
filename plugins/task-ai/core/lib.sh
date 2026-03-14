@@ -40,6 +40,32 @@ ensure_library() {
   fi
 }
 
+# --- Thinking Raw Helper ---
+
+# Writes a thinking-raw entry to .thinking/raw/ via write-thinking-raw.sh.
+# Uses TASK_AI_ROOT (already set by this file) to resolve the script path.
+# Non-blocking: failures are silently ignored (thinking capture is enhancement, not gating).
+#
+# Usage:
+#   write_thinking_raw <caller> <content-file> [notebook]
+#   - caller: plan, exec, check, verify, research, target, annotate
+#   - content-file: path to markdown file with frontmatter + CoT content
+#   - notebook: optional, defaults to $NB_NOTEBOOK
+write_thinking_raw() {
+  local caller="${1:-}"
+  local content_file="${2:-}"
+  local notebook="${3:-${NB_NOTEBOOK:-}}"
+
+  if [[ -z "$caller" || -z "$content_file" || -z "$notebook" ]]; then
+    return 0
+  fi
+
+  local script="$TASK_AI_ROOT/skills/highlight/scripts/write-thinking-raw.sh"
+  if [[ -f "$script" ]]; then
+    bash "$script" --notebook "$notebook" --caller "$caller" --content-file "$content_file" 2>/dev/null || true
+  fi
+}
+
 # --- Context Discovery ---
 
 # Resolves notebook context from CWD, git branch, or explicit name.

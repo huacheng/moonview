@@ -213,14 +213,14 @@ When the user expresses intent to modify the target during `planning` status, th
          - Write back with Edit tool
          - **VERIFY**: After write, read `.status.json` again to confirm `status` is `planning`. If unchanged, retry or abort
       5. Git commit: `task-ai(<notebook>):target stage <N+1> defined`
-      6. Execute highlight protocol scope=thinking-raw (optional, high-value)
+      6. **Thinking capture** (high-value, non-blocking): write `/tmp/thinking-target.md` with CoT (Problem/Reasoning Chain/Conclusion + frontmatter with `source: highlight-target`, quality H/M/L), then run `write_thinking_raw target /tmp/thinking-target.md <notebook>` (helper defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`). Skip on error
 
       **Atomicity**: status change (step 4) occurs AFTER archive/clear (steps 1-2). If steps 1-2 fail, status stays `evolving` — user can retry. If step 4 succeeds but step 5 fails, status is already `planning` — re-running target detects `planning` and routes to normal update path.
 
    3b. **ELIF `stage.current > 1`** → **Multi-stage Update Mode**:
       - Update current `[ACTIVE]` Stage's content in `.target.md`
       - Atomic write + Git commit: `task-ai(<notebook>):target update objective`
-      - Execute highlight protocol scope=thinking-raw (optional, high-value)
+      - **Thinking capture** (high-value, non-blocking): write `/tmp/thinking-target.md` with CoT (Problem/Reasoning Chain/Conclusion + frontmatter with `source: highlight-target`, quality H/M/L), then run `write_thinking_raw target /tmp/thinking-target.md <notebook>` (helper defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`). Skip on error
 
    3c. **ELIF status == `satisfied`** → **Re-enter Evolution**:
       - **MANDATORY STATUS UPDATE**:
@@ -251,7 +251,7 @@ When the user expresses intent to modify the target during `planning` status, th
       - **ELIF status == `planning`**: update existing `.target.md` content (no marker changes)
       - **ELSE** (status ∉ {`draft`, `planning`}): update current stage target content (no multi-stage analysis — plan is already based on current stage target)
       - Atomic write to `.target.md` + Git commit: `task-ai(<notebook>):target update objective`
-      - Execute highlight protocol scope=thinking-raw (optional, high-value). Inline call failure should not block target's main flow — highlight is enhancement, not gating.
+      - **Thinking capture** (high-value, non-blocking): write `/tmp/thinking-target.md` with CoT (Problem/Reasoning Chain/Conclusion + frontmatter with `source: highlight-target`, quality H/M/L), then run `write_thinking_raw target /tmp/thinking-target.md <notebook>` (helper defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`). Skip on error. Inline call failure should not block target's main flow — highlight is enhancement, not gating.
 
    3e. **Convergence Baseline Generation** (after `.target.md` write, before Git commit):
 
