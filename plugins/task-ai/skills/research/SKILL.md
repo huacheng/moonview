@@ -203,31 +203,7 @@ Callable independently for preparatory research before any phase, or to suppleme
     - Each file should be self-contained: what it is, key APIs/patterns, usage examples, gotchas, links to official docs
     - The `library write` command handles locking, changelog, index updates, and relations automatically
 16. **Flush** any pending plugin registry updates to `$NB_WORKSPACES_LIBRARY/.plugin-registry.md` (accumulated during step 14 doc-parse delegation — see `auto/references/plugin-delegation.md` Re-entrancy rule)
-17. **Thinking capture** (high-value, non-blocking — failure does not block research):
-    Reflect on technology selection and feasibility reasoning, then write a CoT record:
-    1. Write `/tmp/thinking-research.md`:
-       ```markdown
-       ---
-       source: highlight-research
-       notebook: <notebook-name>
-       created_at: <ISO-8601>
-       quality:
-         thinking: <H|M|L>
-         justification: "<1-sentence>"
-       ---
-       ## CoT Capture — research phase (<date>)
-       ### Problem
-       <what technology/domain question was being investigated>
-       ### Reasoning Chain
-       <sources consulted, options compared, feasibility assessed>
-       ### Conclusion
-       <technology selection and rationale>
-       ```
-    2. Call `write_thinking_raw` helper (defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`):
-       ```bash
-       write_thinking_raw research /tmp/thinking-research.md <notebook>
-       ```
-    3. Skip silently on any error
+17. Execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture technology selection and feasibility reasoning from research process. Inline call failure should not block research's main flow — highlight is enhancement, not gating
 18. **Git commit**: `task-ai(<notebook>):research collect references` (skip if no files written; include `.type-profile.md` and `$NB_WORKSPACES_LIBRARY/.memory/.type-profiles/` if updated)
 19. **Report** research summary. Then output next step prompt based on caller:
     - `--caller target` (objective) → "Target deepening complete (O1→O2→O3). Review the insights in `.target.md`. Next: `/task-ai:research --caller target --phase requirements` or `/task-ai:plan`."

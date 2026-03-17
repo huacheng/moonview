@@ -83,31 +83,7 @@ When `--generate-skill-tests` is passed with `--target <path-to-SKILL.md>`, veri
     - VFP compliance: (K / total_steps)% of steps followed VH→HS discipline
     ```
 12. If checkpoint != quick: execute highlight protocol scope=verify — see `highlight/SKILL.md` §3.2. Extract verification experience (type-adaptive, not limited to software) from current context, write to library. Inline call failure should not block verify's main flow — highlight is enhancement, not gating. Skip if `--checkpoint quick` (insufficient evidence for experience)
-    - Also **thinking capture** (high-value, non-blocking):
-      Reflect on verification strategy selection and result analysis, then write a CoT record:
-      1. Write `/tmp/thinking-verify.md`:
-         ```markdown
-         ---
-         source: highlight-verify
-         notebook: <notebook-name>
-         created_at: <ISO-8601>
-         quality:
-           thinking: <H|M|L>
-           justification: "<1-sentence>"
-         ---
-         ## CoT Capture — verify phase (<date>)
-         ### Problem
-         <what verification strategy was being chosen>
-         ### Reasoning Chain
-         <tools evaluated, thresholds determined, result interpretation>
-         ### Conclusion
-         <verification approach and result summary>
-         ```
-      2. Call `write_thinking_raw` helper (defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`):
-         ```bash
-         write_thinking_raw verify /tmp/thinking-verify.md <notebook>
-         ```
-      3. Skip silently on any error
+    - Also execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture verification strategy selection and result analysis reasoning. Inline call failure should not block verify's main flow (same fault isolation)
 13. **Update** `.test/.summary.md` — overwrite with condensed summary of ALL criteria & results files in `.test/`
 14. **Git commit**: `task-ai(<notebook>):verify <checkpoint> verification`
 15. **Report** results summary to user. Then output next step prompt: "Verification complete. Next: `/task-ai:check --checkpoint <checkpoint>` to evaluate the results and render a verdict." (substitute the actual checkpoint value)

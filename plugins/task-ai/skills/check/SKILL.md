@@ -384,31 +384,7 @@ Before step 1, determine scope from invocation:
     - Update `"updated"` timestamp to current ISO-8601
     - Write back with Edit tool
     - **VERIFY**: After write, read `.status.json` again to confirm `status` field changed as expected. If unchanged, the update FAILED — retry or abort
-16. **Thinking capture** (high-value, non-blocking — failure does not block check):
-    Reflect on the quality judgment and ACCEPT/REPLAN decision reasoning, then write a CoT record:
-    1. Write `/tmp/thinking-check.md`:
-       ```markdown
-       ---
-       source: highlight-check
-       notebook: <notebook-name>
-       created_at: <ISO-8601>
-       quality:
-         thinking: <H|M|L>
-         justification: "<1-sentence>"
-       ---
-       ## CoT Capture — check phase (<date>)
-       ### Problem
-       <what quality question was being evaluated>
-       ### Reasoning Chain
-       <D1-D6 dimension analysis, evidence weighed, threshold judgment>
-       ### Conclusion
-       <verdict rendered and rationale>
-       ```
-    2. Call `write_thinking_raw` helper (defined in `core/lib.sh`, path resolved via `$TASK_AI_ROOT`):
-       ```bash
-       write_thinking_raw check /tmp/thinking-check.md <notebook>
-       ```
-    3. Skip silently on any error
+16. Execute highlight protocol scope=thinking-raw — see `highlight/SKILL.md` §3.3. Optional, encouraged (high-value). Capture quality judgment and ACCEPT/REPLAN decision reasoning. Inline call failure should not block check's main flow (same fault isolation)
 17. **Git commit**: per outcome (see Git section below). All outcomes commit their output files and state updates, regardless of whether status changes
 18. **Report** evaluation result with detailed reasoning. Then output next step prompt based on verdict:
     - PASS (post-plan) → "Plan approved. Ready to execute — say 'auto' to start the automatic execution loop, or `/task-ai:exec` to execute manually step by step."

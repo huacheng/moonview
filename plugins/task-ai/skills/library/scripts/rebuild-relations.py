@@ -49,13 +49,46 @@ def rebuild_relations():
             if p.name.startswith('.'): continue
             try:
                 fm = parse_frontmatter(p.read_text(encoding='utf-8', errors='ignore'))
+                rel_path = str(p.relative_to(lib_path))
+
+                # 2a. Extract notebook from frontmatter (experience files)
+                # New format: sources: [{notebook: <name>, ...}, ...]
+                # Old format: notebook: <name> (top-level field)
+                nb_names_found = set()
+
+                # 2a-i. New format: sources[] list
+                sources = fm.get('sources', [])
+                if isinstance(sources, list):
+                    for src in sources:
+                        nb_name = None
+                        if isinstance(src, dict):
+                            nb_name = src.get('notebook')
+                        elif isinstance(src, str):
+                            # Handle simplified parser output: "notebook: xxx"
+                            nb_match = re.match(r'notebook:\s*(.+)', src)
+                            if nb_match:
+                                nb_name = nb_match.group(1).strip()
+                        if nb_name:
+                            nb_names_found.add(nb_name)
+
+                # 2a-ii. Old format: top-level notebook field (or source_notebook alias)
+                for nb_field in ('notebook', 'source_notebook'):
+                    top_level_nb = fm.get(nb_field)
+                    if top_level_nb and isinstance(top_level_nb, str):
+                        nb_names_found.add(top_level_nb)
+
+                # Add relations for all found notebooks (deduplicated)
+                for nb_name in nb_names_found:
+                    relations.append({"s": rel_path, "p": "used-by", "o": f"notebook:{nb_name}", "w": 5})
+
+                # 2b. Extract related_references (cross-reference links)
                 related = fm.get('related_references', [])
                 if isinstance(related, str):
                     related = [t.strip() for t in related.replace('[', '').replace(']', '').split(',')]
 
                 for t in related:
                     if t:
-                        relations.append({"s": str(p.relative_to(lib_path)), "p": "related-to", "o": t, "w": 1})
+                        relations.append({"s": rel_path, "p": "related-to", "o": t, "w": 1})
             except (OSError, UnicodeDecodeError, ValueError) as e:
                 print(f"[WARN] Skipping {p}: {e}", file=sys.stderr)
 
